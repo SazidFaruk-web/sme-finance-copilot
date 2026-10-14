@@ -280,7 +280,7 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         ("loan_readiness_score", ["readiness", "ready for a loan", "loan ready", "credit score", "score", "eligible",
                                   "eligibility", "joggo", "যোগ্য", "prostut", "প্রস্তুত"], lambda t, o, c: {}),
         ("calculate_loan", ["emi", "installment", "instalment", "kisti koto", "কিস্তি কত", "monthly payment"], emi),
-        ("match_financing", ["loan", "finance", "financing", "credit", "rin", "ঋণ", "লোন", "borrow", "funding",
+        ("match_financing", ["loan", "loans", "finance", "financing", "financing options", "lenders", "credit", "rin", "ঋণ", "লোন", "borrow", "funding",
                              "capital", "dhar", "ধার", "lender"], financing),
         ("forecast_cash_flow", ["forecast", "cash flow", "cashflow", "next 30", "next 60", "next 90", "runway",
                                 "run out", "kotodin", "কতদিন", "নগদ প্রবাহ", "agami", "আগামী", "shortfall",
@@ -663,7 +663,60 @@ def c_schedule(r, f: Fmt) -> str:
                   f"{r['due_date']} er jonno reminder set hoyeche: \"{r['title']}\".")
 
 
+def c_match(r, f: Fmt) -> str:
+    recs = r.get("recommendations") or []
+    rej = r.get("rejected") or []
+    head = f.pick(
+        f"For {f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}): {len(recs)} option(s) fit, "
+        f"{len(rej)} don't.",
+        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) এর জন্য: {f.n(len(recs))}টি বিকল্প মানানসই, "
+        f"{f.n(len(rej))}টি নয়।",
+        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) er jonno: {len(recs)} ta option mile, "
+        f"{len(rej)} ta mile na.")
+    lines = []
+    for i, m in enumerate(recs[:3], 1):
+        cm = m.get("cost_mid") or {}
+        lines.append(f.pick(
+            f"{i}. {m['name']}: up to {f.m(m['offered_amount'])}, EMI ~{f.m(cm.get('emi'))} for {m['tenure_months']} "
+            f"months (APR ~{f.n(cm.get('effective_apr_pct'))}%), total cost of credit ~"
+            f"{f.m(cm.get('total_cost_of_credit'))}. Why: {'; '.join(m['reasons'][:2])}.",
+            f"{f.n(i)}. {m['name']}: সর্বোচ্চ {f.m(m['offered_amount'])}, মাসিক কিস্তি ~{f.m(cm.get('emi'))} "
+            f"({f.n(m['tenure_months'])} মাস), ঋণের মোট খরচ ~{f.m(cm.get('total_cost_of_credit'))}।",
+            f"{i}. {m['name']}: shorbochho {f.m(m['offered_amount'])}, kisti ~{f.m(cm.get('emi'))} "
+            f"({m['tenure_months']} mash), loan er mot khoroch ~{f.m(cm.get('total_cost_of_credit'))}."))
+    if rej:
+        r0 = rej[0]
+        lines.append(f.pick(f"Not a fit, e.g. {r0['name']}: {r0['reasons'][0]}.",
+                            f"মানানসই নয়, যেমন {r0['name']}: {r0['reasons'][0]}।",
+                            f"Mile na, jemon {r0['name']}: {r0['reasons'][0]}."))
+    lines.append(f.pick("All terms are illustrative - verify with the lender.",
+                        "সব শর্ত উদাহরণমাত্র - ঋণদাতার কাছে যাচাই করুন।",
+                        "Shob shorto udahoron matro - lender er kache jachai korun."))
+    return head + "\n" + "\n".join(lines)
+
+
+def c_readiness(r, f: Fmt) -> str:
+    band = {"strong": ("strong", "শক্তিশালী", "strong"), "good": ("good", "ভালো", "bhalo"),
+            "fair": ("fair", "মোটামুটি", "motamuti"), "needs_work": ("needs work", "উন্নতি দরকার", "unnoti dorkar")}
+    b = band.get(r["band"], (r["band"],) * 3)
+    weak = sorted(r.get("components") or [], key=lambda c: c["points"] - c["max_points"])[:2]
+    weak_txt = ", ".join(f"{c['name']} {f.n(c['points'])}/{f.n(c['max_points'])}" for c in weak)
+    tips = "\n".join(f"- {t}" for t in (r.get("top_tips") or [])[:3])
+    return f.pick(f"Loan-readiness score: {r['score']:g}/100 ({b[0]}). Weakest areas: {weak_txt}.\nTop tips:\n{tips}",
+                  f"ঋণ-প্রস্তুতি স্কোর: {f.n(r['score'])}/১০০ ({b[1]})। দুর্বল দিক: {weak_txt}।\n{tips}",
+                  f"Loan-readiness score: {r['score']:g}/100 ({b[2]}). Durbol dik: {weak_txt}.\n{tips}")
+
+
+def c_catalog(r, f: Fmt) -> str:
+    lines = [f"- {p['name']} ({p['lender_type']}): {f.m(p['amount_range'][0])}-{f.m(p['amount_range'][1])}, "
+             f"{f.n(p['rate_range_pct'][0])}-{f.n(p['rate_range_pct'][1])}% [{p['verify_label']}]"
+             for p in (r.get("products") or [])[:8]]
+    return f.pick(f"{r['count']} financing types in the catalog:", f"{f.n(r['count'])} ধরনের অর্থায়ন:",
+                  f"{r['count']} dhoroner financing:") + "\n" + "\n".join(lines)
+
+
 COMPOSERS: dict[str, Callable[[dict[str, Any], Fmt], str]] = {
+    "match_financing": c_match, "loan_readiness_score": c_readiness, "get_financing_catalog": c_catalog,
     "forecast_cash_flow": c_forecast, "run_what_if": c_whatif, "list_alerts": c_alerts, "get_digest": c_digest,
     "acknowledge_alert": c_ack, "schedule_alert": c_schedule,
     "get_financial_summary": c_summary, "get_profitability": c_profit, "get_break_even": c_break_even,

@@ -1,0 +1,425 @@
+# Financing options catalog for Bangladesh SMEs.
+#
+# !!! ALL FIGURES BELOW ARE ILLUSTRATIVE PLACEHOLDERS !!!
+# They describe typical *product types* available to Bangladesh SMEs, not any specific lender's
+# offer. Amounts, rates, tenures, fees and eligibility rules MUST be replaced with verified data
+# from the lender's official product page or the relevant Bangladesh Bank circular before real
+# use. The UI shows "Illustrative - verify with lender" on every item where verified: false.
+#
+# source_url: placeholder pointing to the regulator / industry homepage where the real terms
+#             should be looked up; replace with the exact product page or circular.
+# Eligibility rules are evaluated against the user's analysed numbers by financing_catalog/matcher.py.
+
+products:
+  - id: bank_sme_term_loan
+    name: "Bank SME term loan"
+    lender_type: commercial_bank
+    product_type: term_loan
+    purposes: [equipment, expansion, working_capital]
+    min_amount: 300000
+    max_amount: 5000000
+    interest_rate_min_pct: 11.0
+    interest_rate_max_pct: 14.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 12
+    tenure_months_max: 60
+    collateral: "Usually property, FDR or other security above a threshold, plus personal guarantee"
+    collateral_required: true
+    collateral_coverage_min: 0.5
+    speed_days: 30
+    documents_required: [trade_license, etin, nid, bank_statement_12m, financial_statements, photos, guarantor_nid, collateral_papers]
+    eligibility:
+      min_business_age_months: 24
+      min_avg_monthly_revenue: 200000
+      max_revenue_cv: 0.6
+      min_dscr: 1.25
+      min_months_of_records: 12
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: bank_working_capital_line
+    name: "Bank working-capital / overdraft line"
+    lender_type: commercial_bank
+    product_type: revolving_credit
+    purposes: [working_capital, inventory, seasonal]
+    min_amount: 200000
+    max_amount: 3000000
+    interest_rate_min_pct: 11.5
+    interest_rate_max_pct: 14.5
+    rate_method: reducing
+    fees_pct: 0.75
+    tenure_months_min: 12
+    tenure_months_max: 12
+    collateral: "Stock hypothecation and/or other security; renewed yearly"
+    collateral_required: true
+    collateral_coverage_min: 0.3
+    speed_days: 21
+    documents_required: [trade_license, etin, nid, bank_statement_12m, stock_report, photos]
+    eligibility:
+      min_business_age_months: 24
+      min_avg_monthly_revenue: 300000
+      max_revenue_cv: 0.7
+      min_dscr: 1.2
+      min_months_of_records: 12
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: cmsme_refinance_scheme_loan
+    name: "CMSME refinance-scheme loan via participating bank/NBFI"
+    lender_type: refinance_scheme
+    product_type: term_loan
+    purposes: [working_capital, equipment, expansion]
+    min_amount: 100000
+    max_amount: 2500000
+    interest_rate_min_pct: 7.0
+    interest_rate_max_pct: 9.0
+    rate_method: reducing
+    fees_pct: 0.5
+    tenure_months_min: 12
+    tenure_months_max: 36
+    collateral: "Often reduced or collateral-free below a limit under scheme rules; personal guarantee"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 45
+    documents_required: [trade_license, etin, nid, bank_statement_6m, business_plan, photos, guarantor_nid]
+    eligibility:
+      min_business_age_months: 12
+      min_avg_monthly_revenue: 100000
+      max_revenue_cv: 0.7
+      min_dscr: 1.25
+      min_months_of_records: 6
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    notes: "Scheme-based: fund availability, sector priorities and rates change by circular."
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: women_entrepreneur_sme_loan
+    name: "Women entrepreneur SME loan (scheme-type)"
+    lender_type: refinance_scheme
+    product_type: term_loan
+    purposes: [working_capital, equipment, expansion, inventory]
+    min_amount: 50000
+    max_amount: 2500000
+    interest_rate_min_pct: 5.0
+    interest_rate_max_pct: 8.0
+    rate_method: reducing
+    fees_pct: 0.25
+    tenure_months_min: 12
+    tenure_months_max: 36
+    collateral: "Often collateral-free below a limit with personal guarantee (scheme rules)"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 30
+    documents_required: [trade_license, etin, nid, bank_statement_6m, photos, guarantor_nid]
+    eligibility:
+      min_business_age_months: 12
+      min_avg_monthly_revenue: 50000
+      max_revenue_cv: 0.8
+      min_dscr: 1.2
+      min_months_of_records: 6
+      requires_trade_license: true
+      requires_tin: false
+      requires_bank_account: true
+      women_led_only: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: credit_guarantee_collateral_free
+    name: "Credit-guarantee backed collateral-free SME loan"
+    lender_type: commercial_bank
+    product_type: term_loan
+    purposes: [working_capital, equipment, inventory]
+    min_amount: 100000
+    max_amount: 1500000
+    interest_rate_min_pct: 10.0
+    interest_rate_max_pct: 13.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 12
+    tenure_months_max: 36
+    collateral: "No hard collateral; a guarantee scheme covers part of the lender's risk"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 30
+    documents_required: [trade_license, etin, nid, bank_statement_12m, photos, guarantor_nid]
+    eligibility:
+      min_business_age_months: 18
+      min_avg_monthly_revenue: 150000
+      max_revenue_cv: 0.6
+      min_dscr: 1.3
+      min_months_of_records: 12
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: nbfi_lease_finance
+    name: "NBFI lease financing (machinery / vehicles)"
+    lender_type: nbfi
+    product_type: lease
+    purposes: [equipment]
+    min_amount: 300000
+    max_amount: 10000000
+    interest_rate_min_pct: 12.0
+    interest_rate_max_pct: 16.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 24
+    tenure_months_max: 60
+    collateral: "The leased asset itself is the main security; down payment often required"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 21
+    documents_required: [trade_license, etin, nid, bank_statement_12m, quotation, photos]
+    eligibility:
+      min_business_age_months: 24
+      min_avg_monthly_revenue: 300000
+      max_revenue_cv: 0.6
+      min_dscr: 1.3
+      min_months_of_records: 12
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: mfi_microenterprise_loan
+    name: "MFI microenterprise loan"
+    lender_type: mfi
+    product_type: term_loan
+    purposes: [working_capital, inventory, equipment, seasonal]
+    min_amount: 30000
+    max_amount: 1000000
+    interest_rate_min_pct: 20.0
+    interest_rate_max_pct: 24.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 6
+    tenure_months_max: 24
+    collateral: "No collateral; group or personal guarantee; frequent (weekly/monthly) instalments"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 7
+    documents_required: [nid, trade_license_or_union_certificate, photos, guarantor_nid]
+    eligibility:
+      min_business_age_months: 6
+      min_avg_monthly_revenue: 30000
+      max_revenue_cv: 1.0
+      min_dscr: 1.1
+      min_months_of_records: 3
+      requires_trade_license: false
+      requires_tin: false
+      requires_bank_account: false
+    notes: "MFI rates are capped by the Microcredit Regulatory Authority (MRA); verify the current cap."
+    source_url: "https://www.mra.gov.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: mfi_seasonal_loan
+    name: "MFI seasonal / festival stock loan"
+    lender_type: mfi
+    product_type: term_loan
+    purposes: [seasonal, inventory, working_capital]
+    min_amount: 20000
+    max_amount: 500000
+    interest_rate_min_pct: 20.0
+    interest_rate_max_pct: 24.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 3
+    tenure_months_max: 9
+    collateral: "No collateral; repay after the season"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 7
+    documents_required: [nid, trade_license_or_union_certificate, photos]
+    eligibility:
+      min_business_age_months: 6
+      min_avg_monthly_revenue: 20000
+      max_revenue_cv: 1.2
+      min_dscr: 1.1
+      min_months_of_records: 3
+      requires_trade_license: false
+      requires_tin: false
+      requires_bank_account: false
+    source_url: "https://www.mra.gov.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: mfs_digital_nano_loan
+    name: "Mobile-wallet (MFS) digital nano loan"
+    lender_type: mfs_partner
+    product_type: nano_loan
+    purposes: [working_capital, inventory]
+    min_amount: 500
+    max_amount: 50000
+    interest_rate_min_pct: 9.0
+    interest_rate_max_pct: 12.0
+    rate_method: flat
+    fees_pct: 0.0
+    tenure_months_min: 1
+    tenure_months_max: 3
+    collateral: "None; limit based on wallet transaction history (bank partner + MFS)"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 1
+    documents_required: [nid, active_wallet_history]
+    eligibility:
+      min_business_age_months: 3
+      min_avg_monthly_revenue: 10000
+      max_revenue_cv: 1.5
+      min_dscr: 1.0
+      min_months_of_records: 3
+      requires_trade_license: false
+      requires_tin: false
+      requires_bank_account: false
+    notes: "Very small, very short loans; check the effective cost of fees for short tenures."
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: supplier_trade_credit
+    name: "Supplier / wholesaler trade credit"
+    lender_type: supplier
+    product_type: trade_credit
+    purposes: [inventory, working_capital, seasonal]
+    min_amount: 10000
+    max_amount: 1500000
+    interest_rate_min_pct: 0.0
+    interest_rate_max_pct: 18.0
+    rate_method: reducing
+    fees_pct: 0.0
+    tenure_months_min: 1
+    tenure_months_max: 3
+    collateral: "None; based on relationship and purchase history. Implicit cost = cash discount you give up"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 1
+    documents_required: [purchase_history]
+    eligibility:
+      min_business_age_months: 6
+      min_avg_monthly_revenue: 20000
+      max_revenue_cv: 1.5
+      min_dscr: 1.0
+      min_months_of_records: 3
+      requires_trade_license: false
+      requires_tin: false
+      requires_bank_account: false
+      max_amount_vs_monthly_purchases: 1.0
+    notes: "Ask your main wholesaler for 30-60 day terms; compare with any cash discount."
+    source_url: null
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: invoice_financing
+    name: "Invoice / receivable financing (bill discounting)"
+    lender_type: bank_or_fintech
+    product_type: invoice_finance
+    purposes: [working_capital, receivables_gap]
+    min_amount: 50000
+    max_amount: 5000000
+    interest_rate_min_pct: 12.0
+    interest_rate_max_pct: 18.0
+    rate_method: reducing
+    fees_pct: 1.0
+    tenure_months_min: 1
+    tenure_months_max: 4
+    collateral: "The invoice itself (buyer's obligation); advance usually a share of invoice value"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 7
+    documents_required: [trade_license, etin, nid, invoices, buyer_purchase_orders, bank_statement_6m]
+    eligibility:
+      min_business_age_months: 12
+      min_avg_monthly_revenue: 100000
+      max_revenue_cv: 1.0
+      min_dscr: 1.0
+      min_months_of_records: 6
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+      requires_open_receivables: true
+      advance_rate: 0.8
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+  - id: startup_new_entrepreneur_fund
+    name: "New-entrepreneur / start-up fund loan (scheme-type)"
+    lender_type: refinance_scheme
+    product_type: term_loan
+    purposes: [expansion, equipment, working_capital]
+    min_amount: 100000
+    max_amount: 1000000
+    interest_rate_min_pct: 4.0
+    interest_rate_max_pct: 6.0
+    rate_method: reducing
+    fees_pct: 0.0
+    tenure_months_min: 12
+    tenure_months_max: 60
+    collateral: "Often collateral-free with guarantee; training certificate may be required"
+    collateral_required: false
+    collateral_coverage_min: 0
+    speed_days: 60
+    documents_required: [trade_license, etin, nid, business_plan, training_certificate, photos]
+    eligibility:
+      min_business_age_months: 0
+      max_business_age_months: 60
+      min_avg_monthly_revenue: 0
+      max_revenue_cv: 2.0
+      min_dscr: 1.2
+      min_months_of_records: 0
+      requires_trade_license: true
+      requires_tin: true
+      requires_bank_account: true
+    source_url: "https://www.bb.org.bd/"
+    last_verified_date: null
+    verified: false
+    illustrative: true
+
+documents:
+  trade_license: {label: "Trade licence (current)", business_flag: has_trade_license}
+  trade_license_or_union_certificate: {label: "Trade licence or Union Parishad certificate", business_flag: has_trade_license}
+  etin: {label: "e-TIN certificate", business_flag: has_tin}
+  nid: {label: "Owner's NID", business_flag: null}
+  photos: {label: "Passport-size photos", business_flag: null}
+  guarantor_nid: {label: "Guarantor's NID", business_flag: null}
+  bank_statement_6m: {label: "Bank statement (last 6 months)", business_flag: has_bank_account}
+  bank_statement_12m: {label: "Bank statement (last 12 months)", business_flag: has_bank_account}
+  financial_statements: {label: "Financial statements / income-expense summary", generated: true}
+  business_plan: {label: "Short business plan", generated: false}
+  stock_report: {label: "Stock (inventory) report", generated: false}
+  collateral_papers: {label: "Collateral documents (deed / FDR)", business_flag: null}
+  quotation: {label: "Supplier quotation for the equipment", generated: false}
+  invoices: {label: "Open invoices to buyers", generated: true}
+  buyer_purchase_orders: {label: "Buyer purchase orders / work orders", generated: false}
+  training_certificate: {label: "Entrepreneurship training certificate", generated: false}
+  active_wallet_history: {label: "Active mobile-wallet transaction history", generated: false}
+  purchase_history: {label: "Purchase history with the supplier", generated: true}
