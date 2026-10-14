@@ -29,7 +29,10 @@ _RULES: list[tuple[str, str]] = [
     ("exfiltration", r"\b(reveal|print|show|send|leak)\b.{0,30}\b(api key|password|secret|token|system prompt|all (customer|account) (data|numbers))\b"),
     ("markup", r"<\s*script|javascript:|data:text/html"),
     ("bn_override", r"(নির্দেশ|নির্দেশনা).{0,20}(উপেক্ষা|ভুলে যাও|বাদ দাও)"),
-    ("bn_transfer", r"(সব টাকা|টাকা).{0,20}(পাঠাও|ট্রান্সফার কর)"),
+    # Same scope as action_command: only sweeping transfers ("send ALL the money"). A plain "২০০০০ টাকা পাঠাও" is a
+    # normal request from the owner and must not block money tools any more than "send 20000" does in English.
+    ("bn_transfer", r"(সব|সমস্ত|পুরো|সম্পূর্ণ)\s*(টাকা|ব্যালেন্স|ব্যালান্স|ফান্ড).{0,20}(পাঠাও|পাঠিয়ে দাও|ট্রান্সফার কর)"),
+    ("bl_transfer", r"\b(sob|shob|somosto|puro|pura)\s+(taka|balance|tk)\b.{0,20}\b(pathao|pathiye dao|transfer koro)\b"),
 ]
 _COMPILED = [(name, re.compile(rx, re.I | re.S)) for name, rx in _RULES]
 
