@@ -11,7 +11,12 @@
 #             verify against the vendor's current price page before quoting.
 # tools:      native | emulated  (emulated = strict-JSON tool calling for weak tool callers)
 
-default_profile: rules-offline
+# The model used when a request does not pick one. Change this one line to switch:
+#   claude-sonnet   cloud, best quality; the demo default (needs ANTHROPIC_API_KEY)
+#   local-llamacpp  private: nothing leaves this PC (start it with scripts\start_local_llm.bat)
+#   rules-offline   no model at all; deterministic, works anywhere
+# LLM_PROFILE in .env overrides this per machine. A local default never falls back to a cloud model.
+default_profile: claude-sonnet
 
 profiles:
   rules-offline:
@@ -109,10 +114,12 @@ profiles:
   local-llamacpp:
     adapter: openai_compatible
     model: local-gguf
-    base_url: http://localhost:8080/v1
+    base_url: http://127.0.0.1:8080/v1
     external: false
     tools: emulated
-    label: "llama.cpp server (OpenAI-compatible)"
+    timeout: 120
+    max_retries: 0
+    label: "Local Qwen3.5 9B (llama.cpp)"
 
   local-vllm:
     adapter: openai_compatible
@@ -132,4 +139,4 @@ routing:
     advisory: claude-sonnet
   # Tried in order when the chosen profile errors or times out. rules-offline never fails,
   # so the copilot always answers.
-  fallback_chain: [claude-sonnet, openai-mini, local-qwen7b, rules-offline]
+  fallback_chain: [claude-sonnet, claude-haiku, local-llamacpp, rules-offline]

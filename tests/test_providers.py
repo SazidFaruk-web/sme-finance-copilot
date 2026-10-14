@@ -245,6 +245,19 @@ def test_emulated_tool_calling_for_weak_models():
     assert r.tool_calls[0].name == "get_summary" and r.tool_calls[0].arguments == {"months": 3}
 
 
+def test_emulated_tools_send_a_single_leading_system_message():
+    # Qwen/Llama chat templates raise "System message must be at the beginning" on a second system message.
+    seen = []
+
+    def handler(req):
+        seen.append([m["role"] for m in json.loads(req.content)["messages"]])
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"action": "final", "content": "ok"}'}}]})
+
+    p = OpenAICompatibleProvider("tiny", transport=mock(handler), extra={"supports_tools": False})
+    emulated_tool_chat(p, [Message("system", "app rules"), Message("user", "hi")], [TOOL])
+    assert seen[0] == ["system", "user"]
+
+
 def test_inline_schema_resolves_refs():
     class A(BaseModel):
         v: int
@@ -281,11 +294,12 @@ def test_router_falls_back_and_records_attempts():
 
     reg = ProviderRegistry(CFG, Settings(), transport=mock(handler))
     router = ModelRouter(reg)
-    assert router.chain("categorization") == ["primary", "cloud", "rules-offline"]
+    assert router.chain("categorization") == ["primary", "rules-offline"]
     res = router.chat([Message("user", "hello")], task="categorization")
     assert res.profile == "rules-offline"
-    assert [a.ok for a in res.attempts] == [False, False, True]
-    assert "missing env var" in res.attempts[1].error
+    assert [a.ok for a in res.attempts] == [False, True] and "HTTP 500" in res.attempts[0].error
+    res = router.chat([Message("user", "hello")], override="cloud")
+    assert [a.ok for a in res.attempts] == [False, True] and "missing env var" in res.attempts[0].error
 
 
 def test_local_only_mode_blocks_external_profiles():
@@ -297,6 +311,12 @@ def test_local_only_mode_blocks_external_profiles():
     from sme_copilot.llm_providers.base import ProviderBlockedError
     with pytest.raises(ProviderBlockedError):
         reg.get("cloud")
+
+
+def test_local_primary_never_falls_back_to_external():
+    router = ModelRouter(ProviderRegistry(CFG, Settings(llm_profile="primary")))
+    assert router.chain("advisory") == ["primary", "rules-offline"]  # "cloud" skipped although in fallback_chain
+    assert router.chain("advisory", override="cloud") == ["cloud", "rules-offline"]
 
 
 def test_per_request_override_goes_first():

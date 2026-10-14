@@ -28,3 +28,6 @@ Thumbs.db
 
 # Local tooling
 .claude/
+
+# Raw llama-server logs from benchmark runs
+benchmarks/results/server_*.log

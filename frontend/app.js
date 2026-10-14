@@ -448,11 +448,15 @@ function toolChip(tc) {
 function renderBotMessage(bot, d, question) {
   S.conv = d.conversation_id;
   const meta = h("div", { class: "meta" }, d.tool_calls.map(toolChip),
-    h("span", { class: "chip", title: (d.attempts || []).map(a => `${a.profile}: ${a.ok ? "ok" : a.error}`).join("\n") },
-      `${d.profile || "–"} · ${d.language}${d.attempts && d.attempts.some(a => !a.ok) ? " · fallback" : ""}`),
+    h("span", { class: `chip${d.fallback ? " bad" : ""}`, title: (d.attempts || []).map(a => `${a.profile}: ${a.ok ? "ok" : a.error}`).join("\n") },
+      `${d.profile || "no model"} · ${d.language}`),
+    d.fallback ? h("span", { class: "chip bad" }, `fallback: ${d.profile || "none"}`) : null,
     d.latency_ms ? h("span", { class: "chip" }, `${Math.round(d.latency_ms)} ms`) : null,
     d.refused ? h("span", { class: "chip bad" }, "refused (policy)") : null);
-  const parts = [h("div", { class: "text" }, d.reply), meta];
+  const parts = [];
+  if (d.fallback) parts.push(h("div", { class: "notice warn small", style: "margin-bottom:6px" },
+    `⚠ ${d.requested_profile} did not answer${d.profile ? `; this reply is from ${d.profile}` : ""}. Reason: ${d.fallback_reason}`));
+  parts.push(h("div", { class: "text" }, d.reply), meta);
   if (d.ungrounded_numbers && d.ungrounded_numbers.length) parts.push(h("div", { class: "notice warn small", style: "margin-top:6px" },
     `⚠ Could not verify these numbers against your data: ${d.ungrounded_numbers.join(", ")}. Treat them with caution.`));
   for (const pa of d.pending_actions || []) parts.push(confirmCard(pa));

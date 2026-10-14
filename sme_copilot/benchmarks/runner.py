@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import shutil
 import statistics
 import tempfile
@@ -192,7 +193,9 @@ def run_scenario(env: Env, idx: int, sc: dict[str, Any], profile: str, judge: st
         row["numeric_expected"] = len(truth_vals)
         row["numeric_hits"] = sum(1 for v in truth_vals if number_in_reply(v, nums))
         row["numeric_accuracy"] = round(row["numeric_hits"] / len(truth_vals), 3) if truth_vals else None
-        row["financing_ok"] = int(top_name.lower() in reply.lower()) if top_name else None
+        # Catalog names carry qualifiers like "(scheme-type)" that a correct answer need not repeat verbatim.
+        core_name = re.sub(r"\s*\(.*?\)", "", top_name or "").strip().lower()
+        row["financing_ok"] = int(core_name in reply.lower()) if top_name else None
         row["ungrounded_numbers"] = len(res.ungrounded_numbers)
         row["hallucination"] = int(bool(res.ungrounded_numbers))
         if sc.get("expect_refusal"):

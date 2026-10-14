@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -32,6 +33,8 @@ from .language import detect_language
 from .prompts import build_system_prompt
 from .toolkit import REGISTRY, ToolContext, load_all_tools, specs_for
 
+log = logging.getLogger(__name__)
+
 MAX_STEPS = 6
 MAX_HISTORY_MESSAGES = 8
 
@@ -43,6 +46,9 @@ class AgentResult:
     language: str
     profile: str = ""
     model: str = ""
+    requested_profile: str = ""
+    fallback: bool = False  # True when a profile other than the requested one produced (part of) the answer
+    fallback_reason: str = ""
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     traces: list[dict[str, Any]] = field(default_factory=list)
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
@@ -127,6 +133,7 @@ class Agent:
         transform = _pii_transform(vault)
         outcomes: list[ToolOutcome] = []
         final = ""
+        result.requested_profile = self.router.chain("advisory", profile, fallback=False)[0]
 
         for step in range(MAX_STEPS):
             result.steps = step + 1
@@ -135,11 +142,20 @@ class Agent:
                                           transform=transform, max_tokens=1200, fallback=allow_fallback)
             except ProviderError as e:
                 result.error = str(e)[:300]
+                result.fallback, result.fallback_reason = True, result.error
+                log.error("request %s: no provider could answer: %s", rid, e)
                 final = _fallback_text(lang)
                 break
             resp = routed.response
             result.profile, result.model = routed.profile, resp.model
             result.attempts += [a.__dict__ for a in routed.attempts]
+            if routed.profile != result.requested_profile and not result.fallback:
+                failed = next((a for a in routed.attempts if a.profile == result.requested_profile and not a.ok),
+                              None)
+                result.fallback = True
+                result.fallback_reason = (failed.error if failed else "requested profile unavailable")[:300]
+                log.error("request %s: %s failed, answered by %s instead: %s", rid, result.requested_profile,
+                          routed.profile, result.fallback_reason)
             result.input_tokens += resp.usage.input_tokens
             result.output_tokens += resp.usage.output_tokens
             if result.ttft_ms is None and resp.ttft_ms is not None:
@@ -176,8 +192,10 @@ class Agent:
 
         audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,
                      event_type="agent_decision", action="answer",
-                     inputs={"text": user_text[:500], "language": lang, "profile": result.profile},
+                     inputs={"text": user_text[:500], "language": lang, "profile": result.profile,
+                             "requested_profile": result.requested_profile},
                      result={"tools": [f"{o.tool}:{o.status}" for o in outcomes], "reply": mask_text(result.reply[:400]),
+                             "fallback": result.fallback, "fallback_reason": result.fallback_reason,
                              "ungrounded_numbers": result.ungrounded_numbers[:10],
                              "pending_actions": [p["id"] for p in result.pending_actions]},
                      request_id=rid)

@@ -28,10 +28,9 @@ class MatchArgs(BaseModel):
     tenure_months: int | None = Field(None, ge=1, le=120)
 
 
-@tool("match_financing", "Match Bangladesh SME financing options (bank, refinance schemes, MFI, MFS nano loans, "
-      "supplier credit, invoice financing, leasing) to this business using its real numbers: eligibility, offer "
-      "amount, EMI, total cost of credit, and a plain-language reason for every recommendation and rejection. "
-      "Terms are illustrative until verified.", MatchArgs, 0, category="financing", result_model=MatchResult,
+@tool("match_financing", "Match loans and other financing (bank, refinance scheme, MFI, MFS nano loan, supplier "
+      "credit, invoice financing, leasing) to this business: eligibility, amount, EMI, total cost, reasons.",
+      MatchArgs, 0, category="financing", result_model=MatchResult,
       advisory=True)
 def match_financing(ctx: ToolContext, a: MatchArgs):
     m = metrics(ctx)
@@ -65,8 +64,7 @@ class NoArgs(BaseModel):
     pass
 
 
-@tool("loan_readiness_score", "Loan-readiness score 0-100 with component breakdown (age, records, stability, "
-      "profitability, DSCR, documents, receivables, collateral) and point-valued improvement tips.", NoArgs, 0,
+@tool("loan_readiness_score", "Loan-readiness score 0-100 with component breakdown and improvement tips.", NoArgs, 0,
       category="financing", result_model=ReadinessResult, advisory=True)
 def loan_readiness_score(ctx: ToolContext, a: NoArgs):
     return readiness(metrics(ctx), **readiness_inputs(ctx), style=ctx.style)

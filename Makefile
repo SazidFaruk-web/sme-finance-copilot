@@ -1,7 +1,10 @@
 # Convenience targets (Linux/macOS/WSL). On Windows without make, run the python commands directly.
 PY ?= python
 
-.PHONY: install test cov demo serve seed bench evidence verify finetune docker-up docker-local
+LLAMA_SERVER ?= llama-server
+LLM_MODEL ?= models/Qwen3.5-9B-Q5_K_M.gguf
+
+.PHONY: install test cov demo serve seed bench evidence verify finetune docker-up docker-local local-llm
 
 install:
 	$(PY) -m pip install -r requirements-dev.txt
@@ -35,6 +38,9 @@ finetune:
 
 docker-up:
 	docker compose up --build
+
+local-llm:       ## llama.cpp server for the local-llamacpp profile (Windows: scripts\start_local_llm.bat)
+	$(LLAMA_SERVER) -m $(LLM_MODEL) --host 127.0.0.1 --port 8080 -ngl 99 -c 16384 -fa off --reasoning off -cram 2048
 
 docker-local:    ## app + Ollama with a local 7B model; nothing leaves the machine
 	docker compose --profile local-llm up --build

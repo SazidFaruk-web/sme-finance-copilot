@@ -66,13 +66,21 @@ def extract_json(text: str) -> Any:
     raise ValueError("no JSON object found in model output")
 
 
+def _with_system(messages: list[Message], extra: str) -> list[Message]:
+    """Fold ``extra`` into one leading system message: many chat templates (Qwen, Llama) reject
+    a second system message or one that is not first."""
+    if messages and messages[0].role == "system":
+        return [Message("system", f"{messages[0].content}\n\n{extra}")] + list(messages[1:])
+    return [Message("system", extra)] + list(messages)
+
+
 def structured_chat(provider: LLMProvider, messages: list[Message], model: type[T], *,
                     retries: int = 2, max_tokens: int = 800) -> tuple[T, ChatResponse]:
     schema = strip_nullable(inline_schema(model.model_json_schema()))
     msgs = list(messages)
     if not provider.supports_json_mode:
-        msgs = msgs + [Message("system", "Respond ONLY with a JSON object matching this JSON schema, "
-                                         f"no prose:\n{json.dumps(schema, ensure_ascii=False)}")]
+        msgs = _with_system(msgs, "Respond ONLY with a JSON object matching this JSON schema, "
+                                  f"no prose:\n{json.dumps(schema, ensure_ascii=False)}")
     last_err = ""
     for _ in range(retries + 1):
         resp = provider.chat(msgs, json_schema=schema if provider.supports_json_mode else None,
@@ -98,11 +106,11 @@ class _Envelope(BaseModel):
 def tool_prompt(tools: list[ToolSpec]) -> str:
     lines = ["You can call tools. Reply with EXACTLY ONE JSON object and nothing else:",
              '  {"action": "call_tool", "tool": "<name>", "arguments": {...}}',
-             '  or {"action": "final", "content": "<answer for the user>"}',
-             "Available tools:"]
+             '  or {"action": "final", "content": "<answer, in the language and script the user wrote in>"}',
+             "Tools (name: description; arguments JSON schema):"]
     for t in tools:
         params = strip_nullable(inline_schema(t.parameters))
-        lines.append(f"- {t.name}: {t.description}\n  arguments schema: {json.dumps(params, ensure_ascii=False)}")
+        lines.append(f"- {t.name}: {t.description}\n  {json.dumps(params, ensure_ascii=False, separators=(',', ':'))}")
     return "\n".join(lines)
 
 
@@ -111,8 +119,9 @@ def emulated_tool_chat(provider: LLMProvider, messages: list[Message], tools: li
     """Tool calling via strict JSON for providers that lack native tools."""
     names = {t.name for t in tools}
     # Tool results are rendered as plain text, since the model has no native tool role.
-    msgs: list[Message] = [Message("system", tool_prompt(tools))]
-    for m in messages:
+    merged = _with_system(messages, tool_prompt(tools))
+    msgs: list[Message] = merged[:1]
+    for m in merged[1:]:
         if m.role == "tool":
             msgs.append(Message("user", f"[tool result: {m.name}]\n{m.content}"))
         elif m.role == "assistant" and m.tool_calls:

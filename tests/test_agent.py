@@ -108,6 +108,28 @@ def router_with(provider):
     return ModelRouter(reg)
 
 
+def test_failed_local_model_is_flagged_not_hidden(seeded, caplog):
+    import httpx
+
+    cfg = {"default_profile": "local", "routing": {"fallback_chain": ["rules-offline"]},
+           "profiles": {"local": {"adapter": "openai_compatible", "model": "m", "base_url": "http://local.test/v1",
+                                  "external": False, "max_retries": 0},
+                        "rules-offline": {"adapter": "rules", "model": "rules-v1", "external": False}}}
+    transport = httpx.MockTransport(lambda req: httpx.Response(400, text='{"error":"exceeds the available context size"}'))
+    router = ModelRouter(ProviderRegistry(cfg, Settings(llm_profile="local"), transport=transport))
+    with caplog.at_level("ERROR"):
+        r = Agent(router).run(make_ctx(seeded), "What was my profit margin in the last 3 months?")
+    assert r.fallback is True and r.requested_profile == "local" and r.profile == "rules-offline"
+    assert "HTTP 400" in r.fallback_reason and "context size" in r.fallback_reason
+    assert any("local failed, answered by rules-offline" in m for m in caplog.messages)
+
+
+def test_no_fallback_flag_when_requested_model_answers(seeded):
+    p = ScriptedProvider(["Hello."])
+    r = Agent(router_with(p)).run(make_ctx(seeded), "hi")
+    assert r.profile == r.requested_profile == "scripted" and r.fallback is False and r.fallback_reason == ""
+
+
 def test_llm_hallucinated_number_is_flagged(seeded):
     p = ScriptedProvider([[ToolCall("get_financial_summary", {"period": "last_3_months"})],
                           "Your income was ৳9,00,000 and profit was ৳4,44,444."])

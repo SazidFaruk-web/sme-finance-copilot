@@ -160,8 +160,8 @@ class ReportResult(BaseModel):
     pages_note: str
 
 
-@tool("generate_loan_report", "Generate a loan-readiness PDF report (KPIs, monthly table, profitability, 90-day "
-      "forecast chart, readiness score, illustrative financing options, data sources).", ReportArgs, 1,
+@tool("generate_loan_report", "Generate a loan-readiness PDF report for a bank (KPIs, forecast, readiness score, "
+      "financing options).", ReportArgs, 1,
       category="action", result_model=ReportResult, advisory=True)
 def generate_loan_report(ctx: ToolContext, a: ReportArgs):
     txns, inv = ctx.txns(), ctx.invoices()
@@ -338,8 +338,7 @@ def _transfer_summary(a: TransferArgs) -> str:
         (f" for: {a.purpose}" if a.purpose else "")
 
 
-@tool("sandbox_transfer", "Prepare a simulated money transfer from the sandbox account to a recipient. Creates a "
-      "pending request; nothing moves until the owner confirms the amount and recipient in the app.", TransferArgs, 2,
+@tool("sandbox_transfer", "Prepare a simulated money transfer from the sandbox account to a recipient.", TransferArgs, 2,
       category="money", result_model=TransferResult, amount_field="amount", recipient_field="recipient_name",
       summarize=_transfer_summary, mutates=True)
 def sandbox_transfer(ctx: ToolContext, a: TransferArgs):
@@ -360,8 +359,8 @@ def _prepare_payment(ctx: ToolContext, a: PayInvoiceArgs) -> PayInvoiceArgs:
     return a.model_copy(update={"invoice_id": inv.id, "amount": _outstanding(inv), "recipient_name": inv.counterparty})
 
 
-@tool("pay_supplier_invoice", "Prepare a simulated sandbox payment of a supplier (payable) invoice. Creates a pending "
-      "request the owner must confirm.", PayInvoiceArgs, 2, category="money", result_model=TransferResult,
+@tool("pay_supplier_invoice", "Prepare a simulated sandbox payment of a supplier (payable) invoice.", PayInvoiceArgs, 2,
+      category="money", result_model=TransferResult,
       amount_field="amount", recipient_field="recipient_name", mutates=True, prepare=_prepare_payment,
       summarize=lambda a: f"Pay {a.recipient_name} invoice #{a.invoice_id} ({format_bdt(a.amount)}) from the SANDBOX "
                           f"account")
@@ -387,8 +386,8 @@ class ComplianceResult(BaseModel):
     disclaimer: str
 
 
-@tool("compliance_info", "Bangladesh compliance awareness (VAT, e-TIN/income tax, trade licence, KYC/AML, central-"
-      "bank SME schemes) from a configurable rule file; every item is flagged for verification.", ComplianceArgs, 0,
+@tool("compliance_info", "Bangladesh compliance info and due dates: VAT, e-TIN/income tax, trade licence, KYC/AML, "
+      "central-bank SME schemes.", ComplianceArgs, 0,
       category="analysis", result_model=ComplianceResult, advisory=True)
 def compliance_info(ctx: ToolContext, a: ComplianceArgs):
     cfg = compliance_rules()

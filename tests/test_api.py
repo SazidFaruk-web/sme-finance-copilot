@@ -54,12 +54,22 @@ def test_chat_unknown_profile_rejected(client):
     assert r.status_code == 400
 
 
-def test_chat_profile_override_falls_back_when_key_missing(client):
+def test_chat_profile_override_falls_back_when_key_missing(client, monkeypatch):
+    from sme_copilot.llm_providers.registry import get_registry
+    monkeypatch.setitem(get_registry().routing, "fallback_chain", ["rules-offline"])  # no live local server
     h = login(client)
     r = client.post("/api/chat", json={"message": "summary last 3 months", "profile": "claude-sonnet"}, headers=h)
     d = r.json()
     assert d["profile"] == "rules-offline"
     assert d["attempts"][0]["profile"] == "claude-sonnet" and "missing env var" in d["attempts"][0]["error"]
+    assert d["fallback"] is True and d["requested_profile"] == "claude-sonnet"
+    assert "missing env var" in d["fallback_reason"]
+
+
+def test_chat_without_fallback_is_not_flagged(client):
+    h = login(client)
+    d = client.post("/api/chat", json={"message": "summary last 3 months"}, headers=h).json()
+    assert d["profile"] == d["requested_profile"] == "rules-offline" and d["fallback"] is False
 
 
 def test_chat_stream_sse(client):

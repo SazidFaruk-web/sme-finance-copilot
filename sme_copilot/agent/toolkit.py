@@ -11,11 +11,14 @@ from datetime import date
 from typing import Any, Callable
 
 import pandas as pd
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from sme_copilot.llm_providers.base import ToolSpec
-from sme_copilot.llm_providers.schema_utils import inline_schema, strip_nullable
+from sme_copilot.llm_providers.schema_utils import DROP_KEYS, inline_schema, strip_nullable
+
+CONSTRAINT_KEYS = {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength",
+                   "minItems", "maxItems", "pattern"}
 from sme_copilot.models import Business, User
 from sme_copilot.tools import repo
 
@@ -25,7 +28,7 @@ _PERIOD_RX = re.compile(r"^\d{4}-\d{2}$")
 
 
 class PeriodArgs(BaseModel):
-    period: str = "last_3_months"
+    period: str = Field("last_3_months", description=" | ".join(PERIODS) + " | YYYY-MM")
 
     @field_validator("period")
     @classmethod
@@ -86,7 +89,9 @@ class ToolDef:
     prepare: Callable[[ToolContext, Any], Any] | None = None  # fill derived args (e.g. amount) before authorization
 
     def spec(self) -> ToolSpec:
-        schema = strip_nullable(inline_schema(self.args_model.model_json_schema()))
+        # Range/length constraints are enforced by the executor's pydantic validation (invalid_args is fed
+        # back to the model), so they are left out of the schema the model sees to keep every prompt small.
+        schema = strip_nullable(inline_schema(self.args_model.model_json_schema(), drop=DROP_KEYS | CONSTRAINT_KEYS))
         schema.setdefault("type", "object")
         schema.setdefault("properties", {})
         desc = self.description

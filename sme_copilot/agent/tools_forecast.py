@@ -25,8 +25,8 @@ def _inputs(ctx: ToolContext, horizon: int):
                         ctx.as_of, horizon)
 
 
-@tool("forecast_cash_flow", "Forecast cash balance for the next 30/60/90 days: daily series with an 80% band, "
-      "lowest point, first date below zero or below the safety level, runway, scheduled collections and payments.",
+@tool("forecast_cash_flow", "Forecast cash balance for the next 30/60/90 days: lowest point, first date below "
+      "zero, runway, scheduled collections and payments.",
       ForecastArgs, 0, category="forecast", result_model=ForecastResult, advisory=True)
 def forecast_cash_flow(ctx: ToolContext, a: ForecastArgs):
     res = project(_inputs(ctx, a.horizon_days))
@@ -40,10 +40,8 @@ class WhatIfArgs(BaseModel):
     horizon_days: Literal[30, 60, 90] = 90
 
 
-@tool("run_what_if", "Simulate scenarios against the cash-flow forecast, e.g. a customer paying N days late "
-      "(kind=delay_receivable, customer='biggest'), taking a loan (kind=loan, amount, annual_rate_pct, months), "
-      "sales up/down (kind=revenue_change, pct), cost changes (kind=expense_change, category, pct or "
-      "monthly_amount), one-off payments (kind=one_off).", WhatIfArgs, 0, category="forecast",
+@tool("run_what_if", "What-if simulation on the cash-flow forecast: late customer payment, new loan, sales or "
+      "cost change, one-off payment. Field notes say which kind each field is for.", WhatIfArgs, 0, category="forecast",
       result_model=WhatIfResult, advisory=True)
 def run_what_if(ctx: ToolContext, a: WhatIfArgs):
     return simulate(_inputs(ctx, a.horizon_days), a.scenarios, style=ctx.style)

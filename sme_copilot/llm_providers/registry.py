@@ -139,6 +139,9 @@ class ModelRouter:
             return [primary]
         # Fallback is on for users: a failing provider must never leave them without an answer.
         names = [primary] + [n for n in (r.get("fallback_chain") or []) if n != primary]
+        if primary in self.registry.profiles and not self.registry.info(primary).external:
+            # A local model was chosen for privacy: never fall back to a provider that sends data off-machine.
+            names = [n for n in names if n in self.registry.profiles and not self.registry.info(n).external]
         if "rules-offline" in self.registry.profiles and "rules-offline" not in names:
             names.append("rules-offline")
         return names
