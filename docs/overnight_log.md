@@ -152,3 +152,18 @@ Ranked by accuracy first (numeric accuracy, hallucination rate, tool success), t
 - **Backup: Qwen3-14B** (next-best accuracy, best tool selection, different family; slower).
 - The fast-but-wrong models (gpt-oss, Granite) are not offered as a "fast" option: wrong figures are worse than
   slow figures in a finance app. If speed matters more than accuracy, Qwen3.5-9B is the honest fast choice.
+
+### 12. Phase 2 A/B on Gemma 4 12B (one change at a time vs native baseline)
+Baseline: p50 12.2 s, mean 15.4 s, tool 86%, args 91%, numeric 93%, fin 2/3, halluc 6%, BN/BL lang 95%.
+One scenario = ~2 points, so differences of 2-4 points are within noise.
+| experiment | p50 / mean | tool ok | args | numeric | fin | halluc | lang | verdict |
+|---|---|---|---|---|---|---|---|---|
+| `TOOL_RESULT_BUDGET_CHARS=5000` | **11.1 / 11.7 s** | 88% | 91% | 93% | 2/3 | 6% | 95% | keep (mean -24%, no loss) |
+| `PROMPT_VARIANT=finance` | 12.8 / 16.0 s | **93%** | 95% | 93% | 2/3 | 10% | **100%** | keep (fixed 4 tool misses, broke 1) |
+| emulated + grammar-constrained JSON | 13.4 / 16.3 s | 88% | 93% | **96%** | 3/3 | 10% | 100% | grammar makes Gemma's emulated mode work |
+| MTP `--spec-draft-n-max 5` | gen 11 tok/s (vs 38) | | | | | | | reject, keep default 3 |
+- The extra "hallucinations" in the finance and constrained runs are forecast answers where the model summed
+  the daily series itself (e.g. "Total Expected Inflow ৳13,04,953.64"); the 5k budget drops that series from
+  the model's view. Combined runs (finance + 5k, native and constrained) queued.
+- Sampling: the emulated path already uses temperature 0 and the native path 0.2; no top-p/top-k sweep was run
+  (greedy-ish decoding leaves little to tune). Speculative decoding: MTP n=3 kept (n=5 is much slower).

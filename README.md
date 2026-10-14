@@ -44,9 +44,11 @@ shown on the login page.
 | `rafiq` | accountant | `accountant-demo-2026` | analysis, data entry, drafts, reminders, reports (Tier 0-1) |
 | `mitu` | viewer | `viewer-demo-2026` | read-only analysis (Tier 0) |
 
-The default model profile is `rules-offline`, a deterministic engine that implements the same provider
-interface as the real LLMs. The whole product, including tool calling and every security control, runs
-without network or GPU. Switch to a real model at any time (see below).
+The default model is cloud Claude (`default_profile` in `config/providers.yaml`; set `ANTHROPIC_API_KEY`).
+Without a key, the offline `rules-offline` engine answers instead: a deterministic engine that implements the
+same provider interface, so the whole product (tool calling and every security control) runs without network
+or GPU. Each such reply is labelled as a fallback in the UI. For a private model on your own GPU, see
+[Local model](#local-model-private-on-your-gpu).
 
 ### Docker (one command)
 
@@ -81,7 +83,9 @@ Secrets come **only** from the environment (`.env` is git-ignored). See [.env.ex
 |---|---|---|
 | `APP_ENV` | `dev` | `dev` / `demo` (shows demo logins) / `production` (requires encryption key, hides API docs) |
 | `FIELD_ENCRYPTION_KEY` | auto dev key | Fernet key for encrypting account numbers, phones, TIN and trade licence at rest |
-| `LLM_PROFILE` | `rules-offline` | Default model profile from `config/providers.yaml` |
+| `LLM_PROFILE` | – | Overrides `default_profile` in `config/providers.yaml` on this machine |
+| `TOOL_RESULT_BUDGET_CHARS` | 5000 | Max size of one tool result as the model sees it (the UI keeps the full data) |
+| `PROMPT_VARIANT` | `finance` | `finance` adds a Bangladesh money glossary, a tool map and a Banglish example; `base` leaves it out |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | – | Enable the matching cloud profiles |
 | `OLLAMA_BASE_URL` | – | Override the Ollama URL (set automatically in docker-compose) |
 | `MASK_PII` | `true` | Mask phones, accounts, NID, TIN, emails and cards before any **external** model call |
@@ -115,6 +119,38 @@ weak native tool use. `routing.enabled: true` sends classification, extraction a
 local model and advisory answers to a stronger one. A failing provider falls back down `fallback_chain`, ending
 in `rules-offline`, and the UI shows which model actually answered. Run `python -m sme_copilot.cli models` to see
 which profiles are usable.
+
+If the chosen model fails (server down, timeout, bad response), the reply carries `fallback: true`,
+`requested_profile` and `fallback_reason` in the API, and the UI shows a red warning naming the model that
+actually answered and why. A local model only ever falls back to other local profiles, never to a cloud API.
+
+## Local model (private, on your GPU)
+
+Measured on an AMD RX 9060 XT 16 GB + Ryzen 7 3700X + 16 GB RAM (Windows, llama.cpp Vulkan build). Full numbers:
+[benchmarks/results/local_models.md](benchmarks/results/local_models.md), method and decisions:
+[docs/overnight_log.md](docs/overnight_log.md).
+
+| | Gemma 4 12B Q4_K_M + MTP (default) | Qwen3-14B Q4_K_M (backup) |
+|---|---|---|
+| profile | `local-llamacpp` (native tools) | `local-qwen14b` (emulated tools) |
+| VRAM | ~8 GB | ~13 GB |
+| generation speed | ~38 tok/s | ~20 tok/s |
+| median answer time (golden set) | ~11 s | ~18 s |
+| numeric accuracy / hallucinated numbers | 93% / 6% | 86% / 8% |
+| Bangla + Banglish language match | 95-100% | 86% |
+
+Before this tuning, the local Qwen3.8 27B ran at ~9 tok/s, spilled out of VRAM, and took ~2 minutes per answer.
+
+1. Get [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (Windows Vulkan build) and the models:
+   [gemma-4-12b-it-Q4_K_M.gguf](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF) +
+   [mtp-gemma-4-12B-it-Q8_0.gguf](https://huggingface.co/ggml-org/gemma-4-12B-it-GGUF) (draft head), and optionally
+   [Qwen3-14B-Q4_K_M.gguf](https://huggingface.co/Qwen/Qwen3-14B-GGUF).
+2. Start the server: `scripts\start_local_llm.bat` (Gemma) or `scripts\start_local_llm.bat qwen14b`. Set
+   `LLAMA_DIR` / `MODELS_DIR` if they are not in `D:\llama-vulkan`. On Linux/macOS: `make local-llm`.
+3. Pick the profile in the **Model** menu, or set `LLM_PROFILE=local-llamacpp` (and `LOCAL_ONLY_MODE=true`) in `.env`.
+
+Hardware needed: a GPU with at least 10 GB of VRAM for Gemma (14 GB for the Qwen backup), and 16 GB of system RAM.
+Answers stream token by token. Tune a weaker machine with `TOOL_RESULT_BUDGET_CHARS` (smaller tool results = faster).
 
 ## Tests, coverage, benchmarks, evidence
 

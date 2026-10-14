@@ -3,14 +3,14 @@
 Decisions taken without explicit confirmation. Each one is easy to revisit.
 
 ## Environment and stack
-1. **No LLM API keys or local model runtime were available while building.** I tested every
-   provider adapter (Anthropic, OpenAI, Gemini, OpenAI-compatible, Ollama) against mocked HTTP
-   that reproduces each vendor's documented wire format, but none has made a live call yet.
-   Run `python -m sme_copilot.cli models` and the benchmark with a real key to confirm.
+1. **No cloud LLM API keys were available while building.** I tested every cloud adapter (Anthropic, OpenAI,
+   Gemini, OpenAI-compatible) against mocked HTTP that reproduces each vendor's documented wire format. Local
+   models were run live through llama.cpp (see 36-40). Run `python -m sme_copilot.cli models` and the benchmark
+   with a real key to confirm the cloud path.
 2. **Offline "rules" provider.** A deterministic intent engine implements the same
    `LLMProvider` interface, so the whole agent loop (tool selection → permission check →
-   execution → answer) runs with no model. It is the default profile, the last link of every
-   fallback chain, and the benchmark baseline. Real LLMs replace it via `LLM_PROFILE`.
+   execution → answer) runs with no model. It is the last link of every fallback chain and the benchmark
+   baseline, and it answers (clearly labelled as a fallback) when the chosen model is unavailable.
 3. **Raw `httpx` instead of vendor SDKs.** This keeps the install small, puts all five
    vendors behind one transport that tests can mock, and avoids SDK version drift.
 4. **Python 3.11+.** I developed on 3.14; the Docker image uses 3.12.
@@ -85,12 +85,33 @@ Decisions taken without explicit confirmation. Each one is easy to revisit.
 32. *Nusrat Trims & Accessories*, its customers and its suppliers are fictional. Seed data is generated
     deterministically relative to the as-of date, so alerts are always current. The evidence run pins
     2026-10-14.
-33. The offline rules engine is the default demo model so the demo needs no keys or network. Real LLMs plug in
+33. The demo default model is cloud Claude; without an API key the offline rules engine answers instead and the UI
+    labels every such reply as a fallback. Real LLMs plug in
     through the same interface.
+
+## Local models (measured on an AMD RX 9060 XT 16 GB, Ryzen 7 3700X, 16 GB RAM, Windows 10)
+36. **Default local model: Gemma 4 12B instruct Q4_K_M with its MTP draft head; backup: Qwen3-14B Q4_K_M.**
+    Five models were run through the 48-scenario golden set with ground truth computed by the app's own tools
+    (`benchmarks/results/local_models.md`). They were ranked by accuracy first (numeric accuracy, hallucinated
+    numbers, tool-call success), then speed. Gemma had the best numbers (93% numeric, 6% hallucination), the best
+    Bangla/Banglish language match (95%), and was faster (12 s median) and smaller (8 GB VRAM) than the
+    Qwen3-14B (86% numeric, 8% hallucination, 18 s, 13 GB). Qwen3.5-9B was faster but less accurate. gpt-oss-20b
+    and Granite 4.2 8B were fast but invented figures in 35-40% of answers, which is disqualifying for a finance app.
+37. **A local model never falls back to a cloud model.** The local profile exists for privacy, so its fallback
+    chain contains only local profiles and the offline rules engine. Every fallback is shown in the UI and API.
+38. **The demo default is cloud Claude** (`default_profile` in `config/providers.yaml`) because judges will not
+    have this GPU. Change that one line to `local-llamacpp` for a private, offline install.
+39. **No fine-tuning.** LoRA on a 12-14B model needs more than 16 GB VRAM in bf16, and 4-bit QLoRA
+    (bitsandbytes) has no ROCm build for Windows. The gains came from prompt structure (a static, cacheable
+    system prompt), smaller tool results, a Bangladesh finance glossary, MTP speculative decoding and token
+    streaming instead.
+40. **llama.cpp settings differ per model on this Vulkan build.** Flash attention made Qwen3.5/Qwen3 prompt
+    processing ~3x slower, so they run with `-fa off`. Gemma uses sliding-window attention and only reuses its
+    prompt cache with `-fa on`. `scripts/start_local_llm.bat` applies the right flags per model.
 
 ## Not verified in this build environment
 34. **Docker was not available on the development machine.** The Dockerfile and docker-compose.yml follow
     standard practice but have not been built here. Run `docker compose up --build` once to confirm.
-35. **No live LLM calls were made** (no API keys and no local model server). All adapters are tested against
-    mocked vendor responses. Run `python -m sme_copilot.cli bench --profiles <profile>` with a key or an Ollama
-    model to measure real models.
+35. **No live cloud LLM calls were made** (no API keys on the build machine). The cloud adapters are tested
+    against mocked vendor responses. The local llama.cpp path was measured live (see 36-40). Run
+    `python -m sme_copilot.cli bench --profiles claude-sonnet` with a key to measure the cloud default.
