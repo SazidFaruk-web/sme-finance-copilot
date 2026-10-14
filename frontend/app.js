@@ -517,13 +517,14 @@ async function viewData(v) {
       `Imported ${r.imported} of ${r.rows_total} rows as “${r.doc_type}”. Duplicates flagged: ${r.duplicates.length}. Anomalies: ${r.anomalies.length}. Suspicious text (possible prompt injection) flagged: ${r.injection_flags.length}. Errors: ${r.errors.length}.`,
     r.errors.length ? h("ul", { class: "small" }, r.errors.slice(0, 8).map(e => h("li", {}, `row ${e.row}: ${e.reason}`))) : null,
     r.injection_flags.length ? h("ul", { class: "small", style: "color:var(--critical)" }, r.injection_flags.map(e => h("li", {}, `row ${e.row}: “${e.text}” - treated as data, never as instructions`))) : null));
+  const showError = e => { result.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message); };
   const upload = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
     if (!file.files[0]) return toast("Choose a file");
     const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", dtype.value);
-    try { showReport(await api("/api/data/upload", { body: fd })); loadTxns(); } catch (e) { toast(e.message); }
+    try { showReport(await api("/api/data/upload", { body: fd })); loadTxns(); } catch (e) { showError(e); }
   } }, "Upload");
   const paste = h("textarea", { placeholder: "Paste CSV text here (Date, Description, Amount, …)" });
-  const pasteBtn = h("button", { class: "btn", disabled: !canWrite, onclick: async () => { try { showReport(await api("/api/data/paste", { body: { text: paste.value, doc_type: dtype.value } })); loadTxns(); } catch (e) { toast(e.message); } } }, "Import pasted text");
+  const pasteBtn = h("button", { class: "btn", disabled: !canWrite, onclick: async () => { try { showReport(await api("/api/data/paste", { body: { text: paste.value, doc_type: dtype.value } })); loadTxns(); } catch (e) { showError(e); } } }, "Import pasted text");
 
   const entry = h("input", { type: "text", placeholder: "e.g. sold 12 shirts for 6000 taka cash · dokan bhara 15000 dilam · ১২টা শার্ট বিক্রি ৬০০০ টাকা", class: "grow" });
   const preview = h("div", { class: "small muted", style: "min-height:20px" });
