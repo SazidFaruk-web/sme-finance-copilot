@@ -101,12 +101,16 @@ def _days(t: str) -> int | None:
 
 def _name_after(t: str, original: str, words: tuple[str, ...]) -> str:
     """Pick a proper name after 'to'/'from' or before 'ke'/'কে' using the original casing."""
+    skip = {"me", "my", "the", "a", "an", "all", "customers", "customer", "supplier", "send", "transfer", "pay",
+            "call", "give", "make", "now", "them", "him", "her"}
     for w in words:
-        m = re.search(rf"\b{w}\s+([A-Za-z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){{0,3}})", original)
-        if m:
-            name = re.split(r"\s+(?:for|about|regarding|via|by|on|taka|tk)\b", m.group(1))[0]
-            if name.lower() not in ("me", "my", "the", "a", "an", "all", "customers", "customer", "supplier"):
-                return name.strip(" .,")
+        for m in re.finditer(rf"\b(?i:{w})\s+([A-Za-z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){{0,3}})", original):
+            name = re.split(r"\s+(?i:for|about|regarding|via|by|on|taka|tk|now)\b", m.group(1))[0].strip(" .,")
+            parts = name.split()
+            while parts and parts[0].lower() in skip:  # "pay supplier Lalbagh" -> "Lalbagh..."
+                parts = parts[1:]
+            if parts:
+                return " ".join(parts)
     m = re.search(r"([A-Za-z][\w&.'-]*(?:\s+[A-Za-z][\w&.'-]*){0,2})\s+(?:ke|k)\b", original)
     if m:
         return m.group(1).strip()
@@ -320,7 +324,7 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
                              "ঈদ", "utsob", "উৎসব"], lambda t, o, c: {}),
         ("search_transactions:flagged", ["unusual", "anomaly", "anomalies", "suspicious", "duplicate", "duplicates",
                                          "odd", "strange", "oshabhabik", "অস্বাভাবিক"],
-         lambda t, o, c: {"flagged_only": True, "period": "last_12_months"}),
+         lambda t, o, c: {"flagged_only": True, "period": "all"}),
         ("get_cost_drivers", ["cost", "costs", "expense", "expenses", "spending", "spend", "khoroch", "খরচ", "ব্যয়"],
          period_args("last_month")),
         ("get_profitability", ["margin", "profit", "lav", "labh", "লাভ", "মুনাফা", "profitable", "gross", "net"],

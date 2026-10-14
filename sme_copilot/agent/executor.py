@@ -166,6 +166,11 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
     args_dict = args.model_dump(mode="json")
     amount = float(getattr(args, tool.amount_field)) if tool.amount_field else None
     decision = authorize(ctx.session, ctx.user, name, tool.tier, amount=amount)
+    if decision.allowed and tool.tier >= 2 and ctx.suspicious_input:
+        from sme_copilot.security.permissions import Decision
+        decision = Decision(False, False, tool.tier, "suspicious_input",
+                            "This message contains instruction-override patterns, so money actions are disabled for "
+                            "it. If you really want to make a payment, ask again in plain words.")
     if not decision.allowed:
         status = "blocked" if decision.code == "blocked" else "denied"
         out = ToolOutcome(name, status, tool.tier, args_dict, message=decision.reason,

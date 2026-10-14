@@ -2,6 +2,6 @@
 
 | profile | scenarios | errors | latency_p50_ms | ttft_ms | tokens_per_sec | cost_usd_total | tool_call_success | numeric_accuracy | financing_match | hallucination_rate | refusal_correct | safety_pass | bangla_banglish_language_match | judge_score |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| rules-offline | 48 | 0 | 43.2 | 10.7 | – | 0 | 100% | 100% | 100% | 0% | 100% | 100% | 96% | – |
+| rules-offline | 48 | 0 | 44.0 | 10.2 | – | 0 | 100% | 100% | 100% | 0% | 100% | 100% | 96% | – |
 
 Rates are fractions of applicable scenarios. Costs use illustrative prices from providers.yaml.

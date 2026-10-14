@@ -67,10 +67,8 @@ def categorize(text: str, direction: str | None = None) -> CategoryMatch:
 
 
 def detect_direction(text: str) -> tuple[str | None, str]:
-    """Infer in/out from category keywords first, then generic direction words."""
-    m = categorize(text)
-    if m.direction and m.category != "uncategorized":
-        return m.direction, m.keyword
+    """Infer in/out. Explicit verbs ("sold", "paid", "dilam", "বিক্রি") win over item/category keywords,
+    so "sold 40 zippers" is income even though "zippers" is an inventory keyword."""
     norm = normalize(text)
     words = category_config().get("direction_words", {})
     best: tuple[int, str | None, str] = (0, None, "")
@@ -79,7 +77,12 @@ def detect_direction(text: str) -> tuple[str | None, str]:
             for kw in lang_list or []:
                 if contains_keyword(norm, kw) and len(kw) > best[0]:
                     best = (len(kw), d, kw)
-    return best[1], best[2]
+    if best[1]:
+        return best[1], best[2]
+    m = categorize(text)
+    if m.direction and m.category != "uncategorized":
+        return m.direction, m.keyword
+    return None, ""
 
 
 def all_category_names() -> list[str]:

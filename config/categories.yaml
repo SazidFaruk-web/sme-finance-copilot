@@ -150,9 +150,9 @@ categories:
 # Generic direction words used when no category keyword matches.
 direction_words:
   in:
-    en: [received, got, earned, income, collected, deposit, credited]
-    bn: [পেলাম, পেয়েছি, আয়, জমা]
-    banglish: [pelam, peyechi, ay, joma]
+    en: [sold, sell, sale of, received, got, earned, collected, credited]
+    bn: [বিক্রি করলাম, বিক্রি করেছি, বিক্রি হলো, বিক্রি, বেচলাম, পেলাম, পেয়েছি]
+    banglish: [bikri korlam, bikri, bechlam, bechechi, pelam, peyechi]
   out:
     en: [paid, pay, spent, bought, expense, purchase, debited, gave]
     bn: [দিলাম, দিয়েছি, খরচ, কিনলাম, পরিশোধ]

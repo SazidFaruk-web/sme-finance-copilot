@@ -22,6 +22,7 @@ from sme_copilot.llm_providers.base import ChatResponse, LLMProvider, Message, P
 from sme_copilot.llm_providers.registry import ModelRouter, get_router
 from sme_copilot.security import audit
 from sme_copilot.security.guardrails import DISCLAIMER, check_request
+from sme_copilot.security.injection import scan
 from sme_copilot.security.pii import PIIVault, mask_text
 from sme_copilot.config import get_settings
 
@@ -108,6 +109,13 @@ class Agent:
                          result={"category": guard.category}, request_id=rid)
             result.latency_ms = (time.perf_counter() - start) * 1000
             return result
+
+        sus = scan(user_text)
+        if sus.suspicious:
+            ctx.suspicious_input = True
+            audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,
+                         event_type="security", action="suspicious_user_input", inputs={"text": user_text[:300]},
+                         result={"rules": sus.rules}, request_id=rid)
 
         system = build_system_prompt(language=lang, business_name=ctx.business.name, sector=ctx.business.sector,
                                      today=ctx.as_of, style=ctx.style, user_role=ctx.user.role)

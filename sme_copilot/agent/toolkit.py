@@ -46,6 +46,7 @@ class ToolContext:
     language: str = "en"
     origin: str = "agent"  # agent | api | confirmation
     pending_action_id: int | None = None  # set while executing a confirmed Tier-2 action
+    suspicious_input: bool = False  # user text matched instruction-override patterns (no money tools this turn)
     _txns: pd.DataFrame | None = None
     _invoices: pd.DataFrame | None = None
 
