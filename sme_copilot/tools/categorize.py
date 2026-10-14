@@ -50,9 +50,14 @@ def _keyword_index() -> list[tuple[str, str]]:
 def categorize(text: str, direction: str | None = None) -> CategoryMatch:
     """Return the best category for free text. If ``direction`` is known, categories of the
     other direction are skipped (a 'rent' keyword on an inflow is not rent paid)."""
+    return CategoryMatch(*_categorize(text, direction))
+
+
+@lru_cache(maxsize=8192)  # statements repeat the same narrations thousands of times
+def _categorize(text: str, direction: str | None) -> tuple[str, float, str, str | None]:
     norm = normalize(text)
     if not norm:
-        return CategoryMatch("uncategorized", 0.0)
+        return "uncategorized", 0.0, "", None
     for kw, cat in _keyword_index():
         cat_dir = category_direction(cat)
         if direction and cat_dir and cat_dir != direction:
@@ -60,10 +65,10 @@ def categorize(text: str, direction: str | None = None) -> CategoryMatch:
         if contains_keyword(norm, kw):
             # Longer keyword = more specific = more confident.
             conf = min(0.95, 0.6 + 0.05 * len(normalize(kw).split()) + 0.01 * len(normalize(kw)))
-            return CategoryMatch(cat, round(conf, 2), kw, cat_dir)
+            return cat, round(conf, 2), kw, cat_dir
     if direction == "in":
-        return CategoryMatch("sales", 0.4, "", "in")  # most unlabelled SME inflows are sales
-    return CategoryMatch("uncategorized", 0.0, "", direction)
+        return "sales", 0.4, "", "in"  # most unlabelled SME inflows are sales
+    return "uncategorized", 0.0, "", direction
 
 
 def detect_direction(text: str) -> tuple[str | None, str]:

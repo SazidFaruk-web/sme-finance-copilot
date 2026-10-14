@@ -144,9 +144,16 @@ def read_table(content: bytes, filename: str) -> pd.DataFrame:
         width = max((len(r) for r in rows), default=0)
         raw = pd.DataFrame([r + [""] * (width - len(r)) for r in rows], dtype=str)
     raw = raw.fillna("")
+    if raw.empty or not raw.map(lambda v: bool(str(v).strip())).any().any():
+        raise ValueError("the file is empty")
     header_idx = _find_header_row(raw)
     header = [str(h).strip() for h in raw.iloc[header_idx].tolist()]
+    if not map_columns(header):
+        raise ValueError("no recognisable table found: expected a header row such as Date, Description, Amount "
+                         "(or Debit/Credit). Use a UTF-8 CSV or an XLSX file.")
     df = raw.iloc[header_idx + 1:].copy()
+    if not df.map(lambda v: bool(str(v).strip())).any().any():
+        raise ValueError("no data rows found below the header row")
     df.columns = _dedupe_headers(header)
     df["__row__"] = [header_idx + 2 + i for i in range(len(df))]  # 1-based spreadsheet row numbers
     df = df[df.drop(columns="__row__").apply(lambda r: any(str(v).strip() for v in r), axis=1)]
@@ -395,6 +402,11 @@ def parse_table(content: bytes, filename: str, doc_type: str = "auto") -> ParseR
     detected = detect_doc_type(df, mapping) if doc_type == "auto" else doc_type
     if "date" not in mapping and detected != "invoices":
         raise ValueError(f"could not find a date column. Columns seen: {list(df.columns)[:12]}")
+    if detected != "invoices" and not ({"amount", "debit", "credit"} & set(mapping)):
+        raise ValueError("could not find an amount column (or debit/withdrawal and credit/deposit columns). "
+                         f"Columns seen: {[c for c in df.columns if c != '__row__'][:12]}")
+    if df.empty:
+        raise ValueError("no data rows found below the header row")
     if detected == "invoices":
         return normalize_invoices(df, mapping)
     return normalize_transactions(df, mapping, detected)

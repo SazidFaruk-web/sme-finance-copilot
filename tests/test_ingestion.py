@@ -157,3 +157,32 @@ def test_anomaly_detection_flags_outlier():
     txns.append(TxnKey(99, date(2026, 9, 20), 9000.0, "out", "", "", "", "transport"))
     flags = detect_anomalies(txns)
     assert list(flags) == [99] and "transport" in flags[99]
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("content,needle", [
+    (b"", "empty"),
+    (b"\n\n  \n", "empty"),
+    (b"Date,Description,Amount,Type\n", "no data rows"),
+    (b"Date,Description,Party\n01/05/2026,Shop rent,landlord\n", "amount column"),
+    (bytes(__import__("random").Random(9).randrange(256) for _ in range(4096)), "no recognisable table"),
+], ids=["empty", "blank-lines", "header-only", "no-amount-column", "binary-garbage"])
+def test_unusable_files_raise_a_clear_message(content, needle):
+    with pytest.raises(ValueError, match=needle):
+        parse_table(content, "upload.csv")
+
+
+def test_bangla_headers_bangla_digits_and_taka_sign(db, business):
+    csv = "তারিখ,বিবরণ,খরচ,জমা\n০৫/০৫/২০২৬,দোকান ভাড়া,\"৳৩৫,০০০\",\n০৬/০৫/২০২৬,বোতাম বিক্রি,,\"৳১২,৫০০\"\n"
+    rep = import_file(db, business.id, csv.encode("utf-8"), "bn.csv")
+    rows = db.scalars(select(Transaction).where(Transaction.batch_id == rep.batch_id)).all()
+    assert sorted((r.direction, float(r.amount)) for r in rows) == [("in", 12500.0), ("out", 35000.0)]
+
+
+def test_categorize_cache_returns_independent_objects():
+    from sme_copilot.tools.categorize import categorize
+    a = categorize("Shop rent - Islampur", "out")
+    a.category = "mutated"
+    assert categorize("Shop rent - Islampur", "out").category != "mutated"
