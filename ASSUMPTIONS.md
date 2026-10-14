@@ -30,3 +30,25 @@ Decisions taken without explicit confirmation. Each one is easy to revisit.
    PII masking also covers emails, card numbers, labelled NID/TIN/account/wallet numbers and
    any bare 9–18 digit run. This errs toward over-masking: a very large amount written
    without separators (≥ 9 digits, i.e. ≥ 10 crore taka) would be masked too.
+
+## Finance math
+10. **Cash basis.** Purchases of stock/raw material in a period are treated as COGS, since SMEs
+    rarely keep inventory valuations. Gross margin is therefore a cash-basis approximation.
+11. **Net operating margin** excludes loan repayments (we cannot split principal and interest
+    from a single repayment line), equipment purchases and owner drawings. These are reported
+    separately in the `excluded` block of every profitability result.
+12. **Uncategorized outflows** count as variable operating cost (the conservative choice).
+13. **`last_N_months`** means the N most recent *complete* calendar months, so comparisons
+    are like-for-like.
+14. **Money** is stored as NUMERIC(14,2) and handled as float rounded to 2 dp, which is enough
+    for SME-scale BDT amounts.
+15. **Liquid balance** = opening balance + all inflows − all outflows across cash, bank and wallets.
+
+## Language and ingestion
+16. Latin "nagad" means the Nagad wallet; Bangla "নগদ" means cash.
+17. Bangladesh dates are parsed day-first (`dd/mm/yyyy`).
+18. Wallet statements often put the counterparty's phone number in the name column. Such
+    values go into the encrypted `account_ref` field, and the visible name becomes
+    `acct *******1234`.
+19. Festival dates in `config/calendar_bd.yaml` are approximate (lunar). They are only used to
+    *explain* patterns in the user's own data, and are marked for verification.

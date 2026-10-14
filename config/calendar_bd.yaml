@@ -1,0 +1,32 @@
+# Bangladesh business calendar for seasonality tagging and forecasting.
+#
+# IMPORTANT: Islamic festival dates depend on moon sighting and are APPROXIMATE (+/- 1 day).
+# Hindu festival dates follow the lunisolar calendar. Every entry is marked verify: true and is
+# used only to *explain* seasonal patterns found in the user's own data. It is never stated as
+# an official date. Update this file each year from the official government holiday list.
+
+events:
+  - {name: "Eid ul-Fitr", date: 2024-04-11, approx: true, demand_window_days: 30, sectors: [garments, accessories, food, retail]}
+  - {name: "Eid ul-Fitr", date: 2025-03-31, approx: true, demand_window_days: 30, sectors: [garments, accessories, food, retail]}
+  - {name: "Eid ul-Fitr", date: 2026-03-20, approx: true, demand_window_days: 30, sectors: [garments, accessories, food, retail]}
+  - {name: "Eid ul-Fitr", date: 2027-03-10, approx: true, demand_window_days: 30, sectors: [garments, accessories, food, retail]}
+  - {name: "Eid ul-Adha", date: 2024-06-17, approx: true, demand_window_days: 21, sectors: [garments, food, retail, livestock]}
+  - {name: "Eid ul-Adha", date: 2025-06-07, approx: true, demand_window_days: 21, sectors: [garments, food, retail, livestock]}
+  - {name: "Eid ul-Adha", date: 2026-05-27, approx: true, demand_window_days: 21, sectors: [garments, food, retail, livestock]}
+  - {name: "Eid ul-Adha", date: 2027-05-17, approx: true, demand_window_days: 21, sectors: [garments, food, retail, livestock]}
+  - {name: "Pohela Boishakh (Bangla New Year)", date: 2024-04-14, approx: false, demand_window_days: 14, sectors: [garments, food, retail]}
+  - {name: "Pohela Boishakh (Bangla New Year)", date: 2025-04-14, approx: false, demand_window_days: 14, sectors: [garments, food, retail]}
+  - {name: "Pohela Boishakh (Bangla New Year)", date: 2026-04-14, approx: false, demand_window_days: 14, sectors: [garments, food, retail]}
+  - {name: "Pohela Boishakh (Bangla New Year)", date: 2027-04-14, approx: false, demand_window_days: 14, sectors: [garments, food, retail]}
+  - {name: "Durga Puja", date: 2024-10-13, approx: true, demand_window_days: 21, sectors: [garments, accessories, retail]}
+  - {name: "Durga Puja", date: 2025-10-02, approx: true, demand_window_days: 21, sectors: [garments, accessories, retail]}
+  - {name: "Durga Puja", date: 2026-10-21, approx: true, demand_window_days: 21, sectors: [garments, accessories, retail]}
+
+# Recurring seasons (month numbers). Illustrative; tune per sector.
+seasons:
+  - {name: "Boro rice harvest", months: [4, 5], sectors: [agri, food, trading]}
+  - {name: "Aman rice harvest", months: [11, 12], sectors: [agri, food, trading]}
+  - {name: "Winter wear season", months: [11, 12, 1], sectors: [garments, accessories]}
+  - {name: "RMG export order peak (illustrative)", months: [7, 8, 9], sectors: [garments, accessories, subcontracting]}
+  - {name: "Fiscal year-end (July-June FY)", months: [6], sectors: [all]}
+  - {name: "Monsoon slowdown (illustrative)", months: [7, 8], sectors: [retail, food, transport]}

@@ -1,0 +1,176 @@
+# Transaction categories and multilingual keywords (English, Bangla script, Banglish).
+#
+# behavior drives the finance math:
+#   revenue        -> income from operations
+#   cogs           -> cost of goods sold (purchases of stock/raw material); variable
+#   variable       -> operating cost that scales with sales
+#   fixed          -> operating cost that does not scale with sales (break-even denominator)
+#   financing      -> loan disbursements / repayments (excluded from operating profit)
+#   capex          -> equipment purchases (excluded from operating profit)
+#   non_operating  -> owner drawings, transfers between own accounts
+#   other_income   -> non-sales income
+#
+# Matching: the longest matching keyword wins, so "dokan bhara" (shop rent) beats "bhara".
+
+categories:
+  sales:
+    direction: in
+    behavior: revenue
+    keywords:
+      en: [sold, sale, sales, revenue, customer payment, received from customer, order payment, invoice paid, payment received, received payment]
+      bn: [বিক্রি, বিক্রয়, বেচা, বেচলাম, বিক্রি করলাম, পেমেন্ট পেলাম]
+      banglish: [bikri, bikroy, becha, bechlam, bechechi, bikri korlam, taka pelam]
+  other_income:
+    direction: in
+    behavior: other_income
+    keywords:
+      en: [interest received, commission received, refund received, other income, cashback]
+      bn: [সুদ পেলাম, কমিশন পেলাম, ফেরত পেলাম]
+      banglish: [commission pelam, ferot pelam]
+  loan_received:
+    direction: in
+    behavior: financing
+    keywords:
+      en: [loan disbursed, loan disbursement, loan received, credit disbursed]
+      bn: [ঋণ পেলাম, লোন পেলাম, ঋণ বিতরণ]
+      banglish: [loan pelam, rin pelam]
+  owner_capital:
+    direction: in
+    behavior: non_operating
+    keywords:
+      en: [capital injection, owner investment, own investment]
+      bn: [মূলধন দিলাম, নিজের বিনিয়োগ]
+      banglish: [puji dilam, nijer taka dilam]
+  inventory:
+    direction: out
+    behavior: cogs
+    keywords:
+      en: [purchase, purchased, bought stock, stock, inventory, raw material, fabric, buttons, zipper, zippers, thread, label, labels, trims, accessories purchase, supplier payment, wholesale, goods, restock]
+      bn: [মাল কেনা, মাল কিনলাম, ক্রয়, কাঁচামাল, কাপড়, বোতাম, চেইন, সুতা, স্টক]
+      banglish: [mal kinlam, mal kena, kinlam, kacha mal, kapor, botam, chain kinlam, suta]
+  rent:
+    direction: out
+    behavior: fixed
+    keywords:
+      en: [rent, shop rent, office rent, warehouse rent, godown rent, house rent for shop]
+      bn: [ভাড়া, দোকান ভাড়া, দোকানের ভাড়া, গোডাউন ভাড়া, অফিস ভাড়া]
+      banglish: [dokan bhara, dokaner bhara, godown bhara, office bhara]
+  salary:
+    direction: out
+    behavior: fixed
+    keywords:
+      en: [salary, salaries, wages, wage, staff pay, payroll, bonus, eid bonus, worker payment]
+      bn: [বেতন, মজুরি, স্টাফের বেতন, বোনাস]
+      banglish: [beton, mojuri, staff beton, bonus dilam]
+  utilities:
+    direction: out
+    behavior: fixed
+    keywords:
+      en: [electricity, electric bill, power bill, desco, dpdc, gas bill, water bill, wasa, internet, wifi, phone bill, mobile recharge, utility]
+      bn: [বিদ্যুৎ, কারেন্ট বিল, বিদ্যুৎ বিল, গ্যাস বিল, পানির বিল, ইন্টারনেট]
+      banglish: [current bill, bijli bill, gas bill, panir bill, net bill]
+  transport:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [transport, delivery, courier, freight, truck, van, rickshaw, cng, fuel, shipping, pathao, carrying]
+      bn: [পরিবহন, ডেলিভারি, কুরিয়ার, গাড়ি ভাড়া, রিকশা ভাড়া, ভ্যান ভাড়া]
+      banglish: [gari bhara, rickshaw bhara, van bhara, delivery charge, courier charge]
+  packaging:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [packaging, poly bag, polybag, carton, box, packing]
+      bn: [প্যাকেট, কার্টন, প্যাকিং]
+      banglish: [packet, packing khoroch]
+  marketing:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [marketing, advertising, ads, facebook boost, boost, poster, banner, promotion]
+      bn: [বিজ্ঞাপন, প্রচার]
+      banglish: [boost korlam, biggapon]
+  mobile_fees:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [cash out fee, cashout fee, transaction fee, bank charge, service charge, mfs fee, send money fee]
+      bn: [ক্যাশ আউট চার্জ, ব্যাংক চার্জ]
+      banglish: [cash out charge, bank charge]
+  maintenance:
+    direction: out
+    behavior: fixed
+    keywords:
+      en: [repair, repairs, maintenance, servicing, cleaning]
+      bn: [মেরামত, সার্ভিসিং]
+      banglish: [meramot, repair korlam]
+  tax_vat:
+    direction: out
+    behavior: fixed
+    keywords:
+      en: [vat, tax, income tax, advance tax, trade license fee, license renewal, mushak]
+      bn: [ভ্যাট, কর, আয়কর, ট্রেড লাইসেন্স ফি, মূসক]
+      banglish: [vat dilam, tax dilam, license fee]
+  loan_repayment:
+    direction: out
+    behavior: financing
+    keywords:
+      en: [emi, installment, instalment, loan repayment, loan payment, kisti]
+      bn: [কিস্তি, ঋণ পরিশোধ, লোনের কিস্তি]
+      banglish: [kisti dilam, loan er kisti, rin shodh]
+  equipment:
+    direction: out
+    behavior: capex
+    keywords:
+      en: [machine, sewing machine, equipment, computer, laptop, furniture, generator, ips, fridge]
+      bn: [মেশিন, সেলাই মেশিন, যন্ত্র, আসবাব]
+      banglish: [machine kinlam, selai machine]
+  owner_drawings:
+    direction: out
+    behavior: non_operating
+    keywords:
+      en: [personal, owner withdrawal, drawings, family expense, household]
+      bn: [ব্যক্তিগত, সংসার খরচ, নিজের জন্য]
+      banglish: [nijer jonno, songsar khoroch, personal khoroch]
+  food_entertainment:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [tea, snacks, lunch, entertainment, guest]
+      bn: [চা নাস্তা, দুপুরের খাবার, আপ্যায়ন]
+      banglish: [cha nasta, lunch khoroch]
+  misc_expense:
+    direction: out
+    behavior: variable
+    keywords:
+      en: [misc, miscellaneous, other expense, sundry]
+      bn: [বিবিধ, অন্যান্য খরচ]
+      banglish: [onnanno khoroch]
+
+# Generic direction words used when no category keyword matches.
+direction_words:
+  in:
+    en: [received, got, earned, income, collected, deposit, credited]
+    bn: [পেলাম, পেয়েছি, আয়, জমা]
+    banglish: [pelam, peyechi, ay, joma]
+  out:
+    en: [paid, pay, spent, bought, expense, purchase, debited, gave]
+    bn: [দিলাম, দিয়েছি, খরচ, কিনলাম, পরিশোধ]
+    banglish: [dilam, diyechi, khoroch, kinlam, porishodh]
+
+# Mobile wallet statement transaction types (bKash / Nagad / Rocket style) -> direction/category.
+wallet_types:
+  cash in: {direction: in, category: null}
+  received money: {direction: in, category: sales}
+  receive money: {direction: in, category: sales}
+  payment received: {direction: in, category: sales}
+  add money: {direction: in, category: owner_capital}
+  cash out: {direction: out, category: owner_drawings}
+  send money: {direction: out, category: null}
+  payment: {direction: out, category: null}
+  merchant payment: {direction: out, category: null}
+  make payment: {direction: out, category: null}
+  pay bill: {direction: out, category: utilities}
+  mobile recharge: {direction: out, category: utilities}
+  fee: {direction: out, category: mobile_fees}
+  charge: {direction: out, category: mobile_fees}
