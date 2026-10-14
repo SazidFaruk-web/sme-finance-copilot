@@ -1,0 +1,135 @@
+# LLM provider profiles.
+#
+# Switch the active model with LLM_PROFILE=<profile> in .env, the model dropdown in the UI,
+# or the `profile` field on POST /api/chat. No code changes needed.
+#
+# adapter:    anthropic | openai | gemini | openai_compatible | ollama | rules
+# external:   true if prompts leave this machine. External profiles get PII masking and are
+#             refused entirely when LOCAL_ONLY_MODE=true.
+# api_key_env: NAME of the environment variable holding the key (never put keys here).
+# pricing:    USD per million tokens. ILLUSTRATIVE PLACEHOLDERS for benchmark cost estimates;
+#             verify against the vendor's current price page before quoting.
+# tools:      native | emulated  (emulated = strict-JSON tool calling for weak tool callers)
+
+default_profile: rules-offline
+
+profiles:
+  rules-offline:
+    adapter: rules
+    model: rules-v1
+    external: false
+    label: "Offline rules engine (no model, deterministic)"
+
+  claude-sonnet:
+    adapter: anthropic
+    model: claude-sonnet-5-5
+    api_key_env: ANTHROPIC_API_KEY
+    base_url: https://api.anthropic.com
+    external: true
+    label: "Claude Sonnet 5.5"
+    pricing: {input_per_mtok: 3.0, output_per_mtok: 15.0}
+
+  claude-haiku:
+    adapter: anthropic
+    model: claude-haiku-5-5
+    api_key_env: ANTHROPIC_API_KEY
+    base_url: https://api.anthropic.com
+    external: true
+    label: "Claude Haiku 5.5"
+    pricing: {input_per_mtok: 1.0, output_per_mtok: 5.0}
+
+  openai-mini:
+    adapter: openai
+    model: gpt-4.1-mini
+    api_key_env: OPENAI_API_KEY
+    external: true
+    label: "OpenAI gpt-4.1-mini"
+    pricing: {input_per_mtok: 0.4, output_per_mtok: 1.6}
+
+  gemini-flash:
+    adapter: gemini
+    model: gemini-2.5-flash
+    api_key_env: GEMINI_API_KEY
+    external: true
+    label: "Gemini 2.5 Flash"
+    pricing: {input_per_mtok: 0.3, output_per_mtok: 2.5}
+
+  groq-llama70b:
+    adapter: openai_compatible
+    model: llama-3.3-70b-versatile
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    external: true
+    label: "Groq Llama 3.3 70B"
+    pricing: {input_per_mtok: 0.59, output_per_mtok: 0.79}
+
+  openrouter-qwen72b:
+    adapter: openai_compatible
+    model: qwen/qwen-2.5-72b-instruct
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    external: true
+    label: "OpenRouter Qwen2.5 72B"
+    pricing: {input_per_mtok: 0.35, output_per_mtok: 0.4}
+
+  deepseek-chat:
+    adapter: openai_compatible
+    model: deepseek-chat
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    external: true
+    label: "DeepSeek Chat"
+    pricing: {input_per_mtok: 0.27, output_per_mtok: 1.1}
+
+  # ---- Local models: no data leaves the machine ---------------------------------
+  local-qwen7b:
+    adapter: ollama
+    model: qwen2.5:7b-instruct
+    base_url: http://localhost:11434/v1
+    external: false
+    tools: native
+    label: "Local Qwen2.5 7B (Ollama)"
+
+  local-llama8b:
+    adapter: ollama
+    model: llama3.1:8b
+    base_url: http://localhost:11434/v1
+    external: false
+    tools: emulated
+    label: "Local Llama 3.1 8B (Ollama)"
+
+  local-gemma9b:
+    adapter: ollama
+    model: gemma2:9b
+    base_url: http://localhost:11434/v1
+    external: false
+    tools: emulated
+    label: "Local Gemma 2 9B (Ollama)"
+
+  local-llamacpp:
+    adapter: openai_compatible
+    model: local-gguf
+    base_url: http://localhost:8080/v1
+    external: false
+    tools: emulated
+    label: "llama.cpp server (OpenAI-compatible)"
+
+  local-vllm:
+    adapter: openai_compatible
+    model: Qwen/Qwen2.5-7B-Instruct
+    base_url: http://localhost:8001/v1
+    external: false
+    tools: native
+    label: "vLLM server (OpenAI-compatible)"
+
+# Optional model router: a cheap/local model for narrow tasks, a stronger one for advice.
+routing:
+  enabled: false
+  task_profiles:
+    classification: local-qwen7b
+    extraction: local-qwen7b
+    categorization: local-qwen7b
+    advisory: claude-sonnet
+  # Tried in order when the chosen profile errors or times out. rules-offline never fails,
+  # so the copilot always answers.
+  fallback_chain: [claude-sonnet, openai-mini, local-qwen7b, rules-offline]

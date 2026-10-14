@@ -1,0 +1,94 @@
+"""Application settings.
+
+Secrets come only from environment variables (or a local .env file that is git-ignored).
+Non-secret, structured configuration (provider profiles, routing rules, catalogs) lives in
+YAML files under ``config/``.
+"""
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+CONFIG_DIR = ROOT_DIR / "config"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: str = "dev"  # dev | demo | test | production
+    data_dir: Path = ROOT_DIR / "data"
+    database_url: str = ""  # default derived from data_dir
+
+    # --- Security -------------------------------------------------------------------
+    field_encryption_key: str = ""  # Fernet key; required in production
+    session_ttl_minutes: int = 240
+    cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
+    rate_limit_per_minute: int = 120
+    login_rate_limit_per_minute: int = 10
+    mask_pii: bool = True  # mask PII before any external LLM call
+    local_only_mode: bool = False  # refuse every provider marked external: true
+
+    # --- Sandbox money limits (BDT) ----------------------------------------------------
+    sandbox_per_txn_limit: float = 200_000
+    sandbox_daily_cap: float = 500_000
+    confirmation_ttl_minutes: int = 10
+
+    # --- LLM ------------------------------------------------------------------------
+    providers_file: Path = CONFIG_DIR / "providers.yaml"
+    llm_profile: str = ""  # overrides default_profile from providers.yaml
+    llm_timeout_seconds: float = 60
+    llm_max_retries: int = 2
+
+    # --- Telemetry ------------------------------------------------------------------
+    interaction_log_enabled: bool = True
+
+    @property
+    def db_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        return f"sqlite:///{(self.data_dir / 'copilot.db').as_posix()}"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def interaction_log_path(self) -> Path:
+        return self.data_dir / "interactions.jsonl"
+
+    @property
+    def reports_dir(self) -> Path:
+        return self.data_dir / "reports"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    s = Settings()
+    s.data_dir.mkdir(parents=True, exist_ok=True)
+    return s
+
+
+def reset_settings_cache() -> None:
+    get_settings.cache_clear()
+
+
+def load_yaml(name: str | Path) -> Any:
+    """Load a YAML file from config/ (or an absolute path)."""
+    path = Path(name)
+    if not path.is_absolute():
+        path = CONFIG_DIR / path
+    with open(path, encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
+
+def env_or_none(name: str | None) -> str | None:
+    if not name:
+        return None
+    val = os.environ.get(name, "").strip()
+    return val or None

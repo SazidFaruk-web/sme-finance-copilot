@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Runtime data (DB, logs, generated reports) - never commit real business data
+data/*
+!data/.gitkeep
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Competition brief (organizer's document, not ours to redistribute)
+Comp.pdf
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
