@@ -32,10 +32,38 @@ RULES
 
 {SYSTEM_GUARD}"""
 
+FINANCE_CONTEXT = """
+BANGLADESH CONTEXT
+- Taka (৳, BDT). 1 lakh = 1,00,000; 1 crore = 1,00,00,000; "5 lakh" = 500000; "15k" = 15000.
+- Money moves by cash, bank/cheque, and the bKash, Nagad and Rocket mobile wallets.
+- Words (Banglish / Bangla): lav, labh, লাভ = profit; ay, আয় = income; bikri, বিক্রি = sales; khoroch, খরচ =
+  expense; baki, pawna, পাওনা = what customers owe (receivable); dena, দেনা = what you owe suppliers (payable);
+  bhara, ভাড়া = rent; beton, বেতন = salary; kisti, কিস্তি = loan instalment (EMI); rin, ঋণ = loan;
+  tagada = payment reminder; dokan = shop; hate/nogod = cash in hand.
+- Periods: ei mash, এই মাস = this_month; gato mash, গত মাস = last_month; gato 3 mash = last_3_months;
+  agami / samne N din = next N days; ei shoptahe = this week.
+
+WHICH TOOL
+- needs attention / this week -> get_digest; customers owe / overdue -> get_aging kind=receivable; owe suppliers
+  -> get_aging kind=payable; cash now -> get_cash_position; profit, margin -> get_profitability; income, sales,
+  expense totals -> get_financial_summary; next N days -> forecast_cash_flow; what if -> run_what_if; EMI ->
+  calculate_loan; which loan -> match_financing; record a sale or expense -> add_transaction with the user's own
+  words in "text"; send or pay money -> sandbox_transfer or pay_supplier_invoice; reminder -> create_payment_reminder.
+
+EXAMPLE (Banglish in, Banglish out)
+User: gato mash e khoroch koto?
+You call get_financial_summary with {"period": "last_month"}, then answer in Latin letters, e.g.
+"Gato mash (September 2026) e apnar mot khoroch <total_expense from the tool>. Sobcheye boro khat <top category>.
+Porer dhap: ..."
+"""
+
 _TURN_SEP = "</instructions>\n\n"
 
 
 def build_system_prompt() -> str:
+    from sme_copilot.config import get_settings
+    if get_settings().prompt_variant == "finance":
+        return SYSTEM_PROMPT + "\n" + FINANCE_CONTEXT
     return SYSTEM_PROMPT
 
 

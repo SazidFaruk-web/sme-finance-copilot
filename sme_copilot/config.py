@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     llm_max_retries: int = 2
     tool_result_budget_chars: int = 12000  # max size of one tool result as the model sees it (UI keeps full data)
+    prompt_variant: str = "base"  # base | finance (adds Bangladesh terms, tool map and a Banglish example)
 
     # Fixed "today" for reproducible demos/benchmarks (YYYY-MM-DD). Empty = real date (Asia/Dhaka).
     as_of_date: str = ""
