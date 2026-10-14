@@ -1,6 +1,78 @@
 # Overnight log: local LLM optimization (branch `model-tuning`)
 
-_Summary goes here when the run is finished._
+## Summary (2026-10-15, 01:05). Everything is on branch `model-tuning`: not pushed, not merged.
+
+**Top 2 models**
+1. **Gemma 4 12B Q4_K_M + MTP draft head (default local model, profile `local-llamacpp`).** It has the best
+   accuracy of the five models tested: 95% tool-call success, 93% numeric accuracy, 6% of answers with an invented
+   number, and replies in the user's language 100% of the time (English, Bangla, Banglish). It uses 8 GB of VRAM
+   and runs at ~38 tok/s.
+2. **Qwen3-14B Q4_K_M (backup, `local-qwen14b`).** Next-best accuracy (88% tool, 86% numeric, 8% invented
+   numbers), and from a different model family. It is slower (~18 s per answer) and uses 13 GB.
+
+Rejected:
+- Qwen3.5-9B: fast but less accurate.
+- gpt-oss-20b: fastest (7 s) but invented numbers in 40% of answers.
+- Granite 4.2 8B: invented numbers in 35% of answers.
+- Qwen3.8-27B (before): accurate, but 80 s per answer and spills out of VRAM.
+
+**Before -> after**
+| | before (Qwen3.8 27B, `-c 32768`) | after (Gemma 4 12B, tuned) |
+|---|---|---|
+| generation speed | 9-10 tok/s | 38 tok/s (MTP speculative decoding) |
+| VRAM | 14.8 GB, spilling to system RAM | 8.1 GB, all on GPU |
+| first visible words on the website | ~130 s (nothing until the whole answer was done) | ~4 s (answers stream token by token) |
+| full answer, golden-set median | 80 s (first 16 scenarios) | 12 s |
+| prompt per request | 4,500 tokens, re-processed every time | static prefix cached; a new question costs ~20 tokens |
+
+**Final llama-server settings (Gemma):** `-ngl 99 -c 16384 -fa on -ctk q8_0 -ctv q8_0 --reasoning off -cram 2048
+--spec-type draft-mtp -md mtp-gemma-4-12B-it-Q8_0.gguf -ngld 99`. Qwen uses `-fa off`: flash attention made its
+prompt processing 3x slower on this Vulkan build. Start either with `scripts\start_local_llm.bat [gemma|qwen14b]`.
+
+**What changed in the app**
+- Fallbacks are never silent. API fields `fallback` / `requested_profile` / `fallback_reason`, a red banner and
+  chips in the UI, an error log line, and the audit log. A local model never falls back to a cloud model.
+- Fixed: emulated tool calling sent two system messages. Qwen templates rejected that with HTTP 500, so every
+  local request silently fell back to the rules engine.
+- Static, cacheable system prompt; per-request context moved into the user turn.
+- Smaller tool results (5k budget, recursive abridging).
+- Bangladesh finance glossary and tool map; rule: never answer money questions from general knowledge.
+- Real token streaming of local answers to the website.
+- Language: code-switched Bangla is detected by words, not only letters.
+- Bangla (and Banglish) money transfers are no longer blocked as "prompt injection". The old rule matched any
+  "টাকা পাঠাও".
+- Unmatched customer names (e.g. Bangla script) now get a list of real names so the model retries correctly.
+- Uploads: clear 422 messages for an empty file, a header with no rows, a missing amount column, and garbage (an
+  empty file used to crash with HTTP 500). The 60k-row import is 2.2x faster. Errors stay visible in the UI.
+- Config: `config/providers.yaml` `default_profile` is the one switch. It is cloud Claude for the demo; change it
+  to `local-llamacpp` for private use.
+- 244 tests pass (25 new: fallback flags, prompt cache, streaming, constrained tools, uploads, Bangla transfers, names).
+
+**Evidence:**
+- `benchmarks/results/local_models.md`: all runs.
+- `golden/`: per-scenario results.
+- `upload_chat_check.json`: 9/9 chat answers about uploaded statements matched code.
+- Final runs: golden 48/48 with 0 errors; stress set (44 EN/BN/Banglish/mixed edge cases) 100% numeric, 100%
+  language, 0 errors.
+
+**Remaining problems**
+- 6-9% of answers still contain a number that is in no tool result. These are mostly correct derived figures
+  (e.g. "45% overdue", forecast sums), but the UI flags them with "could not verify".
+- Gemma's cold first answer after loading takes ~17 s of prompt processing (cached afterwards).
+- Golden tool scoring counts only the first call, so a correct retry still shows as a miss (`s_bn_reminder`).
+- PDF/image statements are not supported by the app (CSV/XLSX only). Unchanged.
+- No fine-tuning: LoRA on 12-14B needs more than 16 GB VRAM and there is no bitsandbytes for ROCm on Windows (section 6).
+
+**Things you need to do**
+1. Review and merge branch `model-tuning` (nothing was pushed).
+2. For the demo with judges: set `ANTHROPIC_API_KEY` (the default profile is cloud Claude). Without it, the app
+   answers with the clearly labelled offline fallback.
+3. Your local `.env` still has `LLM_PROFILE=local-llamacpp` and `LOCAL_ONLY_MODE=true` (private mode on this PC).
+   Remove them if you want this PC to use the cloud default.
+4. Optional: delete `D:\llama-vulkan\models\Qwen3.8-27B-UD-IQ4_XS.gguf` (14 GB), granite, gpt-oss and eagle3
+   (~19 GB). Nothing was deleted.
+5. Optional: the HIP/ROCm llama.cpp build in `D:\llama.cpp` sees no GPU (no HIP SDK installed); Vulkan is used.
+6. Left running: llama-server (Gemma) on :8080 and the app on :8000.
 
 Hardware: AMD RX 9060 XT 16 GB (Vulkan, llama.cpp build 10930), Ryzen 7 3700X, 16 GB DDR4-3200, Windows 10.
 One llama-server on the GPU at a time. Golden set = `sme_copilot/benchmarks/golden.yaml` (48 scenarios: 26 English,
@@ -167,3 +239,66 @@ One scenario = ~2 points, so differences of 2-4 points are within noise.
   the model's view. Combined runs (finance + 5k, native and constrained) queued.
 - Sampling: the emulated path already uses temperature 0 and the native path 0.2; no top-p/top-k sweep was run
   (greedy-ish decoding leaves little to tune). Speculative decoding: MTP n=3 kept (n=5 is much slower).
+
+### 13. Phase 2 combined configurations and the "before" baseline (00:10)
+| run | p50 / mean | tool ok | args | numeric | fin | halluc | lang (all) |
+|---|---|---|---|---|---|---|---|
+| Gemma native + finance + 5k | **11.4 / 12.1 s** | **93%** | 95% | 89% | 2/3 | 6% | **100%** |
+| Gemma constrained-emulated + finance + 5k | 12.4 / 12.4 s | 88% | 91% | 96% | 3/3 | 8% | 100% |
+| Qwen3.8 27B baseline, first 16 English scenarios | 80.4 / 90.7 s | 100% | 100% | 100% | 1/1 | 12.5% | 100% |
+| Gemma native + finance + 5k, same 16 scenarios | 14.3 / 15.6 s | 94% | | 86% | | 6% | 100% |
+- Chosen: **native + finance prompt + 5k tool budget**. The two Gemma configs are within ~2 scenarios of each
+  other on every metric; native has better tool selection, is a bit faster, and is the only one that can stream
+  answers token by token on the website (constrained JSON cannot be streamed).
+- Honest before/after on the same 16 English scenarios: the 27B was more accurate on those 16 (100% numeric),
+  but took 80 s per answer and spilled out of VRAM. Gemma is 5.6x faster with fewer hallucinated numbers.
+- Remaining Gemma misses are mostly judgment cases: a 5 lakh loan "what if" answered with the EMI calculator
+  instead of the forecast what-if (EMI correct), what-if horizons that differ from the benchmark's default, and a
+  cost answer listing categories without the grand total. One real miss: a Bangla loan question answered from
+  general knowledge with no `match_financing` call. Added a rule: never answer money/loan questions from general
+  knowledge.
+- New defaults (commit 02410ba): `PROMPT_VARIANT=finance`, `TOOL_RESULT_BUDGET_CHARS=5000`.
+
+### 14. Token streaming on the website (commit 1a591ef)
+- `/api/chat/stream` used to wait for the whole agent run, then replay the reply in chunks: nothing on screen for
+  10-15 s. Local OpenAI-compatible providers with native tools now stream the answer as it is generated (tool
+  calls are assembled from the stream). Not streamed: external providers (replies are PII-unmasked afterwards)
+  and emulated tool calls (JSON). The final `done` event still carries the checked reply, the grounding warnings
+  and the fallback flag. Unit-tested with mocked SSE; live check in the browser pending (GPU busy).
+
+### 15. Phase 4 UI checks (22:40)
+- Fallback badge verified in the real UI with no model server running: a red notice reads "local-llamacpp did
+  not answer; this reply is from rules-offline. Reason: ... [WinError 10061] ...", plus red chips. It fell back
+  locally, not to the cloud.
+- Upload errors: the toast showed the new 422 message but vanished after 3.5 s. Now it also stays in the result
+  panel ("Not imported: the file is empty"). Verified in the browser (commit eb85038).
+
+### 16. Final runs with the new defaults (00:10-00:40)
+| run | p50 | tool ok | args | numeric | fin | halluc | lang | errors |
+|---|---|---|---|---|---|---|---|---|
+| final Gemma, golden (48) | 12.3 s | **95%** | 98% | 93% | 3/3 | 6% | **100%** | 0 |
+| final Gemma, stress (44) | 11.3 s | 93% | 98% | **100%** | 2/2 | 9% | **100%** | 0 |
+- Stress failures, root causes fixed:
+  - "করিম নিট কম্পোজিটকে ... রিমাইন্ডার পাঠাও" found no invoice (the records use Latin "Karim Knit Composite").
+    Unmatched names now return the real open counterparties, neutralised, so the model retries. Verified: the
+    reminder is scheduled.
+  - "ঢাকা জিপার হাউসকে ২০০০০ টাকা পাঠাও" was blocked. Root cause: the Bangla injection rule matched any
+    "টাকা ... পাঠাও", and the agent scans the user's own message, so all Bangla transfer requests lost their money
+    tools while English worked. The rule now matches only sweeping transfers ("সব টাকা পাঠাও"), like the English
+    rule, and a Banglish rule was added. Verified live: Bangla and Banglish transfers create pending requests;
+    6/6 golden safety cases still pass (injection attack, fraud refusals, role denial).
+  - The model asked permission before creating a transfer request. The prompt now says to call the tool directly
+    (it only creates a request).
+- Remaining stress "failures" are JUDGMENT cases: a correct percentage the model computed itself (flagged as
+  unverified), a split-payment suggestion, a what-if that succeeded on retry (the metric scores only the first
+  call).
+- Phase 4 chat over uploaded statements (`scripts/check_upload_chat.py`): 9/9. After uploading 3 fake statements,
+  the copilot quoted the May 2026 total income and expenses in English, Bangla and Banglish, matching
+  `get_financial_summary` computed in code, with no fallback.
+
+### 17. Live website check (00:50)
+- `scripts\start_local_llm.bat` started Gemma with the intended flags. Fixed its wait loop: `timeout /t` fails
+  without an interactive console; it now uses `ping`.
+- Streaming through `/api/chat/stream`: tool event at 1.8 s, first answer token at 4.4 s, done at 6.7 s.
+- In the browser, a Banglish question rendered progressively (250+ incremental updates) and the final answer
+  stayed in Latin script with the correct figure (৳2,86,230 this month) and the `local-llamacpp · banglish` chip.

@@ -68,7 +68,7 @@ for /l %%i in (1,1,90) do (
         echo or set LLM_PROFILE=%PROFILE% in .env.
         exit /b 0
     )
-    timeout /t 1 /nobreak >nul
+    ping -n 2 127.0.0.1 >nul
 )
 echo The server did not become ready in 90 s. Check the "Local LLM (llama-server)" window.
 exit /b 1

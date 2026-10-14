@@ -135,9 +135,10 @@ Measured on an AMD RX 9060 XT 16 GB + Ryzen 7 3700X + 16 GB RAM (Windows, llama.
 | profile | `local-llamacpp` (native tools) | `local-qwen14b` (emulated tools) |
 | VRAM | ~8 GB | ~13 GB |
 | generation speed | ~38 tok/s | ~20 tok/s |
-| median answer time (golden set) | ~11 s | ~18 s |
-| numeric accuracy / hallucinated numbers | 93% / 6% | 86% / 8% |
-| Bangla + Banglish language match | 95-100% | 86% |
+| median answer time (golden set) | ~12 s, first words after ~4 s (streamed) | ~18 s |
+| tool-call success / numeric accuracy | 95% / 93% | 88% / 86% |
+| answers with invented numbers | 6% | 8% |
+| replies in the user's language (EN, Bangla, Banglish) | 100% | 86% (Bangla/Banglish) |
 
 Before this tuning, the local Qwen3.8 27B ran at ~9 tok/s, spilled out of VRAM, and took ~2 minutes per answer.
 
