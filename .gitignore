@@ -25,3 +25,6 @@ Comp.pdf
 Thumbs.db
 .idea/
 .vscode/
+
+# Local tooling
+.claude/

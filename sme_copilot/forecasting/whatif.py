@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from sme_copilot.tools.analysis import add_months
 from sme_copilot.tools.finance_math import emi_reducing
+from sme_copilot.tools.money import format_bdt
 from sme_copilot.tools.trace import Trace, fmt
 
 from .forecast import Flow, ForecastInputs, ForecastResult, Recurring, project
@@ -99,7 +100,7 @@ def apply(inp: ForecastInputs, sc: Scenario) -> tuple[ScenarioOutcome, float | N
                 f.day = f.day + timedelta(days=sc.days)
                 moved += f.amount
         return ScenarioOutcome(description=f"{target} pays {sc.days} days late", applied=True,
-                               detail=f"{fmt(moved)} of expected collections moved {sc.days} days later"), None
+                               detail=f"{format_bdt(moved)} of expected collections moved {sc.days} days later"), None
     if sc.kind == "loan":
         start = inp.as_of + timedelta(days=sc.start_in_days)
         emi = emi_reducing(sc.amount, sc.annual_rate_pct, sc.months)
@@ -110,9 +111,9 @@ def apply(inp: ForecastInputs, sc: Scenario) -> tuple[ScenarioOutcome, float | N
             inp.scheduled.append(Flow(d, -round(emi, 2), "Loan EMI", "emi", category="loan_repayment"))
             d = add_months(d, 1)
             n += 1
-        return ScenarioOutcome(description=f"Take a {fmt(sc.amount)} loan at {sc.annual_rate_pct}% for {sc.months} "
+        return ScenarioOutcome(description=f"Take a {format_bdt(sc.amount)} loan at {sc.annual_rate_pct}% for {sc.months} "
                                            f"months", applied=True,
-                               detail=f"EMI {fmt(round(emi, 2))}/month; {n} EMI(s) fall inside the horizon "
+                               detail=f"EMI {format_bdt(emi)}/month; {n} EMI(s) fall inside the horizon "
                                       f"(rate is an illustrative assumption)"), emi
     if sc.kind == "revenue_change":
         inp.revenue_scale *= 1 + sc.pct / 100
@@ -153,7 +154,7 @@ def apply(inp: ForecastInputs, sc: Scenario) -> tuple[ScenarioOutcome, float | N
                            applied=True, detail=sc.description or ""), None
 
 
-def simulate(base_inputs: ForecastInputs, scenarios: list[Scenario]) -> WhatIfResult:
+def simulate(base_inputs: ForecastInputs, scenarios: list[Scenario], style: str = "lakh") -> WhatIfResult:
     base = project(base_inputs.clone())
     inp = base_inputs.clone()
     outcomes, emi = [], None
@@ -168,10 +169,10 @@ def simulate(base_inputs: ForecastInputs, scenarios: list[Scenario]) -> WhatIfRe
     lines = [f"{o.description}: {o.detail}." if o.applied else f"Could not apply '{o.description}': {o.detail}."
              for o in outcomes]
     diff = s_end - b_end
-    lines.append(f"In {base.horizon_days} days your balance would be {fmt(round(s_end))} instead of {fmt(round(b_end))} "
-                 f"({'+' if diff >= 0 else '-'}{fmt(round(abs(diff)))}).")
-    lines.append(f"Lowest point: {fmt(round(s_min_p.balance))} on {s_min_p.date.isoformat()} "
-                 f"(baseline lowest {fmt(round(b_min))}).")
+    M = lambda v: format_bdt(v, style=style)  # noqa: E731
+    change = "no change" if abs(diff) < 1 else f"{'+' if diff > 0 else '-'}{M(abs(diff))}"
+    lines.append(f"In {base.horizon_days} days your balance would be {M(s_end)} instead of {M(b_end)} ({change}).")
+    lines.append(f"Lowest point: {M(s_min_p.balance)} on {s_min_p.date.isoformat()} (current forecast lowest {M(b_min)}).")
     if scen.first_negative_date and not base.first_negative_date:
         lines.append(f"Warning: this scenario takes you below zero on {scen.first_negative_date.isoformat()}.")
     elif base.first_negative_date and not scen.first_negative_date:

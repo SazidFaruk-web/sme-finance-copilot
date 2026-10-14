@@ -13,10 +13,13 @@ Model (transparent by design, so every number can be explained to a shop owner):
       history (same category, roughly monthly, similar amount).
 * Baseline (everything else), from the last 90 days of history:
     - inflow = sales not explained by invoice collections, + other income;
+    - collections from *new* credit sales (invoices not issued yet) at the historical rate, but
+      only after the typical issue-to-payment lag (before that, open invoices cover it);
     - outflow split into variable (scales with sales in what-ifs) and fixed/other;
     - categories covered by recurring obligations are removed to avoid double counting;
     - multiplied by a month-of-year seasonal factor when last year's same month is known.
-* Uncertainty: 80 % band = ±1.28 * σ(daily net) * √t.
+* Uncertainty: 80 % band = ±1.28 * σ(weekly net) * √(t/7). Weekly (not daily) volatility is used
+  because lumpy purchases and collections partly offset within a week.
 """
 from __future__ import annotations
 
@@ -74,10 +77,12 @@ class ForecastInputs:
     month_factor: dict[int, float]
     scheduled: list[Flow]
     recurring: list[Recurring]
-    daily_std: float
+    weekly_std: float
     low_threshold: float
     notes: list[str] = field(default_factory=list)
     trace_rows: list[int] = field(default_factory=list)
+    base_collections_daily: float = 0.0  # future credit-sale collections (after the lag)
+    collection_lag_days: int = 30
     revenue_scale: float = 1.0  # what-if knob
     variable_scale: float = 1.0
     fixed_extra_daily: float = 0.0
@@ -226,9 +231,15 @@ def build_inputs(txns: pd.DataFrame, invoices: pd.DataFrame, obligations: list[A
                         (invoices["paid_date"] >= pd.Timestamp(lb_start)) & (invoices["paid_date"] <= pd.Timestamp(as_of))]
         collected = float(paid["amount_paid"].sum())
     base_in = max(0.0, beh_in["revenue"] - collected) + beh_in["other_income"]
+    lag = 30
+    if not invoices.empty:
+        settled = invoices[(invoices["kind"] == "receivable") & invoices["paid_date"].notna()]
+        if not settled.empty:
+            lag = int(median((settled["paid_date"] - settled["issue_date"]).dt.days.tolist()))
     if collected:
-        notes.append(f"{fmt(collected)} of invoice collections in the last 90 days were removed from baseline sales "
-                     f"to avoid double counting with open invoices.")
+        notes.append(f"Credit sales are modelled separately: open invoices on their expected dates, then new "
+                     f"credit-sale collections of ~{fmt(round(collected / days_of_data))}/day from day {lag} "
+                     f"(your typical invoice-to-payment time).")
 
     # Seasonal factor: last year's same month vs last year's average (from monthly sales).
     month_factor: dict[int, float] = {}
@@ -275,19 +286,21 @@ def build_inputs(txns: pd.DataFrame, invoices: pd.DataFrame, obligations: list[A
             scheduled.append(Flow(d, -rec.amount, rec.name, "obligation", ref=f"{rec.source}:{rec.category}",
                                   category=rec.category))
 
-    # Volatility of daily net cash flow (incl. zero days).
-    daily_std = 0.0
+    # Volatility of weekly net cash flow (zero days included).
+    weekly_std = 0.0
     if not hist.empty:
         signed = hist.assign(s=hist["amount"].where(hist["direction"] == "in", -hist["amount"]))
-        daily = signed.groupby(signed["date"].dt.date)["s"].sum()
-        full = pd.Series(0.0, index=pd.date_range(lb_start, as_of).date)
+        daily = signed.groupby(signed["date"].dt.normalize())["s"].sum()
+        full = pd.Series(0.0, index=pd.date_range(lb_start, as_of))
         full.update(daily)
-        daily_std = float(full.std(ddof=0)) if len(full) > 1 else 0.0
+        weekly = full.resample("W").sum()
+        weekly_std = float(weekly.std(ddof=0)) if len(weekly) > 1 else 0.0
 
     return ForecastInputs(
         as_of=as_of, horizon=horizon, start_balance=start_balance, base_in_daily=base_in / days_of_data,
+        base_collections_daily=collected / days_of_data, collection_lag_days=lag,
         base_out_variable_daily=beh_out["variable"] / days_of_data, base_out_fixed_daily=beh_out["fixed"] / days_of_data,
-        month_factor=month_factor, scheduled=scheduled, recurring=recurring, daily_std=daily_std,
+        month_factor=month_factor, scheduled=scheduled, recurring=recurring, weekly_std=weekly_std,
         low_threshold=float(getattr(business, "low_balance_threshold", 0) or 0), notes=notes,
         trace_rows=hist["id"].tolist() if not hist.empty else [])
 
@@ -304,6 +317,8 @@ def project(inp: ForecastInputs) -> ForecastResult:
         d = inp.as_of + timedelta(days=i)
         factor = inp.month_factor.get(d.month, 1.0)
         base_in = inp.base_in_daily * factor * inp.revenue_scale
+        if i > inp.collection_lag_days:
+            base_in += inp.base_collections_daily * factor * inp.revenue_scale
         base_out = inp.base_out_variable_daily * factor * inp.revenue_scale * inp.variable_scale + \
             inp.base_out_fixed_daily + inp.fixed_extra_daily
         sched = by_day.get(d, [])
@@ -311,7 +326,7 @@ def project(inp: ForecastInputs) -> ForecastResult:
         s_out = -sum(f.amount for f in sched if f.amount < 0)
         inflow, outflow = base_in + s_in, base_out + s_out
         bal += inflow - outflow
-        band = Z80 * inp.daily_std * math.sqrt(i)
+        band = Z80 * inp.weekly_std * math.sqrt(i / 7)
         series.append(DayPoint(date=d, inflow=round(inflow, 2), outflow=round(outflow, 2), net=round(inflow - outflow, 2),
                                balance=round(bal, 2), low=round(bal - band, 2), high=round(bal + band, 2),
                                events=[f"{f.label}: {'+' if f.amount > 0 else '-'}{fmt(abs(f.amount))}" for f in sched]))
@@ -335,14 +350,16 @@ def project(inp: ForecastInputs) -> ForecastResult:
     runway = (max(inp.start_balance, 0) / -avg_monthly_net) if avg_monthly_net < 0 else None
 
     t = Trace(formula="balance[t] = balance[t-1] + baseline inflow - baseline outflow + scheduled items; "
-                      "80% band = ±1.28·σ(daily net)·√t", period=f"{inp.as_of} + {inp.horizon} days")
+                      "80% band = ±1.28·σ(weekly net)·√(t/7)", period=f"{inp.as_of} + {inp.horizon} days")
     t.step("Starting balance", round(inp.start_balance, 2))
     t.step("Baseline inflow per day", round(inp.base_in_daily, 2), "non-invoice sales + other income, last 90 days")
+    t.step("New credit-sale collections per day", round(inp.base_collections_daily, 2),
+           f"historical invoice collections, applied after day {inp.collection_lag_days}")
     t.step("Baseline variable outflow per day", round(inp.base_out_variable_daily, 2))
     t.step("Baseline fixed/other outflow per day", round(inp.base_out_fixed_daily, 2))
     t.step("Scheduled inflows (receivables)", round(sum(f.amount for f in inp.scheduled if f.amount > 0), 2))
     t.step("Scheduled outflows (obligations, payables)", round(-sum(f.amount for f in inp.scheduled if f.amount < 0), 2))
-    t.step("σ of daily net cash flow", round(inp.daily_std, 2))
+    t.step("σ of weekly net cash flow", round(inp.weekly_std, 2))
     for s in summaries:
         t.step(f"Balance in {s.days} days", s.end_balance,
                f"{fmt(inp.start_balance)} + {fmt(s.total_inflow)} - {fmt(s.total_outflow)}")

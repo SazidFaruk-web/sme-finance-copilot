@@ -54,8 +54,12 @@ def logout(token: str = Depends(bearer_token), user: User = Depends(current_user
 
 
 @router.get("/auth/me")
-def me(user: User = Depends(current_user)) -> dict[str, Any]:
-    return _user_dict(user)
+def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
+    from sme_copilot.models import Business
+
+    from .deps import as_of_today
+    b = db.get(Business, user.business_id)
+    return {**_user_dict(user), "business_name": b.name if b else "", "as_of": as_of_today().isoformat()}
 
 
 def _user_dict(u: User) -> dict[str, Any]:

@@ -1,0 +1,142 @@
+Invoice No,Customer,Amount,Invoice Date,Due Date,Paid Date,Phone,Notes
+INV-1001,Karim Knit Composite,71800.0,07/07/2025,06/08/2025,01/09/2025,01711000111,Garment accessories
+INV-1002,Karim Knit Composite,81500.0,05/07/2025,04/08/2025,30/08/2025,01711000111,Garment accessories
+INV-1003,Karim Knit Composite,87700.0,24/07/2025,23/08/2025,21/09/2025,01711000111,Garment accessories
+INV-1004,Rahman Fashion House,45000.0,13/07/2025,12/08/2025,20/08/2025,01822000222,Garment accessories
+INV-1005,Rahman Fashion House,40400.0,19/07/2025,18/08/2025,24/08/2025,01822000222,Garment accessories
+INV-1006,Shapla Apparels,37900.0,12/07/2025,11/08/2025,11/08/2025,01933000333,Garment accessories
+INV-1007,Shapla Apparels,28500.0,25/07/2025,24/08/2025,24/08/2025,01933000333,Garment accessories
+INV-1008,Bismillah Garments,42500.0,05/07/2025,04/08/2025,16/09/2025,01544000444,Garment accessories
+INV-1009,Meghna Tailoring,16400.0,17/07/2025,16/08/2025,16/08/2025,01655000555,Garment accessories
+INV-1010,Karim Knit Composite,96000.0,23/08/2025,22/09/2025,17/10/2025,01711000111,Garment accessories
+INV-1011,Karim Knit Composite,73200.0,20/08/2025,19/09/2025,24/10/2025,01711000111,Garment accessories
+INV-1012,Karim Knit Composite,80500.0,27/08/2025,26/09/2025,26/10/2025,01711000111,Garment accessories
+INV-1013,Rahman Fashion House,43800.0,11/08/2025,10/09/2025,16/09/2025,01822000222,Garment accessories
+INV-1014,Rahman Fashion House,51200.0,15/08/2025,14/09/2025,19/09/2025,01822000222,Garment accessories
+INV-1015,Shapla Apparels,34200.0,12/08/2025,11/09/2025,15/09/2025,01933000333,Garment accessories
+INV-1016,Shapla Apparels,36000.0,17/08/2025,16/09/2025,16/09/2025,01933000333,Garment accessories
+INV-1017,Bismillah Garments,38200.0,07/08/2025,06/09/2025,08/10/2025,01544000444,Garment accessories
+INV-1018,Meghna Tailoring,24600.0,13/08/2025,12/09/2025,16/09/2025,01655000555,Garment accessories
+INV-1019,Karim Knit Composite,112300.0,13/09/2025,13/10/2025,09/11/2025,01711000111,Garment accessories
+INV-1020,Karim Knit Composite,91700.0,06/09/2025,06/10/2025,28/10/2025,01711000111,Garment accessories
+INV-1021,Karim Knit Composite,129900.0,20/09/2025,20/10/2025,17/11/2025,01711000111,Garment accessories
+INV-1022,Rahman Fashion House,53500.0,05/09/2025,05/10/2025,15/10/2025,01822000222,Garment accessories
+INV-1023,Rahman Fashion House,64400.0,16/09/2025,16/10/2025,20/10/2025,01822000222,Garment accessories
+INV-1024,Shapla Apparels,72200.0,12/09/2025,12/10/2025,12/10/2025,01933000333,Garment accessories
+INV-1025,Shapla Apparels,65400.0,19/09/2025,19/10/2025,19/10/2025,01933000333,Garment accessories
+INV-1026,Bismillah Garments,64700.0,22/09/2025,22/10/2025,06/12/2025,01544000444,Garment accessories
+INV-1027,Meghna Tailoring,25700.0,02/09/2025,02/10/2025,03/10/2025,01655000555,Garment accessories
+INV-1028,Karim Knit Composite,105200.0,05/10/2025,04/11/2025,03/12/2025,01711000111,Garment accessories
+INV-1029,Karim Knit Composite,118300.0,17/10/2025,16/11/2025,17/12/2025,01711000111,Garment accessories
+INV-1030,Karim Knit Composite,110100.0,23/10/2025,22/11/2025,09/12/2025,01711000111,Garment accessories
+INV-1031,Rahman Fashion House,49600.0,18/10/2025,17/11/2025,22/11/2025,01822000222,Garment accessories
+INV-1032,Rahman Fashion House,68100.0,14/10/2025,13/11/2025,23/11/2025,01822000222,Garment accessories
+INV-1033,Shapla Apparels,48400.0,02/10/2025,01/11/2025,01/11/2025,01933000333,Garment accessories
+INV-1034,Shapla Apparels,48900.0,20/10/2025,19/11/2025,19/11/2025,01933000333,Garment accessories
+INV-1035,Bismillah Garments,66000.0,15/10/2025,14/11/2025,26/12/2025,01544000444,Garment accessories
+INV-1036,Meghna Tailoring,22600.0,17/10/2025,16/11/2025,16/11/2025,01655000555,Garment accessories
+INV-1037,Karim Knit Composite,122800.0,03/11/2025,03/12/2025,25/12/2025,01711000111,Garment accessories
+INV-1038,Karim Knit Composite,95300.0,10/11/2025,10/12/2025,31/12/2025,01711000111,Garment accessories
+INV-1039,Karim Knit Composite,87800.0,26/11/2025,26/12/2025,17/01/2026,01711000111,Garment accessories
+INV-1040,Rahman Fashion House,61900.0,22/11/2025,22/12/2025,30/12/2025,01822000222,Garment accessories
+INV-1041,Rahman Fashion House,75000.0,19/11/2025,19/12/2025,26/12/2025,01822000222,Garment accessories
+INV-1042,Shapla Apparels,40000.0,05/11/2025,05/12/2025,05/12/2025,01933000333,Garment accessories
+INV-1043,Shapla Apparels,63800.0,09/11/2025,09/12/2025,10/12/2025,01933000333,Garment accessories
+INV-1044,Bismillah Garments,54600.0,24/11/2025,24/12/2025,07/02/2026,01544000444,Garment accessories
+INV-1045,Meghna Tailoring,26600.0,20/11/2025,20/12/2025,20/12/2025,01655000555,Garment accessories
+INV-1046,Karim Knit Composite,81400.0,06/12/2025,05/01/2026,30/01/2026,01711000111,Garment accessories
+INV-1047,Karim Knit Composite,134400.0,10/12/2025,09/01/2026,08/02/2026,01711000111,Garment accessories
+INV-1048,Karim Knit Composite,137600.0,18/12/2025,17/01/2026,13/02/2026,01711000111,Garment accessories
+INV-1049,Rahman Fashion House,73600.0,17/12/2025,16/01/2026,21/01/2026,01822000222,Garment accessories
+INV-1050,Rahman Fashion House,66400.0,21/12/2025,20/01/2026,31/01/2026,01822000222,Garment accessories
+INV-1051,Shapla Apparels,62000.0,17/12/2025,16/01/2026,16/01/2026,01933000333,Garment accessories
+INV-1052,Shapla Apparels,39300.0,17/12/2025,16/01/2026,16/01/2026,01933000333,Garment accessories
+INV-1053,Bismillah Garments,73000.0,17/12/2025,16/01/2026,24/02/2026,01544000444,Garment accessories
+INV-1054,Meghna Tailoring,25800.0,08/12/2025,07/01/2026,16/01/2026,01655000555,Garment accessories
+INV-1055,Karim Knit Composite,128200.0,18/01/2026,17/02/2026,12/03/2026,01711000111,Garment accessories
+INV-1056,Karim Knit Composite,126500.0,03/01/2026,02/02/2026,01/03/2026,01711000111,Garment accessories
+INV-1057,Karim Knit Composite,120800.0,04/01/2026,03/02/2026,26/02/2026,01711000111,Garment accessories
+INV-1058,Rahman Fashion House,77900.0,19/01/2026,18/02/2026,22/02/2026,01822000222,Garment accessories
+INV-1059,Rahman Fashion House,86600.0,11/01/2026,10/02/2026,12/02/2026,01822000222,Garment accessories
+INV-1060,Shapla Apparels,53300.0,18/01/2026,17/02/2026,17/02/2026,01933000333,Garment accessories
+INV-1061,Shapla Apparels,44900.0,17/01/2026,16/02/2026,16/02/2026,01933000333,Garment accessories
+INV-1062,Bismillah Garments,75000.0,19/01/2026,18/02/2026,01/04/2026,01544000444,Garment accessories
+INV-1063,Meghna Tailoring,32400.0,07/01/2026,06/02/2026,18/02/2026,01655000555,Garment accessories
+INV-1064,Karim Knit Composite,182700.0,18/02/2026,20/03/2026,12/04/2026,01711000111,Garment accessories
+INV-1065,Karim Knit Composite,102400.0,14/02/2026,16/03/2026,20/04/2026,01711000111,Garment accessories
+INV-1066,Karim Knit Composite,92900.0,02/02/2026,04/03/2026,24/03/2026,01711000111,Garment accessories
+INV-1067,Rahman Fashion House,57400.0,08/02/2026,10/03/2026,19/03/2026,01822000222,Garment accessories
+INV-1068,Rahman Fashion House,70500.0,08/02/2026,10/03/2026,16/03/2026,01822000222,Garment accessories
+INV-1069,Shapla Apparels,52400.0,10/02/2026,12/03/2026,12/03/2026,01933000333,Garment accessories
+INV-1070,Shapla Apparels,103000.0,23/02/2026,25/03/2026,25/03/2026,01933000333,Garment accessories
+INV-1071,Bismillah Garments,50500.0,12/02/2026,14/03/2026,20/04/2026,01544000444,Garment accessories
+INV-1072,Meghna Tailoring,48600.0,25/02/2026,27/03/2026,27/03/2026,01655000555,Garment accessories
+INV-1073,Karim Knit Composite,192100.0,06/03/2026,05/04/2026,30/04/2026,01711000111,Garment accessories
+INV-1074,Karim Knit Composite,140600.0,06/03/2026,05/04/2026,28/04/2026,01711000111,Garment accessories
+INV-1075,Karim Knit Composite,103900.0,27/03/2026,26/04/2026,27/05/2026,01711000111,Garment accessories
+INV-1076,Rahman Fashion House,99000.0,03/03/2026,02/04/2026,12/04/2026,01822000222,Garment accessories
+INV-1077,Rahman Fashion House,144200.0,11/03/2026,10/04/2026,19/04/2026,01822000222,Garment accessories
+INV-1078,Shapla Apparels,95400.0,19/03/2026,18/04/2026,20/04/2026,01933000333,Garment accessories
+INV-1079,Shapla Apparels,83300.0,06/03/2026,05/04/2026,05/04/2026,01933000333,Garment accessories
+INV-1080,Bismillah Garments,115800.0,07/03/2026,06/04/2026,17/05/2026,01544000444,Garment accessories
+INV-1081,Meghna Tailoring,51500.0,15/03/2026,14/04/2026,14/04/2026,01655000555,Garment accessories
+INV-1082,Karim Knit Composite,100400.0,02/04/2026,02/05/2026,28/05/2026,01711000111,Garment accessories
+INV-1083,Karim Knit Composite,87300.0,18/04/2026,18/05/2026,08/06/2026,01711000111,Garment accessories
+INV-1084,Karim Knit Composite,89700.0,25/04/2026,25/05/2026,18/06/2026,01711000111,Garment accessories
+INV-1085,Rahman Fashion House,56700.0,12/04/2026,12/05/2026,15/05/2026,01822000222,Garment accessories
+INV-1086,Rahman Fashion House,54500.0,03/04/2026,03/05/2026,10/05/2026,01822000222,Garment accessories
+INV-1087,Shapla Apparels,54300.0,20/04/2026,20/05/2026,20/05/2026,01933000333,Garment accessories
+INV-1088,Shapla Apparels,62300.0,12/04/2026,12/05/2026,12/05/2026,01933000333,Garment accessories
+INV-1089,Bismillah Garments,66100.0,07/04/2026,07/05/2026,17/06/2026,01544000444,Garment accessories
+INV-1090,Meghna Tailoring,24000.0,23/04/2026,23/05/2026,24/05/2026,01655000555,Garment accessories
+INV-1091,Karim Knit Composite,108300.0,07/05/2026,06/06/2026,29/06/2026,01711000111,Garment accessories
+INV-1092,Karim Knit Composite,102000.0,13/05/2026,12/06/2026,04/07/2026,01711000111,Garment accessories
+INV-1093,Karim Knit Composite,145300.0,15/05/2026,14/06/2026,06/07/2026,01711000111,Garment accessories
+INV-1094,Rahman Fashion House,103800.0,08/05/2026,07/06/2026,15/06/2026,01822000222,Garment accessories
+INV-1095,Rahman Fashion House,92600.0,22/05/2026,21/06/2026,03/07/2026,01822000222,Garment accessories
+INV-1096,Shapla Apparels,45900.0,17/05/2026,16/06/2026,16/06/2026,01933000333,Garment accessories
+INV-1097,Shapla Apparels,69500.0,08/05/2026,07/06/2026,08/06/2026,01933000333,Garment accessories
+INV-1098,Bismillah Garments,82200.0,24/05/2026,23/06/2026,03/08/2026,01544000444,Garment accessories
+INV-1099,Meghna Tailoring,26800.0,24/05/2026,23/06/2026,28/06/2026,01655000555,Garment accessories
+INV-1100,Karim Knit Composite,117800.0,08/06/2026,08/07/2026,08/08/2026,01711000111,Garment accessories
+INV-1101,Karim Knit Composite,68200.0,15/06/2026,15/07/2026,15/08/2026,01711000111,Garment accessories
+INV-1102,Karim Knit Composite,111500.0,22/06/2026,22/07/2026,15/08/2026,01711000111,Garment accessories
+INV-1103,Rahman Fashion House,68600.0,11/06/2026,11/07/2026,15/07/2026,01822000222,Garment accessories
+INV-1104,Rahman Fashion House,73900.0,16/06/2026,16/07/2026,26/07/2026,01822000222,Garment accessories
+INV-1105,Shapla Apparels,44700.0,13/06/2026,13/07/2026,17/07/2026,01933000333,Garment accessories
+INV-1106,Shapla Apparels,37500.0,19/06/2026,19/07/2026,24/07/2026,01933000333,Garment accessories
+INV-1107,Bismillah Garments,53500.0,13/06/2026,13/07/2026,,01544000444,Garment accessories
+INV-1108,Meghna Tailoring,27600.0,24/06/2026,24/07/2026,24/07/2026,01655000555,Garment accessories
+INV-1109,Karim Knit Composite,93100.0,12/07/2026,11/08/2026,07/09/2026,01711000111,Garment accessories
+INV-1110,Karim Knit Composite,73300.0,16/07/2026,15/08/2026,09/09/2026,01711000111,Garment accessories
+INV-1111,Karim Knit Composite,82000.0,27/07/2026,26/08/2026,,01711000111,Garment accessories
+INV-1112,Rahman Fashion House,44800.0,10/07/2026,09/08/2026,16/08/2026,01822000222,Garment accessories
+INV-1113,Rahman Fashion House,53800.0,04/07/2026,03/08/2026,19/08/2026,01822000222,Garment accessories
+INV-1114,Shapla Apparels,29300.0,20/07/2026,19/08/2026,22/08/2026,01933000333,Garment accessories
+INV-1115,Shapla Apparels,41600.0,27/07/2026,26/08/2026,26/08/2026,01933000333,Garment accessories
+INV-1116,Bismillah Garments,47900.0,17/07/2026,16/08/2026,22/09/2026,01544000444,Garment accessories
+INV-1117,Meghna Tailoring,26300.0,06/07/2026,05/08/2026,09/08/2026,01655000555,Garment accessories
+INV-1118,Karim Knit Composite,64700.0,04/08/2026,03/09/2026,,01711000111,Garment accessories
+INV-1119,Karim Knit Composite,57400.0,10/08/2026,09/09/2026,,01711000111,Garment accessories
+INV-1120,Karim Knit Composite,85700.0,26/08/2026,25/09/2026,,01711000111,Garment accessories
+INV-1121,Rahman Fashion House,58100.0,05/08/2026,04/09/2026,14/09/2026,01822000222,Garment accessories
+INV-1122,Rahman Fashion House,45100.0,06/08/2026,05/09/2026,10/09/2026,01822000222,Garment accessories
+INV-1123,Shapla Apparels,32300.0,17/08/2026,16/09/2026,16/09/2026,01933000333,Garment accessories
+INV-1124,Shapla Apparels,36000.0,09/08/2026,08/09/2026,08/09/2026,01933000333,Garment accessories
+INV-1125,Bismillah Garments,56900.0,18/08/2026,17/09/2026,,01544000444,Garment accessories
+INV-1126,Meghna Tailoring,22500.0,09/08/2026,08/09/2026,12/09/2026,01655000555,Garment accessories
+INV-1127,Karim Knit Composite,77300.0,16/09/2026,16/10/2026,,01711000111,Garment accessories
+INV-1128,Karim Knit Composite,94000.0,14/09/2026,14/10/2026,,01711000111,Garment accessories
+INV-1129,Karim Knit Composite,94900.0,02/09/2026,02/10/2026,,01711000111,Garment accessories
+INV-1130,Rahman Fashion House,58800.0,18/09/2026,18/10/2026,,01822000222,Garment accessories
+INV-1131,Rahman Fashion House,52600.0,06/09/2026,06/10/2026,,01822000222,Garment accessories
+INV-1132,Shapla Apparels,43200.0,26/09/2026,26/10/2026,,01933000333,Garment accessories
+INV-1133,Shapla Apparels,47200.0,25/09/2026,25/10/2026,,01933000333,Garment accessories
+INV-1134,Bismillah Garments,70000.0,07/09/2026,07/10/2026,,01544000444,Garment accessories
+INV-1135,Meghna Tailoring,25900.0,05/09/2026,05/10/2026,09/10/2026,01655000555,Garment accessories
+INV-1136,Karim Knit Composite,115700.0,07/10/2026,06/11/2026,,01711000111,Garment accessories
+INV-1137,Rahman Fashion House,88600.0,05/10/2026,04/11/2026,,01822000222,Garment accessories
+INV-1138,Rahman Fashion House,63500.0,02/10/2026,01/11/2026,,01822000222,Garment accessories
+INV-1139,Shapla Apparels,48200.0,03/10/2026,02/11/2026,,01933000333,Garment accessories
+INV-1140,Shapla Apparels,42200.0,13/10/2026,12/11/2026,,01933000333,Garment accessories
+INV-1141,Bismillah Garments,86800.0,07/10/2026,06/11/2026,,01544000444,Garment accessories

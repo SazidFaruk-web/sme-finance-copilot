@@ -46,7 +46,7 @@ class WhatIfArgs(BaseModel):
       "monthly_amount), one-off payments (kind=one_off).", WhatIfArgs, 0, category="forecast",
       result_model=WhatIfResult, advisory=True)
 def run_what_if(ctx: ToolContext, a: WhatIfArgs):
-    return simulate(_inputs(ctx, a.horizon_days), a.scenarios)
+    return simulate(_inputs(ctx, a.horizon_days), a.scenarios, style=ctx.style)
 
 
 class AlertsArgs(BaseModel):

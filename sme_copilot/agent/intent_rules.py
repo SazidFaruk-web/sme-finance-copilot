@@ -202,8 +202,9 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         if not amt or QUESTION_RX.search(t):
             return None
         rec = _name_after(t, o, ("to",))
-        return {"recipient_name": rec or "unknown recipient", "amount": amt,
-                "purpose": "requested via chat"}
+        m = re.search(r"\b(?:for|jonno)\s+(.{3,80})$", o.strip(), re.I)
+        purpose = m.group(1).strip(" .") if m else "requested via chat"
+        return {"recipient_name": rec or "unknown recipient", "amount": amt, "purpose": purpose}
 
     def reminder(t, o, c):
         name = _name_after(t, o, ("remind", "to", "for", "customer"))

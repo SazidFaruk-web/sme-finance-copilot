@@ -24,7 +24,7 @@ AS_OF = date(2026, 10, 14)
 
 def simple_inputs(**kw) -> ForecastInputs:
     base = dict(as_of=AS_OF, horizon=90, start_balance=100_000, base_in_daily=1_000, base_out_variable_daily=400,
-                base_out_fixed_daily=100, month_factor={}, scheduled=[], recurring=[], daily_std=0.0,
+                base_out_fixed_daily=100, month_factor={}, scheduled=[], recurring=[], weekly_std=0.0,
                 low_threshold=50_000)
     base.update(kw)
     return ForecastInputs(**base)
@@ -53,7 +53,7 @@ def test_first_negative_and_runway():
 
 
 def test_uncertainty_band_grows_with_sqrt_time():
-    r = project(simple_inputs(daily_std=1_000))
+    r = project(simple_inputs(weekly_std=1_000))
     w1 = r.series[0].high - r.series[0].low
     w4 = r.series[3].high - r.series[3].low
     assert w4 == pytest.approx(2 * w1, rel=1e-3)

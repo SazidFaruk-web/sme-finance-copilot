@@ -51,7 +51,17 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict:
-        return {"status": "ok", "version": __version__}
+        st = get_settings()
+        out = {"status": "ok", "version": __version__, "env": st.app_env, "local_only_mode": st.local_only_mode}
+        if st.app_env == "demo":  # demo deployments only: show the seeded demo logins on the login screen
+            import os
+            out["demo_users"] = [
+                {"username": "nusrat", "role": "owner", "password": os.environ.get("DEMO_OWNER_PASSWORD", "owner-demo-2026")},
+                {"username": "rafiq", "role": "accountant",
+                 "password": os.environ.get("DEMO_ACCOUNTANT_PASSWORD", "accountant-demo-2026")},
+                {"username": "mitu", "role": "viewer", "password": os.environ.get("DEMO_VIEWER_PASSWORD", "viewer-demo-2026")},
+            ]
+        return out
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
