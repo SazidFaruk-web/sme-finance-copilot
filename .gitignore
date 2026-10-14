@@ -31,3 +31,4 @@ Thumbs.db
 
 # Raw llama-server logs from benchmark runs
 benchmarks/results/server_*.log
+benchmarks/results/golden/*/server.log
