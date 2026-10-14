@@ -11,4 +11,4 @@ filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx` with `star
 
 [tool.coverage.run]
 source = ["sme_copilot"]
-omit = ["sme_copilot/cli.py"]
+omit = ["sme_copilot/cli.py", "sme_copilot/demo/evidence.py"]

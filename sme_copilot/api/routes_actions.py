@@ -181,6 +181,11 @@ def oplog(limit: int = 200, user: User = Depends(require_tier(1)), db: Session =
     return [audit.to_dict(e) for e in _oplog_rows(db, user.business_id, min(limit, 2000))]
 
 
+def _safe_cell(v: Any) -> Any:
+    """Neutralise spreadsheet formula injection in exported CSV (cells starting with = + - @)."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v
+
+
 @router.get("/oplog/export")
 def oplog_export(fmt: Literal["csv", "jsonl"] = "csv", user: User = Depends(require_tier(1)),
                  db: Session = Depends(get_db)) -> Response:
@@ -194,9 +199,10 @@ def oplog_export(fmt: Literal["csv", "jsonl"] = "csv", user: User = Depends(requ
     w.writerow(["id", "timestamp_utc", "actor", "actor_role", "event_type", "action", "tier", "inputs", "result",
                 "confirmation_status", "request_id", "prev_hash", "hash"])
     for e in rows:
-        w.writerow([e.id, e.ts.isoformat(), e.actor, e.actor_role, e.event_type, e.action, e.tier,
-                    json.dumps(e.inputs, ensure_ascii=False), json.dumps(e.result, ensure_ascii=False, default=str),
-                    e.confirmation_status, e.request_id, e.prev_hash, e.hash])
+        w.writerow([_safe_cell(v) for v in (
+            e.id, e.ts.isoformat(), e.actor, e.actor_role, e.event_type, e.action, e.tier,
+            json.dumps(e.inputs, ensure_ascii=False), json.dumps(e.result, ensure_ascii=False, default=str),
+            e.confirmation_status, e.request_id, e.prev_hash, e.hash)])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=operation_log.csv"})
 

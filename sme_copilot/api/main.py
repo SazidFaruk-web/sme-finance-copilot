@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -24,7 +25,29 @@ async def lifespan(app: FastAPI):
     if s.app_env == "production" and not s.field_encryption_key:
         raise RuntimeError("FIELD_ENCRYPTION_KEY must be set in production")
     init_db()
+    stop = threading.Event()
+    if s.digest_scheduler:
+        threading.Thread(target=_digest_loop, args=(stop,), daemon=True, name="digest-scheduler").start()
     yield
+    stop.set()
+
+
+def _digest_loop(stop: threading.Event, interval_s: int = 3600) -> None:
+    """Proactive alerts: refresh every business's alerts hourly so the digest is ready when the owner opens
+    the app (or call `python -m sme_copilot.cli digest` from cron)."""
+    from sme_copilot.api.deps import as_of_today
+    from sme_copilot.db import SessionLocal
+    from sme_copilot.forecasting.alerts import refresh_alerts
+    from sme_copilot.models import Business
+    while not stop.is_set():
+        try:
+            with SessionLocal() as db:
+                for b in db.query(Business).all():
+                    refresh_alerts(db, b, as_of_today())
+                db.commit()
+        except Exception:  # noqa: BLE001 - background job must never crash the app
+            log.exception("digest scheduler run failed")
+        stop.wait(interval_s)
 
 
 def create_app() -> FastAPI:

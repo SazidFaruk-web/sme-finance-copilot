@@ -48,8 +48,9 @@ class Settings(BaseSettings):
     # Fixed "today" for reproducible demos/benchmarks (YYYY-MM-DD). Empty = real date (Asia/Dhaka).
     as_of_date: str = ""
 
-    # --- Telemetry ------------------------------------------------------------------
+    # --- Telemetry / background ---------------------------------------------------------
     interaction_log_enabled: bool = True
+    digest_scheduler: bool = False  # refresh alerts for every business hourly (proactive digest)
 
     @property
     def db_url(self) -> str:

@@ -1,12 +1,12 @@
 {
- "generated_at_utc": "2026-10-14T09:36:51+00:00",
+ "generated_at_utc": "2026-10-14T09:46:06+00:00",
  "as_of": "2026-10-14",
  "model_profile": "rules-offline",
  "steps": 33,
  "passed": 33,
  "operation_log_rows": 22,
  "audit_events": 59,
- "audit_head_hash": "3776fc16f3ac48a3a1a490038599da2de38a7ebf099dcb61f45d717ded645b6a",
+ "audit_head_hash": "30bcb8d558cd22c29e5add5eba1fe6b99ce5137bfea3ba74cebaa7a7ac342c3f",
  "confirmation_status_counts": {
   "not_required": 13,
   "rejected": 4,
@@ -54,7 +54,7 @@
       "anomalies": 0,
       "injection_flags": 0,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.960966"
+      "created_at": "2026-10-14T09:46:02.046870"
      },
      {
       "id": 5,
@@ -66,7 +66,7 @@
       "anomalies": 0,
       "injection_flags": 0,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.926508"
+      "created_at": "2026-10-14T09:46:02.012894"
      },
      {
       "id": 4,
@@ -78,7 +78,7 @@
       "anomalies": 0,
       "injection_flags": 1,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.879855"
+      "created_at": "2026-10-14T09:46:01.966510"
      },
      {
       "id": 3,
@@ -90,7 +90,7 @@
       "anomalies": 0,
       "injection_flags": 0,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.812196"
+      "created_at": "2026-10-14T09:46:01.899252"
      },
      {
       "id": 2,
@@ -102,7 +102,7 @@
       "anomalies": 1,
       "injection_flags": 0,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.672988"
+      "created_at": "2026-10-14T09:46:01.760446"
      },
      {
       "id": 1,
@@ -114,7 +114,7 @@
       "anomalies": 0,
       "injection_flags": 0,
       "created_by": "nusrat",
-      "created_at": "2026-10-14T09:36:48.529723"
+      "created_at": "2026-10-14T09:46:01.617920"
      }
     ]
    }
@@ -403,7 +403,7 @@
    "step": "33",
    "title": "Audit hash chain verified",
    "request": "GET /api/audit/verify",
-   "outcome": "{\"ok\": true, \"events\": 59, \"head\": \"3776fc16f3ac48a3a1a490038599da2de38a7ebf099dcb61f45d717ded645b6a\"}",
+   "outcome": "{\"ok\": true, \"events\": 59, \"head\": \"30bcb8d558cd22c29e5add5eba1fe6b99ce5137bfea3ba74cebaa7a7ac342c3f\"}",
    "pass": true,
    "detail": {}
   }

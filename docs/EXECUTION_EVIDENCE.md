@@ -11,11 +11,11 @@ trader in Dhaka), then drives the **real HTTP API** (the same endpoints the web 
 owner, accountant and viewer. Money moves only inside the **sandbox account**. Every action is
 written to the hash-chained operation log, which is exported here.
 
-- Generated (UTC): 2026-10-14T09:36:51+00:00 · business date (as of): 2026-10-14
+- Generated (UTC): 2026-10-14T09:46:06+00:00 · business date (as of): 2026-10-14
 - Model profile: `rules-offline` (offline deterministic engine; switch with `LLM_PROFILE`)
 - **Steps passed: 33 / 33**
 - Operation-log rows exported: 22 · total audit events: 59
-- Audit chain head hash: `3776fc16f3ac48a3a1a490038599da2de38a7ebf099dcb61f45d717ded645b6a`
+- Audit chain head hash: `30bcb8d558cd22c29e5add5eba1fe6b99ce5137bfea3ba74cebaa7a7ac342c3f`
 
 ## Evidence files
 
@@ -96,15 +96,15 @@ written to the hash-chained operation log, which is exported here.
 
 | id | timestamp (UTC) | actor | action | tier | confirmation | result (truncated) |
 |---|---|---|---|---|---|---|
-| 34 | 2026-10-14T09:36:51 | nusrat (owner) | generate_loan_report | T1 | not_required | {"status": "ok", "message": "", "data": {"report_id": 1, "filename": "loan_readiness_b1_1_ |
-| 38 | 2026-10-14T09:36:51 | nusrat (owner) | create_payment_reminder | T1 | not_required | {"status": "ok", "message": "", "data": {"reminder_id": 1, "invoice_id": 111, "invoice_no" |
-| 41 | 2026-10-14T09:36:51 | nusrat (owner) | sandbox_transfer | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
-| 44 | 2026-10-14T09:36:51 | nusrat (owner) | sandbox_transfer | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 1, "status": "executed", "recipien |
-| 45 | 2026-10-14T09:36:51 | nusrat (owner) | pay_supplier_invoice | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
-| 47 | 2026-10-14T09:36:51 | nusrat (owner) | pay_supplier_invoice | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 2, "status": "executed", "recipien |
-| 48 | 2026-10-14T09:36:51 | nusrat (owner) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Amount 250,000 exceeds the per-transaction limit of 200,0 |
-| 49 | 2026-10-14T09:36:51 | rafiq (accountant) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Your role 'accountant' allows up to Tier 1 - drafts, remi |
-| 55 | 2026-10-14T09:36:51 | nusrat (owner) | execute_real_bank_transfer | T3 | blocked | {"status": "blocked", "message": "'execute_real_bank_transfer' is a blocked action (Tier 3 |
+| 34 | 2026-10-14T09:46:06 | nusrat (owner) | generate_loan_report | T1 | not_required | {"status": "ok", "message": "", "data": {"report_id": 1, "filename": "loan_readiness_b1_1_ |
+| 38 | 2026-10-14T09:46:06 | nusrat (owner) | create_payment_reminder | T1 | not_required | {"status": "ok", "message": "", "data": {"reminder_id": 1, "invoice_id": 111, "invoice_no" |
+| 41 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
+| 44 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 1, "status": "executed", "recipien |
+| 45 | 2026-10-14T09:46:06 | nusrat (owner) | pay_supplier_invoice | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
+| 47 | 2026-10-14T09:46:06 | nusrat (owner) | pay_supplier_invoice | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 2, "status": "executed", "recipien |
+| 48 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Amount 250,000 exceeds the per-transaction limit of 200,0 |
+| 49 | 2026-10-14T09:46:06 | rafiq (accountant) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Your role 'accountant' allows up to Tier 1 - drafts, remi |
+| 55 | 2026-10-14T09:46:06 | nusrat (owner) | execute_real_bank_transfer | T3 | blocked | {"status": "blocked", "message": "'execute_real_bank_transfer' is a blocked action (Tier 3 |
 
 ## How to verify independently
 

@@ -216,4 +216,4 @@ Message: "Reminder from Nusrat Trims & Accessories: invoice INV-1111 for ৳82,0
 
 **Request:** GET /api/audit/verify
 
-**Outcome:** {"ok": true, "events": 59, "head": "3776fc16f3ac48a3a1a490038599da2de38a7ebf099dcb61f45d717ded645b6a"}
+**Outcome:** {"ok": true, "events": 59, "head": "30bcb8d558cd22c29e5add5eba1fe6b99ce5137bfea3ba74cebaa7a7ac342c3f"}

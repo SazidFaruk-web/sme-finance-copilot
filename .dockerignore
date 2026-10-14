@@ -1,0 +1,14 @@
+.venv
+.git
+data
+__pycache__
+*.pyc
+.pytest_cache
+htmlcov
+.coverage
+.env
+Comp.pdf
+.claude
+docs
+benchmarks/results
+tests

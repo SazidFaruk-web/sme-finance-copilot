@@ -84,11 +84,14 @@ class ProviderRegistry:
         if cls is None:
             raise ProviderError(f"profile '{name}': unknown adapter '{p.get('adapter')}'")
         extra = dict(p.get("extra") or {})
+        base_url = p.get("base_url")
+        if p.get("adapter") == "ollama" and env_or_none("OLLAMA_BASE_URL"):
+            base_url = env_or_none("OLLAMA_BASE_URL")  # e.g. http://ollama:11434/v1 inside docker-compose
         if p.get("tools") == "emulated":
             extra["supports_tools"] = False
         provider = cls(
             p.get("model", ""), profile=name, api_key=env_or_none(p.get("api_key_env")),
-            base_url=p.get("base_url"), timeout=float(p.get("timeout", self.settings.llm_timeout_seconds)),
+            base_url=base_url, timeout=float(p.get("timeout", self.settings.llm_timeout_seconds)),
             max_retries=int(p.get("max_retries", self.settings.llm_max_retries)),
             external=bool(p.get("external", True)), pricing=p.get("pricing"),
             transport=self._transport, extra=extra,
