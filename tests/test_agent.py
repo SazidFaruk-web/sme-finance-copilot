@@ -20,6 +20,10 @@ from tests.conftest import make_ctx
     ("gato mash e amar lav koto?", "banglish"),
     ("sold 12 shirts for 6000 taka cash", "en"),
     ("ami ki loan pabo?", "banglish"),
+    ("next 30 days এর cash flow forecast দেখাও", "bn"),
+    ("এই মাসে total sales কত?", "bn"),
+    ("My shop is in মিরপুর, what was my profit last month?", "en"),
+    ("amar ei month er cash flow kemon", "banglish"),
 ])
 def test_language_detection(text, lang):
     assert detect_language(text) == lang

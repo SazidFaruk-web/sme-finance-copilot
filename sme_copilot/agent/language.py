@@ -24,6 +24,12 @@ def detect_language(text: str) -> str:
         return "en"
     if bangla_ratio(text) >= 0.3:
         return "bn"
+    # Code-switched Bangla ("next 30 days এর cash flow দেখাও"): English nouns carry most of the letters, but
+    # Bangla words make the grammar, so count words as well as characters.
+    bn_words = len(re.findall(r"[ঀ-৥]+", text))
+    all_words = len(re.findall(r"[ঀ-৥]+|[A-Za-z]+", text))
+    if bn_words >= 2 and bn_words / all_words >= 0.2:
+        return "bn"
     words = re.findall(r"[a-z]+", text.lower())
     if not words:
         return "en"
