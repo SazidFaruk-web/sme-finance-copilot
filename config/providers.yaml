@@ -111,15 +111,27 @@ profiles:
     tools: emulated
     label: "Local Gemma 2 9B (Ollama)"
 
+  # Benchmarked on an RX 9060 XT 16 GB (benchmarks/results/local_models.md). Start the server with
+  # scripts\start_local_llm.bat (gemma) or scripts\start_local_llm.bat qwen14b. Only one runs at a time.
   local-llamacpp:
     adapter: openai_compatible
-    model: local-gguf
+    model: gemma-4-12b-it
     base_url: http://127.0.0.1:8080/v1
     external: false
-    tools: emulated
+    tools: native          # Gemma ignores the emulated JSON format; its native tool calls are reliable
+    timeout: 120
+    max_retries: 0         # a local server is up or not; retrying only multiplies the wait
+    label: "Local Gemma 4 12B (llama.cpp, private)"
+
+  local-qwen14b:
+    adapter: openai_compatible
+    model: qwen3-14b
+    base_url: http://127.0.0.1:8080/v1
+    external: false
+    tools: emulated        # Qwen3-14B scored better with emulated (JSON) tools than native ones
     timeout: 120
     max_retries: 0
-    label: "Local Qwen3.5 9B (llama.cpp)"
+    label: "Local Qwen3-14B (llama.cpp, private, backup)"
 
   local-vllm:
     adapter: openai_compatible

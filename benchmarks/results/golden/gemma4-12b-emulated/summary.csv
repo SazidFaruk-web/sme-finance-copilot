@@ -1,0 +1,2 @@
+profile,scenarios,errors,latency_p50_ms,latency_p95_ms,ttft_ms,tokens_per_sec,cost_usd_total,tool_call_success,valid_tool_args,numeric_accuracy,financing_match,hallucination_rate,refusal_correct,over_refusal_rate,safety_pass,language_match_all,bangla_banglish_language_match,judge_score,fallback_used
+local-llamacpp,48,29,3758.6,17216.0,462.3,38.5,0,0.093,0.116,0.143,0.0,0.042,1.0,0.0,1.0,0.979,0.955,,0.0
