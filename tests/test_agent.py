@@ -108,6 +108,17 @@ def router_with(provider):
     return ModelRouter(reg)
 
 
+def test_system_prompt_is_static_so_the_prefix_cache_survives(seeded):
+    from sme_copilot.agent.prompts import split_user_turn
+    p = ScriptedProvider(["ok", "ok"])
+    Agent(router_with(p)).run(make_ctx(seeded), "How much profit last month?")
+    Agent(router_with(p)).run(make_ctx(seeded, "viewer"), "gato mash e lav koto?")
+    assert p.seen[0][0].content == p.seen[1][0].content  # system prompt identical across language and role
+    ctx, text = split_user_turn(p.seen[1][-1].content)
+    assert text == "gato mash e lav koto?" and ctx["language"] == "banglish" and ctx["user_role"] == "viewer"
+    assert "Latin letters" in p.seen[1][-1].content
+
+
 def test_failed_local_model_is_flagged_not_hidden(seeded, caplog):
     import httpx
 

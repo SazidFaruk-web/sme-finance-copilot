@@ -30,7 +30,7 @@ from sme_copilot.config import get_settings
 from .executor import ToolOutcome, execute
 from .grounding import ungrounded_numbers
 from .language import detect_language
-from .prompts import build_system_prompt
+from .prompts import build_system_prompt, build_user_turn
 from .toolkit import REGISTRY, ToolContext, load_all_tools, specs_for
 
 log = logging.getLogger(__name__)
@@ -123,11 +123,11 @@ class Agent:
                          event_type="security", action="suspicious_user_input", inputs={"text": user_text[:300]},
                          result={"rules": sus.rules}, request_id=rid)
 
-        system = build_system_prompt(language=lang, business_name=ctx.business.name, sector=ctx.business.sector,
-                                     today=ctx.as_of, style=ctx.style, user_role=ctx.user.role)
-        messages: list[Message] = [Message("system", system)]
+        messages: list[Message] = [Message("system", build_system_prompt())]
         messages += (history or [])[-MAX_HISTORY_MESSAGES:]
-        messages.append(Message("user", user_text))
+        messages.append(Message("user", build_user_turn(
+            user_text, language=lang, business_name=ctx.business.name, sector=ctx.business.sector,
+            today=ctx.as_of, style=ctx.style, user_role=ctx.user.role)))
         tools = specs_for(ctx.user)
         vault = PIIVault()
         transform = _pii_transform(vault)

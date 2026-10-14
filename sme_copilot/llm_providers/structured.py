@@ -114,10 +114,25 @@ def tool_prompt(tools: list[ToolSpec]) -> str:
     return "\n".join(lines)
 
 
+def envelope_schema(tools: list[ToolSpec]) -> dict[str, Any]:
+    """JSON schema of every valid reply: one branch per tool (exact name + its argument schema) or a final
+    answer. A server with grammar-constrained decoding (llama.cpp) then cannot emit an unknown tool,
+    malformed JSON, or arguments of the wrong type."""
+    branches: list[dict[str, Any]] = [
+        {"type": "object", "properties": {"action": {"const": "call_tool"}, "tool": {"const": t.name},
+                                          "arguments": strip_nullable(inline_schema(t.parameters))},
+         "required": ["action", "tool", "arguments"]}
+        for t in tools]
+    branches.append({"type": "object", "properties": {"action": {"const": "final"}, "content": {"type": "string"}},
+                     "required": ["action", "content"]})
+    return {"anyOf": branches}
+
+
 def emulated_tool_chat(provider: LLMProvider, messages: list[Message], tools: list[ToolSpec], *,
                        retries: int = 2, max_tokens: int = 1024) -> ChatResponse:
     """Tool calling via strict JSON for providers that lack native tools."""
     names = {t.name for t in tools}
+    schema = envelope_schema(tools) if provider.extra.get("constrained_tools") else None
     # Tool results are rendered as plain text, since the model has no native tool role.
     merged = _with_system(messages, tool_prompt(tools))
     msgs: list[Message] = merged[:1]
@@ -132,7 +147,7 @@ def emulated_tool_chat(provider: LLMProvider, messages: list[Message], tools: li
             msgs.append(m)
     last_err = ""
     for _ in range(retries + 1):
-        resp = provider.chat(msgs, temperature=0.0, max_tokens=max_tokens)
+        resp = provider.chat(msgs, json_schema=schema, temperature=0.0, max_tokens=max_tokens)
         try:
             env = _Envelope.model_validate(extract_json(resp.content))
             if env.action == "call_tool":

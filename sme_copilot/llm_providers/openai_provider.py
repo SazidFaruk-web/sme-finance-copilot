@@ -90,6 +90,7 @@ class OpenAIProvider(LLMProvider):
                 }
             else:
                 payload["response_format"] = {"type": "json_object"}
+        payload.update(self.extra.get("request_params") or {})  # e.g. top_p/top_k for a local server
         return payload
 
     def _chat(self, messages, *, tools, json_schema, temperature, max_tokens) -> ChatResponse:

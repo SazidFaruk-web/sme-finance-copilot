@@ -24,7 +24,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sme_copilot.agent.prompts import build_system_prompt  # noqa: E402
+from sme_copilot.agent.prompts import build_system_prompt, build_user_turn  # noqa: E402
 from sme_copilot.agent.toolkit import specs_for  # noqa: E402
 from sme_copilot.llm_providers.base import Message  # noqa: E402
 from sme_copilot.llm_providers.openai_provider import to_openai_messages, to_openai_tools  # noqa: E402
@@ -75,10 +75,11 @@ class GpuSampler(threading.Thread):
 
 
 def app_messages(question: str, tools_mode: str) -> tuple[list[dict], list[dict] | None]:
-    system = build_system_prompt(language="en", business_name="Nusrat Fashion Accessories", sector="garments",
-                                 today=date(2026, 10, 14), style="lakh", user_role="owner")
+    system = build_system_prompt()
+    turn = build_user_turn(question, language="en", business_name="Nusrat Fashion Accessories", sector="garments",
+                           today=date(2026, 10, 14), style="lakh", user_role="owner")
     specs = specs_for(None)
-    msgs = [Message("system", system), Message("user", question)]
+    msgs = [Message("system", system), Message("user", turn)]
     if tools_mode == "emulated":
         return to_openai_messages([Message("system", f"{system}\n\n{tool_prompt(specs)}"), msgs[1]]), None
     return to_openai_messages(msgs), to_openai_tools(specs)

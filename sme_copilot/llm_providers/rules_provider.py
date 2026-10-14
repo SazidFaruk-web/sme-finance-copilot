@@ -44,9 +44,9 @@ class RulesProvider(LLMProvider):
 
     def _chat(self, messages: list[Message], *, tools: list[ToolSpec] | None, json_schema, temperature,
               max_tokens) -> ChatResponse:
+        from sme_copilot.agent.prompts import split_user_turn  # lazy: avoid import cycle
         last_user = max((i for i, m in enumerate(messages) if m.role == "user"), default=-1)
-        user_text = messages[last_user].content if last_user >= 0 else ""
-        context = _context_from_system(messages)
+        context, user_text = split_user_turn(messages[last_user].content if last_user >= 0 else "")
         results: list[tuple[str, dict[str, Any]]] = []
         for m in messages[last_user + 1:]:
             if m.role == "tool":
@@ -67,14 +67,3 @@ class RulesProvider(LLMProvider):
         return ChatResponse(content="", tool_calls=plan, provider=self.adapter, model=self.model,
                             finish_reason="tool_use")
 
-
-def _context_from_system(messages: list[Message]) -> dict[str, Any]:
-    """The agent embeds a small JSON context block (language, today) in the system prompt."""
-    for m in messages:
-        if m.role == "system" and "<context>" in m.content:
-            try:
-                raw = m.content.split("<context>", 1)[1].split("</context>", 1)[0]
-                return json.loads(raw)
-            except (IndexError, ValueError):
-                return {}
-    return {}

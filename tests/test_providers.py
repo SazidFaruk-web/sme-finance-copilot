@@ -258,6 +258,23 @@ def test_emulated_tools_send_a_single_leading_system_message():
     assert seen[0] == ["system", "user"]
 
 
+def test_constrained_emulated_tools_send_per_tool_schema_and_request_params():
+    seen = {}
+
+    def handler(req):
+        seen.update(json.loads(req.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"action":"final","content":"ok"}'}}]})
+
+    p = OpenAICompatibleProvider("tiny", transport=mock(handler), extra={
+        "supports_tools": False, "constrained_tools": True, "json_mode": "json_schema",
+        "request_params": {"top_p": 0.8}})
+    emulated_tool_chat(p, [Message("user", "hi")], [TOOL])
+    branches = seen["response_format"]["json_schema"]["schema"]["anyOf"]
+    assert branches[0]["properties"]["tool"] == {"const": TOOL.name} and branches[-1]["properties"]["action"] == {
+        "const": "final"}
+    assert seen["top_p"] == 0.8
+
+
 def test_inline_schema_resolves_refs():
     class A(BaseModel):
         v: int
