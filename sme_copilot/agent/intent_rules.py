@@ -159,6 +159,36 @@ def parse_scenarios(t: str, original: str) -> list[dict[str, Any]]:
     return scen
 
 
+def parse_due_date(t: str, today: date) -> str | None:
+    """'tomorrow', 'in 5 days', 'on 15th', '15 tarikh', '20/10/2026' -> ISO date (or None)."""
+    from datetime import timedelta
+
+    from sme_copilot.tools.analysis import add_months
+    from sme_copilot.tools.nl_entry import _DATE_PATTERNS
+    for pat, kind in _DATE_PATTERNS:
+        m = pat.search(t)
+        if m:
+            a, b, c = (int(x) for x in m.groups())
+            try:
+                return (date(c, b, a) if kind == "dmy" else date(a, b, c)).isoformat()
+            except ValueError:
+                pass
+    if _has(t, ["tomorrow", "agamikal", "আগামীকাল"]):
+        return (today + timedelta(days=1)).isoformat()
+    m = re.search(r"in\s+(\d{1,3})\s*days?|(\d{1,3})\s*din pore|(\d{1,3})\s*দিন পর", t)
+    if m:
+        return (today + timedelta(days=int(next(g for g in m.groups() if g)))).isoformat()
+    m = re.search(r"(?:on|by)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\b|(\d{1,2})\s*(?:tarikh|তারিখ)", t)
+    if m:
+        day = int(next(g for g in m.groups() if g))
+        if 1 <= day <= 28:
+            d = today.replace(day=day)
+            if d <= today:
+                d = add_months(d, 1)
+            return d.isoformat()
+    return None
+
+
 # ----------------------------------------------------------------------------- planning
 Builder = Callable[[str, str, dict[str, Any]], dict[str, Any] | None]
 
@@ -215,8 +245,8 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
                 "method": "flat" if _has(t, ["flat"]) else "reducing"}
 
     def schedule(t, o, c):
-        m = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?(?:every month|each month|tarikh|তারিখ)?", t)
-        return {"title": o.strip()[:120], "due_date": None, "kind": "custom"}
+        today = date.fromisoformat(c.get("today", date.today().isoformat()))
+        return {"title": o.strip()[:120], "due_date": parse_due_date(t, today)}
 
     def entry(t, o, c):
         if QUESTION_RX.search(t) or not PAST_ENTRY_RX.search(t):
@@ -235,7 +265,7 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         return None
 
     return [
-        ("what_if", ["what if", "what happens if", "suppose", "jodi", "যদি", "dhoro", "ধরো", "ধরুন", "scenario"], what_if),
+        ("run_what_if", ["what if", "what happens if", "suppose", "jodi", "যদি", "dhoro", "ধরো", "ধরুন", "scenario"], what_if),
         ("add_transaction", [], entry),
         ("schedule_alert", ["alert me", "notify me", "set an alert", "remind me", "amake mone", "আমাকে মনে"], schedule),
         ("create_payment_reminder", ["reminder", "remind", "tagada", "তাগাদা", "মনে করিয়ে"], reminder),
@@ -544,7 +574,98 @@ def c_add_txn(r, f: Fmt) -> str:
                   f"{e.get('txn_date')}.{warn}")
 
 
+def c_forecast(r, f: Fmt) -> str:
+    s = {x["days"]: x for x in r.get("summaries") or []}
+    end = s.get(r["horizon_days"]) or list(s.values())[-1]
+    s30 = s.get(30, end)
+    neg = r.get("first_negative_date")
+    low = r.get("first_below_threshold_date")
+    thr = f.m(r["low_balance_threshold"])
+    if neg:
+        risk = f.pick(f" Warning: the balance may go below zero around {neg}.",
+                      f" সতর্কতা: {f.n(neg)} নাগাদ ব্যালেন্স শূন্যের নিচে যেতে পারে।",
+                      f" Sotorko: {neg} nagad balance shunner niche jete pare.")
+    elif low:
+        risk = f.pick(f" It dips below your safety level of {thr} around {low}.",
+                      f" {f.n(low)} নাগাদ নিরাপত্তা সীমা {thr}-এর নিচে নামতে পারে।",
+                      f" {low} nagad safety level {thr} er niche namte pare.")
+    else:
+        risk = f.pick(" No shortfall is expected.", " কোনো ঘাটতির আশঙ্কা নেই।", " Kono ghatti dekha jacche na.")
+    runway = ""
+    if r.get("runway_months") is not None:
+        runway = f.pick(f" At the current burn, cash lasts about {f.n(r['runway_months'])} months.",
+                        f" বর্তমান হারে নগদ প্রায় {f.n(r['runway_months'])} মাস চলবে।",
+                        f" Ei hare cash prai {r['runway_months']} mash cholbe.")
+    return f.pick(
+        f"Cash now {f.m(r['start_balance'])}. Forecast: {f.m(s30['end_balance'])} in 30 days and "
+        f"{f.m(end['end_balance'])} in {end['days']} days; lowest point {f.m(end['min_balance'])} on "
+        f"{end['min_balance_date']}.{risk}{runway} (Estimate with an 80% range - see the chart.)",
+        f"এখন নগদ {f.m(r['start_balance'])}। পূর্বাভাস: ৩০ দিনে {f.m(s30['end_balance'])}, {f.n(end['days'])} দিনে "
+        f"{f.m(end['end_balance'])}; সর্বনিম্ন {f.m(end['min_balance'])} ({f.n(end['min_balance_date'])})।{risk}{runway}",
+        f"Ekhon cash {f.m(r['start_balance'])}. Forecast: 30 dine {f.m(s30['end_balance'])}, {end['days']} dine "
+        f"{f.m(end['end_balance'])}; sorbonimno {f.m(end['min_balance'])} ({end['min_balance_date']}).{risk}{runway}")
+
+
+def c_whatif(r, f: Fmt) -> str:
+    if f.lang == "en":
+        return " ".join(r.get("explanation") or [])
+    sc = "; ".join(x["description"] for x in r.get("scenarios") or [])
+    ch = r["end_balance_change"]
+    neg = r.get("scenario_first_negative_date")
+    return f.pick(
+        "",
+        f"পরিস্থিতি: {sc}। {f.n(r['horizon_days'])} দিনে ব্যালেন্স হবে {f.m(r['scenario_end_balance'])} "
+        f"(এখনকার পূর্বাভাস {f.m(r['baseline_end_balance'])}, পার্থক্য {f.m(ch)})। সর্বনিম্ন "
+        f"{f.m(r['scenario_min_balance'])}।" + (f" সতর্কতা: {f.n(neg)} নাগাদ ঘাটতি।" if neg else ""),
+        f"Scenario: {sc}. {r['horizon_days']} dine balance hobe {f.m(r['scenario_end_balance'])} "
+        f"(ekhon er forecast {f.m(r['baseline_end_balance'])}, parthokko {f.m(ch)}). Sorbonimno "
+        f"{f.m(r['scenario_min_balance'])}." + (f" Sotorko: {neg} nagad ghatti." if neg else ""))
+
+
+def c_alerts(r, f: Fmt) -> str:
+    items = r.get("alerts") or []
+    if not items:
+        return f.pick("No open alerts right now.", "এই মুহূর্তে কোনো সতর্কতা নেই।", "Ekhon kono alert nei.")
+    lines = [f"- [{a['severity']}] {a['title']}" for a in items[:6]]
+    head = f.pick(f"{r['count']} alert(s):", f"{f.n(r['count'])}টি সতর্কতা:", f"{r['count']} ta alert:")
+    return head + "\n" + "\n".join(lines)
+
+
+def c_digest(r, f: Fmt) -> str:
+    k = r.get("kpis") or {}
+    acts = "\n".join(f"- {a['title']}" for a in (r.get("actions") or [])[:4])
+    alerts = "\n".join(f"- [{a['severity']}] {a['title']}" for a in (r.get("alerts") or [])[:5])
+    out = f.pick(
+        f"Cash now {f.m(k.get('cash_balance'))}; lowest in 30 days {f.m(k.get('forecast_min_30d'))}. This month: "
+        f"income {f.m(k.get('income_this_month'))}, expenses {f.m(k.get('expense_this_month'))}. Overdue from "
+        f"customers {f.m(k.get('receivables_overdue'))}.",
+        f"এখন নগদ {f.m(k.get('cash_balance'))}; ৩০ দিনে সর্বনিম্ন {f.m(k.get('forecast_min_30d'))}। এই মাসে আয় "
+        f"{f.m(k.get('income_this_month'))}, খরচ {f.m(k.get('expense_this_month'))}। ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা "
+        f"{f.m(k.get('receivables_overdue'))}।",
+        f"Ekhon cash {f.m(k.get('cash_balance'))}; 30 dine sorbonimno {f.m(k.get('forecast_min_30d'))}. Ei mashe ay "
+        f"{f.m(k.get('income_this_month'))}, khoroch {f.m(k.get('expense_this_month'))}. Customer der overdue pawna "
+        f"{f.m(k.get('receivables_overdue'))}.")
+    if alerts:
+        out += "\n" + f.pick("Needs attention:", "মনোযোগ দরকার:", "Mone rakhun:") + "\n" + alerts
+    if acts:
+        out += "\n" + f.pick("Suggested next steps:", "পরামর্শ:", "Poramorsho:") + "\n" + acts
+    return out
+
+
+def c_ack(r, f: Fmt) -> str:
+    return f.pick(f"Alert {r['alert_id']} marked {r['status']}.", f"সতর্কতা {f.n(r['alert_id'])} আপডেট হয়েছে।",
+                  f"Alert {r['alert_id']} update hoyeche.")
+
+
+def c_schedule(r, f: Fmt) -> str:
+    return f.pick(f"Reminder scheduled for {r['due_date']}: \"{r['title']}\".",
+                  f"{f.n(r['due_date'])} তারিখের জন্য রিমাইন্ডার সেট হয়েছে: \"{r['title']}\"।",
+                  f"{r['due_date']} er jonno reminder set hoyeche: \"{r['title']}\".")
+
+
 COMPOSERS: dict[str, Callable[[dict[str, Any], Fmt], str]] = {
+    "forecast_cash_flow": c_forecast, "run_what_if": c_whatif, "list_alerts": c_alerts, "get_digest": c_digest,
+    "acknowledge_alert": c_ack, "schedule_alert": c_schedule,
     "get_financial_summary": c_summary, "get_profitability": c_profit, "get_break_even": c_break_even,
     "get_aging": c_aging, "get_cost_drivers": c_costs, "explain_change": c_change, "get_seasonality": c_season,
     "get_cash_position": c_cash, "search_transactions": c_search, "calculate_loan": c_loan,

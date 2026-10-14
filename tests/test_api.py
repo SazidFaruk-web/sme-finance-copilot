@@ -141,3 +141,33 @@ def test_login_rate_limit(client, monkeypatch):
     reset_settings_cache()
     codes = [client.post("/api/auth/login", json={"username": "x", "password": "y"}).status_code for _ in range(5)]
     assert codes[:3] == [401, 401, 401] and codes[3] == 429
+
+
+def test_dashboard_payload(client):
+    h = login(client, "viewer", "viewer-pass-123")
+    d = client.get("/api/dashboard", headers=h).json()
+    assert d["kpis"]["cash_balance"] == 380_000 and d["kpis"]["gross_margin_3m"] == 50.0
+    assert len(d["forecast"]["series"]) == 90 and {"low", "high", "balance"} <= set(d["forecast"]["series"][0])
+    assert d["expense_breakdown"][0]["category"] == "inventory"
+    assert any(a["kind"] == "overdue_invoice" for a in d["alerts"])
+    assert d["kpi_traces"]["margins"]["steps"]
+
+
+def test_whatif_and_alert_actions(client):
+    h = login(client)
+    r = client.post("/api/whatif", json={"scenarios": [{"kind": "revenue_change", "pct": -30}]}, headers=h)
+    assert r.status_code == 200 and r.json()["end_balance_change"] < 0
+    bad = client.post("/api/whatif", json={"scenarios": [{"kind": "loan"}]}, headers=h)
+    assert bad.status_code == 422
+    alerts = client.get("/api/alerts", headers=h).json()
+    aid = alerts[0]["id"]
+    assert client.post(f"/api/alerts/{aid}/dismissed", headers=h).json()["status"] == "dismissed"
+    h_view = login(client, "viewer", "viewer-pass-123")
+    assert client.post(f"/api/alerts/{aid}/acknowledged", headers=h_view).status_code == 403
+
+
+def test_settings_toggle_number_style(client):
+    h = login(client)
+    assert client.patch("/api/settings", json={"number_style": "intl"}, headers=h).json()["number_style"] == "intl"
+    d = client.post("/api/chat", json={"message": "summary last 3 months"}, headers=h).json()
+    assert "৳900,000" in d["reply"]

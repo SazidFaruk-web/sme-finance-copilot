@@ -1,0 +1,115 @@
+# Bangladesh compliance AWARENESS rules (configurable, NOT legal advice).
+#
+# Every rule is verified: false until a qualified person checks it against the current official
+# source. The app shows a "verify" badge on every rule and never presents these as legal facts.
+# Dates/recurrences drive reminders only; edit them here when rules change.
+#
+# Fields: id, topic, title, summary, applies_if (business flags), recurrence
+# (monthly: {day}; yearly: {month, day}), source_url (official homepage placeholder; replace with
+# the exact circular/page), verified, last_verified_date.
+
+disclaimer: >-
+  Compliance information is general awareness for Bangladesh SMEs, configured by the operator and
+  marked for verification. It is not legal or tax advice. Confirm with NBR, Bangladesh Bank, your
+  City Corporation / Union Parishad, or a licensed tax adviser.
+
+rules:
+  - id: vat_monthly_return
+    topic: vat
+    title: "Monthly VAT return (Mushak 9.1)"
+    summary: >-
+      VAT-registered businesses generally file a monthly VAT return and pay VAT due. A commonly cited
+      deadline is the 15th of the following month. Verify the current deadline and form with NBR.
+    applies_if: {vat_registered: true}
+    recurrence: {monthly: {day: 15}}
+    source_url: "https://nbr.gov.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: vat_turnover_threshold
+    topic: vat
+    title: "VAT registration / turnover tax threshold"
+    summary: >-
+      Whether a business must register for VAT or may use turnover tax depends on annual turnover
+      thresholds set in the VAT law and budget. Thresholds change; check NBR's current figures.
+    applies_if: {}
+    recurrence: null
+    source_url: "https://nbr.gov.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: income_tax_return
+    topic: tin
+    title: "Annual income tax return"
+    summary: >-
+      Individuals and proprietors with an e-TIN usually file an annual return; the general deadline
+      ("Tax Day") has commonly been 30 November. Verify the current date and any extension with NBR.
+    applies_if: {has_tin: true}
+    recurrence: {yearly: {month: 11, day: 30}}
+    source_url: "https://nbr.gov.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: etin_for_finance
+    topic: tin
+    title: "e-TIN often requested by lenders"
+    summary: >-
+      Banks and NBFIs commonly ask for an e-TIN certificate for business loans; requirements vary
+      by lender and loan size. Ask your lender for their exact list.
+    applies_if: {}
+    recurrence: null
+    source_url: "https://secure.incometax.gov.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: trade_license_renewal
+    topic: trade_license
+    title: "Trade licence renewal"
+    summary: >-
+      Trade licences are issued by the City Corporation / Pourashava / Union Parishad and are
+      generally renewed every fiscal year (July-June). Check your issuing authority's renewal
+      window and fees.
+    applies_if: {has_trade_license: true}
+    recurrence: {yearly: {month: 9, day: 30}}
+    source_url: "https://www.dncc.gov.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: kyc_mfs
+    topic: kyc_aml
+    title: "KYC for bank and mobile-wallet accounts"
+    summary: >-
+      Banks and MFS providers must verify customer identity (NID-based e-KYC) and may limit or review
+      accounts with incomplete KYC. Keep your NID, trade licence and business details up to date with
+      your providers.
+    applies_if: {}
+    recurrence: null
+    source_url: "https://www.bfiu.org.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: aml_awareness
+    topic: kyc_aml
+    title: "Anti-money-laundering awareness"
+    summary: >-
+      Financial institutions monitor and may report unusual or large cash transactions under AML
+      rules supervised by BFIU. Keep clear records of where money comes from; never split deposits
+      to avoid reporting. Reporting thresholds are set by BFIU; check current guidance.
+    applies_if: {}
+    recurrence: null
+    source_url: "https://www.bfiu.org.bd/"
+    verified: false
+    last_verified_date: null
+
+  - id: cmsme_refinance_awareness
+    topic: finance
+    title: "Central-bank refinance schemes for CMSMEs"
+    summary: >-
+      Bangladesh Bank has run refinance and credit-guarantee schemes for cottage, micro, small and
+      medium enterprises through participating banks/NBFIs. Names, rates and eligibility change by
+      circular; ask a participating lender and read the current SME & Special Programmes circulars.
+    applies_if: {}
+    recurrence: null
+    source_url: "https://www.bb.org.bd/"
+    verified: false
+    last_verified_date: null
