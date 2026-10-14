@@ -60,6 +60,19 @@ _BULKY = ("documents", "checks", "first_months", "series", "baseline_series", "s
           "items", "scheduled_items", "recurring", "upcoming", "components")
 
 
+# Detail a model does not need to write an answer (the UI shows it from the full result).
+_LOW_VALUE = ("source_url", "last_verified_date", "verify_label", "cost_low", "cost_high", "documents", "checks",
+              "rate_method", "lender_type", "score")
+
+
+def _drop_keys(obj: Any, keys: tuple[str, ...]) -> Any:
+    if isinstance(obj, dict):
+        return {k: _drop_keys(v, keys) for k, v in obj.items() if k not in keys}
+    if isinstance(obj, list):
+        return [_drop_keys(v, keys) for v in obj]
+    return obj
+
+
 def _cap_lists(obj: Any, n: int) -> Any:
     if isinstance(obj, dict):
         return {k: _cap_lists(v, n) for k, v in obj.items()}
@@ -68,9 +81,10 @@ def _cap_lists(obj: Any, n: int) -> Any:
     return obj
 
 
-def compact_json(payload: dict[str, Any], budget: int = MODEL_VIEW_BUDGET) -> str:
+def compact_json(payload: dict[str, Any], budget: int | None = None) -> str:
     """Serialise a tool result for the model, shrinking it to fit the budget while ALWAYS staying valid
     JSON (a truncated JSON string confuses models and parsers alike)."""
+    budget = budget or get_settings().tool_result_budget_chars or MODEL_VIEW_BUDGET
     text = json.dumps(payload, ensure_ascii=False, default=str)
     if len(text) <= budget:
         return text
@@ -82,11 +96,12 @@ def compact_json(payload: dict[str, Any], budget: int = MODEL_VIEW_BUDGET) -> st
     for k in ("recommendations", "rejected"):
         if isinstance(res.get(k), list):
             res[k] = [{kk: vv for kk, vv in m.items() if kk not in _BULKY} for m in res[k]]
+    res = _drop_keys(res, _LOW_VALUE)
     for k, v in list(res.items()):
         if isinstance(v, list):
             res[f"{k}_total"] = len(v)  # keep true counts even when lists are capped below
     slim = {**payload, "result": res, "note": "large result abridged for the model; full detail is shown in the app"}
-    for n in (12, 6, 3):
+    for n in (12, 6, 3, 2):
         text = json.dumps(_cap_lists(slim, n), ensure_ascii=False, default=str)
         if len(text) <= budget:
             return text

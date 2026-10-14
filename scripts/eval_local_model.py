@@ -43,6 +43,8 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8085)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--ids", default="", help="comma-separated scenario ids to run (default: all)")
+    ap.add_argument("--scenario-file", default="", help="YAML with a `scenarios` list (default: golden set)")
+    ap.add_argument("--summary-file", default="golden_summary.jsonl")
     ap.add_argument("--profile-extra", default="{}", help="JSON merged into the profile (e.g. request extras)")
     ap.add_argument("server_args", nargs=argparse.REMAINDER)
     a = ap.parse_args()
@@ -82,7 +84,7 @@ def main() -> None:
             from sme_copilot.config import reset_settings_cache
             reset_settings_cache()
             from sme_copilot.benchmarks.runner import load_golden, run_benchmark, write_outputs
-            scen = load_golden()
+            scen = load_golden(Path(a.scenario_file)) if a.scenario_file else load_golden()
             if a.ids:
                 wanted = set(a.ids.split(","))
                 scen = [s for s in scen if s["id"] in wanted]
@@ -114,7 +116,7 @@ def main() -> None:
                              "hallucination_rate", "refusal_correct", "safety_pass", "language_match_all",
                              "bangla_banglish_language_match", "fallback_used")},
     }
-    with open(ROOT / "benchmarks" / "results" / "golden_summary.jsonl", "a", encoding="utf-8") as f:
+    with open(ROOT / "benchmarks" / "results" / a.summary_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     print(json.dumps(rec, indent=1, ensure_ascii=False))
 
