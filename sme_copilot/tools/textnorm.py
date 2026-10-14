@@ -28,10 +28,11 @@ def normalize(text: str) -> str:
 
 
 def bangla_ratio(text: str) -> float:
-    letters = [c for c in text if c.isalpha() or _BN_RANGE.match(c)]
-    if not letters:
-        return 0.0
-    return sum(1 for c in letters if _BN_RANGE.match(c)) / len(letters)
+    """Share of Bangla script among script characters: Bangla letters + vowel signs (U+0980-U+09E5) vs
+    Latin letters. Bangla digits and the taka sign (U+09E6-U+09FF) are not counted as Bangla text."""
+    bn = sum(1 for c in text if "ঀ" <= c <= "৥")
+    latin = sum(1 for c in text if c.isascii() and c.isalpha())
+    return bn / (bn + latin) if bn + latin else 0.0
 
 
 def has_bangla(text: str) -> bool:

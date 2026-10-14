@@ -43,6 +43,8 @@ _NUM = re.compile(
     r"(?P<pre>৳|tk\.?|bdt)?\s*(?P<num>\d+(?:,\d+)*(?:\.\d+)?)\s*"
     r"(?P<mult>k\b|thousand|hazar|hajar|হাজার|lakhs?|lacs?|লাখ|লক্ষ|crore|কোটি)?", re.I)
 
+_PHONE_RX = re.compile(r"(?<![\d+])(?:\+?880[-\s]?|0)1[3-9]\d{2}[-\s]?\d{6}(?!\d)|\b\d{11,}\b")
+
 _DATE_PATTERNS = [
     (re.compile(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b"), "dmy"),
     (re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"), "ymd"),
@@ -89,9 +91,10 @@ class ParsedEntry:
 
 def _extract_amount_and_qty(norm: str) -> tuple[float | None, float | None, str]:
     candidates: list[dict] = []
-    # Dates are not amounts: blank them out before scanning numbers.
+    # Dates and phone / account numbers are not amounts: blank them out before scanning numbers.
     for pat, _ in _DATE_PATTERNS:
         norm = pat.sub(" ", norm)
+    norm = _PHONE_RX.sub(" ", norm)
     for m in _NUM.finditer(norm):
         raw = m.group("num")
         try:

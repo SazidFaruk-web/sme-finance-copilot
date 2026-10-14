@@ -293,11 +293,17 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         ("calculate_loan", ["emi", "installment", "instalment", "kisti koto", "কিস্তি কত", "monthly payment"], emi),
         ("match_financing", ["loan", "loans", "finance", "financing", "financing options", "lenders", "credit", "rin", "ঋণ", "লোন", "borrow", "funding",
                              "capital", "dhar", "ধার", "lender"], financing),
+        ("explain_change:why", ["why", "keno", "কেন", "what changed"], period_args("last_month")),
+        ("get_seasonality:strong", ["season", "seasonal", "seasonality", "peak", "eid", "festival", "boishakh",
+                                    "puja", "মৌসুম", "ঈদ"], lambda t, o, c: {}),
+        ("overview:strong", ["summary", "overview", "income and expense", "income and expenses", "how am i doing",
+                             "how is my business", "business kemon", "byabsa kemon", "ব্যবসা কেমন", "hisab", "হিসাব"],
+         period_args("last_3_months")),
         ("forecast_cash_flow", ["forecast", "cash flow", "cashflow", "next 30", "next 60", "next 90", "runway",
                                 "run out", "kotodin", "কতদিন", "নগদ প্রবাহ", "agami", "আগামী", "shortfall",
                                 "projection", "cholbe", "চলবে"], lambda t, o, c: {"horizon_days": detect_horizon(t)}),
         ("get_digest", ["alert", "alerts", "attention", "digest", "to do", "todo", "what should i do", "ki korte hobe",
-                        "কী করতে হবে", "সতর্ক", "warning", "this week", "important", "priority", "agenda"],
+                        "কী করতে হবে", "সতর্ক", "warning", "this week", "priority", "agenda", "shoptahe"],
          lambda t, o, c: {}),
         ("compliance_info", ["vat", "mushak", "tin", "e-tin", "trade license", "trade licence", "kyc", "aml", "nbr",
                              "ভ্যাট", "মূসক", "ট্রেড লাইসেন্স", "tax return"], compliance),
@@ -348,7 +354,7 @@ class RuleIntentEngine:
             if words and not _has(t, words):
                 continue
             tool_name = intent.split(":")[0]
-            if intent == "overview":
+            if intent.startswith("overview"):
                 calls = [c for c in (("get_financial_summary", builder(t, user_text, context)),
                                      ("get_profitability", builder(t, user_text, context))) if c[0] in names]
                 if calls:
@@ -623,14 +629,16 @@ def c_whatif(r, f: Fmt) -> str:
     sc = "; ".join(x["description"] for x in r.get("scenarios") or [])
     ch = r["end_balance_change"]
     neg = r.get("scenario_first_negative_date")
+    emi_bn = f" কিস্তি {f.m(r['loan_emi'])}/মাস।" if r.get("loan_emi") else ""
+    emi_bl = f" Kisti {f.m(r['loan_emi'])}/mash." if r.get("loan_emi") else ""
     return f.pick(
         "",
         f"পরিস্থিতি: {sc}। {f.n(r['horizon_days'])} দিনে ব্যালেন্স হবে {f.m(r['scenario_end_balance'])} "
         f"(এখনকার পূর্বাভাস {f.m(r['baseline_end_balance'])}, পার্থক্য {f.m(ch)})। সর্বনিম্ন "
-        f"{f.m(r['scenario_min_balance'])}।" + (f" সতর্কতা: {f.n(neg)} নাগাদ ঘাটতি।" if neg else ""),
+        f"{f.m(r['scenario_min_balance'])}।" + emi_bn + (f" সতর্কতা: {f.n(neg)} নাগাদ ঘাটতি।" if neg else ""),
         f"Scenario: {sc}. {r['horizon_days']} dine balance hobe {f.m(r['scenario_end_balance'])} "
         f"(ekhon er forecast {f.m(r['baseline_end_balance'])}, parthokko {f.m(ch)}). Sorbonimno "
-        f"{f.m(r['scenario_min_balance'])}." + (f" Sotorko: {neg} nagad ghatti." if neg else ""))
+        f"{f.m(r['scenario_min_balance'])}." + emi_bl + (f" Sotorko: {neg} nagad ghatti." if neg else ""))
 
 
 def c_alerts(r, f: Fmt) -> str:
@@ -677,13 +685,14 @@ def c_schedule(r, f: Fmt) -> str:
 def c_match(r, f: Fmt) -> str:
     recs = r.get("recommendations") or []
     rej = r.get("rejected") or []
+    n_ok, n_no = r.get("recommendations_total", len(recs)), r.get("rejected_total", len(rej))
     head = f.pick(
-        f"For {f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}): {len(recs)} option(s) fit, "
-        f"{len(rej)} don't.",
-        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) এর জন্য: {f.n(len(recs))}টি বিকল্প মানানসই, "
-        f"{f.n(len(rej))}টি নয়।",
-        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) er jonno: {len(recs)} ta option mile, "
-        f"{len(rej)} ta mile na.")
+        f"For {f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}): {n_ok} option(s) fit, "
+        f"{n_no} don't.",
+        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) এর জন্য: {f.n(n_ok)}টি বিকল্প মানানসই, "
+        f"{f.n(n_no)}টি নয়।",
+        f"{f.m(r['requested_amount'])} ({r['purpose'].replace('_', ' ')}) er jonno: {n_ok} ta option mile, "
+        f"{n_no} ta mile na.")
     lines = []
     for i, m in enumerate(recs[:3], 1):
         cm = m.get("cost_mid") or {}
@@ -706,13 +715,26 @@ def c_match(r, f: Fmt) -> str:
     return head + "\n" + "\n".join(lines)
 
 
+COMPONENT_NAMES = {
+    "bn": {"Business age": "ব্যবসার বয়স", "Record keeping": "হিসাব রাখা", "Revenue stability": "আয়ের স্থিতিশীলতা",
+           "Profitability": "লাভজনকতা", "Debt capacity (DSCR)": "ঋণ পরিশোধ ক্ষমতা", "Documentation": "কাগজপত্র",
+           "Receivables health": "পাওনা আদায়", "Collateral": "জামানত"},
+    "banglish": {"Business age": "byabshar boyosh", "Record keeping": "hisab rakha", "Revenue stability": "ayer sthirota",
+                 "Profitability": "lav", "Debt capacity (DSCR)": "rin shodher khomota", "Documentation": "kagojpotro",
+                 "Receivables health": "pawna aday", "Collateral": "jamanot"},
+}
+
+
 def c_readiness(r, f: Fmt) -> str:
     band = {"strong": ("strong", "শক্তিশালী", "strong"), "good": ("good", "ভালো", "bhalo"),
             "fair": ("fair", "মোটামুটি", "motamuti"), "needs_work": ("needs work", "উন্নতি দরকার", "unnoti dorkar")}
     b = band.get(r["band"], (r["band"],) * 3)
     weak = sorted(r.get("components") or [], key=lambda c: c["points"] - c["max_points"])[:2]
-    weak_txt = ", ".join(f"{c['name']} {f.n(c['points'])}/{f.n(c['max_points'])}" for c in weak)
+    names = COMPONENT_NAMES.get(f.lang, {})
+    weak_txt = ", ".join(f"{names.get(c['name'], c['name'])} {f.n(c['points'])}/{f.n(c['max_points'])}" for c in weak)
     tips = "\n".join(f"- {t}" for t in (r.get("top_tips") or [])[:3])
+    if f.lang != "en":  # tips are English text; point to the app instead of mixing languages
+        tips = f.pick("", "উন্নতির বিস্তারিত পরামর্শ Financing পাতায় দেখুন।", "Unnotir poramorsho Financing page e dekhun.")
     return f.pick(f"Loan-readiness score: {r['score']:g}/100 ({b[0]}). Weakest areas: {weak_txt}.\nTop tips:\n{tips}",
                   f"ঋণ-প্রস্তুতি স্কোর: {f.n(r['score'])}/১০০ ({b[1]})। দুর্বল দিক: {weak_txt}।\n{tips}",
                   f"Loan-readiness score: {r['score']:g}/100 ({b[2]}). Durbol dik: {weak_txt}.\n{tips}")

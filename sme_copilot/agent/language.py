@@ -13,6 +13,8 @@ BANGLISH_MARKERS = {
     "sob", "kom", "beshi", "lagbe", "dorkar", "parbo", "chai", "den", "dekhao", "dekhan", "hoyeche", "hoise",
     "nai", "nei", "kivabe", "kothay", "kar", "kake", "dao", "pathao", "taka", "byabsa", "byabsha", "bebsa",
     "sathe", "jonno", "niye", "korlam", "hoye", "jabe", "thakbe", "pabo", "kotodin", "cholbe", "kemne",
+    "ke", "er", "tagada", "koro", "shoptahe", "mashe", "bhalo", "khub", "ekhon", "kintu", "abar", "hoyni",
+    "lav", "khoti", "ay", "dorkar", "pathabo", "dibo", "nibo",
 }
 
 

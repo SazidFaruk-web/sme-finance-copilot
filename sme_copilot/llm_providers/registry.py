@@ -124,7 +124,7 @@ class ModelRouter:
     def __init__(self, registry: ProviderRegistry):
         self.registry = registry
 
-    def chain(self, task: str = "advisory", override: str | None = None) -> list[str]:
+    def chain(self, task: str = "advisory", override: str | None = None, fallback: bool = True) -> list[str]:
         r = self.registry.routing
         if override:
             primary = override
@@ -132,7 +132,9 @@ class ModelRouter:
             primary = (r.get("task_profiles") or {}).get(task) or self.registry.default_profile
         else:
             primary = self.registry.default_profile
-        # Fallback is always on: a failing provider must never leave the user without an answer.
+        if not fallback:  # benchmarks: measure exactly one model, never silently substitute another
+            return [primary]
+        # Fallback is on for users: a failing provider must never leave them without an answer.
         names = [primary] + [n for n in (r.get("fallback_chain") or []) if n != primary]
         if "rules-offline" in self.registry.profiles and "rules-offline" not in names:
             names.append("rules-offline")
@@ -141,11 +143,11 @@ class ModelRouter:
     def chat(self, messages: list[Message], *, task: str = "advisory", override: str | None = None,
              tools: list[ToolSpec] | None = None, json_schema: dict[str, Any] | None = None,
              max_tokens: int = 1024, temperature: float = 0.2,
-             transform: Any = None) -> RoutedResponse:
+             transform: Any = None, fallback: bool = True) -> RoutedResponse:
         """Try each profile in the chain. ``transform(provider, messages) -> (messages, restore)``
         lets the caller mask PII for external providers and restore it in the reply."""
         attempts: list[Attempt] = []
-        for name in self.chain(task, override):
+        for name in self.chain(task, override, fallback):
             info = self.registry.info(name)
             if not info.available:
                 attempts.append(Attempt(name, False, info.reason))

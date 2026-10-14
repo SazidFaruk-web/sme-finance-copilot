@@ -46,13 +46,55 @@ class ToolOutcome:
             payload["pending_action_id"] = self.pending_action_id
         if self.data:
             payload["result"] = _neutralize_strings(_strip_row_ids(self.data))
-        text = json.dumps(payload, ensure_ascii=False, default=str)
-        return text[:12000]
+        return compact_json(payload)
 
     def as_dict(self) -> dict[str, Any]:
         return {"tool": self.tool, "status": self.status, "tier": self.tier, "args": self.args, "data": self.data,
                 "message": self.message, "pending_action_id": self.pending_action_id,
                 "duration_ms": round(self.duration_ms, 1)}
+
+
+MODEL_VIEW_BUDGET = 12000
+# Bulky fields that the UI needs but a model rarely does; dropped first when over budget.
+_BULKY = ("documents", "checks", "first_months", "series", "baseline_series", "scenario_series", "monthly",
+          "items", "scheduled_items", "recurring", "upcoming", "components")
+
+
+def _cap_lists(obj: Any, n: int) -> Any:
+    if isinstance(obj, dict):
+        return {k: _cap_lists(v, n) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_cap_lists(v, n) for v in obj[:n]]
+    return obj
+
+
+def compact_json(payload: dict[str, Any], budget: int = MODEL_VIEW_BUDGET) -> str:
+    """Serialise a tool result for the model, shrinking it to fit the budget while ALWAYS staying valid
+    JSON (a truncated JSON string confuses models and parsers alike)."""
+    text = json.dumps(payload, ensure_ascii=False, default=str)
+    if len(text) <= budget:
+        return text
+    res = dict(payload.get("result") or {})
+    for k in _BULKY:
+        res.pop(k, None)
+    if isinstance(res.get("trace"), dict):
+        res["trace"] = {k: res["trace"].get(k) for k in ("formula", "period", "row_count")}
+    for k in ("recommendations", "rejected"):
+        if isinstance(res.get(k), list):
+            res[k] = [{kk: vv for kk, vv in m.items() if kk not in _BULKY} for m in res[k]]
+    for k, v in list(res.items()):
+        if isinstance(v, list):
+            res[f"{k}_total"] = len(v)  # keep true counts even when lists are capped below
+    slim = {**payload, "result": res, "note": "large result abridged for the model; full detail is shown in the app"}
+    for n in (12, 6, 3):
+        text = json.dumps(_cap_lists(slim, n), ensure_ascii=False, default=str)
+        if len(text) <= budget:
+            return text
+    return json.dumps({k: v for k, v in payload.items() if k != "result"} |
+                      {"note": "result too large; key figures only",
+                       "result_preview": {k: (v[:300] if isinstance(v, str) else v) for k, v in res.items()
+                                          if isinstance(v, (int, float, str, bool))}},
+                      ensure_ascii=False, default=str)
 
 
 def _strip_row_ids(obj: Any) -> Any:

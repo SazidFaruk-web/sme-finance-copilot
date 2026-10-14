@@ -55,6 +55,7 @@ class AgentResult:
     output_tokens: int = 0
     steps: int = 0
     error: str = ""
+    tool_outputs: list[dict[str, Any]] = field(default_factory=list)  # compact, as the model saw them
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -89,7 +90,8 @@ class Agent:
 
     def run(self, ctx: ToolContext, user_text: str, *, history: list[Message] | None = None,
             profile: str | None = None, language: str | None = None,
-            on_event: Callable[[str, dict[str, Any]], None] | None = None) -> AgentResult:
+            on_event: Callable[[str, dict[str, Any]], None] | None = None,
+            allow_fallback: bool = True) -> AgentResult:
         """Run one turn. ``on_event(kind, payload)`` streams progress (tool results) to the UI."""
         start = time.perf_counter()
         rid = ctx.request_id or uuid.uuid4().hex[:16]
@@ -122,7 +124,7 @@ class Agent:
             result.steps = step + 1
             try:
                 routed = self.router.chat(messages, task="advisory", override=profile, tools=tools,
-                                          transform=transform, max_tokens=1200)
+                                          transform=transform, max_tokens=1200, fallback=allow_fallback)
             except ProviderError as e:
                 result.error = str(e)[:300]
                 final = _fallback_text(lang)
@@ -141,6 +143,7 @@ class Agent:
             for tc in resp.tool_calls[:4]:  # cap fan-out per step
                 out = execute(ctx, tc.name, tc.arguments)
                 outcomes.append(out)
+                result.tool_outputs.append({"tool": tc.name, "arguments": tc.arguments, "output": out.for_model()[:3000]})
                 if on_event:
                     on_event("tool", {"tool": out.tool, "status": out.status, "tier": out.tier,
                                       "message": out.message})
@@ -155,7 +158,8 @@ class Agent:
                          if o.status == "ok" and isinstance(o.data.get("trace"), dict)]
         result.pending_actions = [{"id": o.pending_action_id, "tool": o.tool, **o.data} for o in outcomes
                                   if o.status == "pending_confirmation"]
-        ok_data = [o.data for o in outcomes if o.status in ("ok", "pending_confirmation")]
+        ok_data = [o.data for o in outcomes if o.status in ("ok", "pending_confirmation")] + \
+            [o.message for o in outcomes if o.message]
         result.ungrounded_numbers = ungrounded_numbers(result.reply, ok_data, user_text) if outcomes else \
             ungrounded_numbers(result.reply, [], user_text)
         if any(REGISTRY[o.tool].advisory for o in outcomes if o.tool in REGISTRY and o.status == "ok"):

@@ -116,8 +116,9 @@ def run_chat(db: Session, user: User, body: ChatIn, on_event=None) -> dict[str, 
     result = Agent().run(ctx, body.message, history=_history(db, conv.id), profile=body.profile,
                          language=body.language, on_event=on_event)
     _save_turn(db, conv, body, result)
-    log_interaction(result, body.message, business_id=user.business_id)
+    log_interaction(result, body.message, business_id=user.business_id, tool_results=result.tool_outputs)
     out = result.as_dict()
+    out.pop("tool_outputs", None)  # internal (dataset); the UI gets traces instead
     out["conversation_id"] = conv.id
     out["interaction_id"] = result.request_id
     return out

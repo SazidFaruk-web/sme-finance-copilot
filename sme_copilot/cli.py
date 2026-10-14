@@ -75,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--profiles", default="rules-offline", help="comma-separated provider profiles")
     b.add_argument("--limit", type=int, default=0, help="only the first N scenarios")
     b.add_argument("--out", default="benchmarks/results")
+    b.add_argument("--judge", default=None, help="optional provider profile used as LLM judge for fluency")
     ev = sub.add_parser("evidence", help="scripted end-to-end demo + execution evidence export")
     ev.add_argument("--out", default="docs/evidence")
     ft = sub.add_parser("export-finetune", help="export interaction log to a fine-tuning dataset")
@@ -121,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if res["ok"] else 2
     elif args.cmd == "bench":
         from sme_copilot.benchmarks.runner import run_cli
-        return run_cli(args.profiles.split(","), limit=args.limit, out_dir=args.out)
+        return run_cli(args.profiles.split(","), limit=args.limit, out_dir=args.out, judge=args.judge)
     elif args.cmd == "evidence":
         from sme_copilot.demo.evidence import run_evidence
         return run_evidence(args.out)
