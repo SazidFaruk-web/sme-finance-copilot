@@ -1,0 +1,200 @@
+[
+ {
+  "file": "01_clean_bank.csv",
+  "lang": "en",
+  "ok": true,
+  "secs": 29.3,
+  "want": {
+   "income": 2214110.0,
+   "expense": 1300790.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "en",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "In May 2026, your business had the following totals:\n\n*   **Total Income:** ৳22,14,110\n*   **Total Expenses:** ৳13,00,790\n*   **Net Cash Flow:** ৳9,13,320\n\n**Next Steps:**\n1. Review the **Inventory** category, as it was your largest expense (৳8,14,400).\n2. Check your **Sales** breakdown to see which"
+ },
+ {
+  "file": "01_clean_bank.csv",
+  "lang": "bn",
+  "ok": true,
+  "secs": 11.8,
+  "want": {
+   "income": 2214110.0,
+   "expense": 1300790.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "bn",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "মে ২০২৬ মাসে আপনার ব্যবসার আর্থিক হিসাব নিচে দেওয়া হলো:\n\n*   **মোট আয়:** ৳২২,১৪,১১০\n*   **মোট খরচ:** ৳১৩,০০,৭৯০\n*   **নিট ক্যাশ ফ্লো:** ৳৯,১৩,৩২০\n\n**পরবর্তী ধাপ:**\n১. আপনি চাইলে খরচের প্রধান খাতগুলো (যেমন: ইনভেন্টরি বা বেতন) বিস্তারিত দেখতে পারেন।\n২. এই মাসের লাভ বা মার্জিন সম্পর্কে জানতে `get_prof"
+ },
+ {
+  "file": "01_clean_bank.csv",
+  "lang": "banglish",
+  "ok": true,
+  "secs": 13.6,
+  "want": {
+   "income": 2214110.0,
+   "expense": 1300790.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "banglish",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "May 2026 mashe apnar business-er mot ay chilo ৳22,14,110 ebong mot khoroch chilo ৳13,00,790.\n\nPorer dhap:\n1. Apni chaile ami apnake inventory ba salary-r moto boro khoroch gulo niye details dite pari.\n2. Net cash flow (৳9,13,320) niye kono analysis lagle bolte paren."
+ },
+ {
+  "file": "03_bangla_headers_digits.csv",
+  "lang": "en",
+  "ok": true,
+  "secs": 12.3,
+  "want": {
+   "income": 1249360.0,
+   "expense": 945840.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "en",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "In May 2026, your business recorded the following totals:\n\n*   **Total Income:** ৳12,49,360\n*   **Total Expenses:** ৳9,45,840\n*   **Net Cash Flow:** ৳3,03,520\n\n**Next Steps:**\n1. Review the **Inventory** category, as it accounted for 76% (৳7,18,600) of your expenses.\n2. Compare these figures with yo"
+ },
+ {
+  "file": "03_bangla_headers_digits.csv",
+  "lang": "bn",
+  "ok": true,
+  "secs": 11.3,
+  "want": {
+   "income": 1249360.0,
+   "expense": 945840.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "bn",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "২০২৬ সালের মে মাসে আপনার ব্যবসার হিসাব নিচে দেওয়া হলো:\n\n*   **মোট আয়:** ৳১২,৪৯,৩৬০\n*   **মোট খরচ:** ৳৯,৪৫,৮৪০\n*   **নিট ক্যাশ ফ্লো:** ৳৩,০৩,৫২০\n\n**পরবর্তী ধাপ:**\n১. আপনি চাইলে খরচের প্রধান খাতগুলো (যেমন: ইনভেন্টরি বা ভাড়া) বিস্তারিত দেখতে পারেন।\n২. পরবর্তী মাসের জন্য ক্যাশ ফ্লো পূর্বাভাস দেখতে পার"
+ },
+ {
+  "file": "03_bangla_headers_digits.csv",
+  "lang": "banglish",
+  "ok": true,
+  "secs": 12.5,
+  "want": {
+   "income": 1249360.0,
+   "expense": 945840.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "banglish",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "May 2026 mashe apnar business-er financial summary niche deya holo:\n\n*   **Mot Ay (Total Income):** ৳12,49,360\n*   **Mot Khoroch (Total Expense):** ৳9,45,840\n*   **Net Cash Flow:** ৳3,03,520\n\n**Porer dhap:**\n1. Apni chaile inventory khoroch (৳7,18,600) niye aro details dekhte paren.\n2. Gato masher k"
+ },
+ {
+  "file": "04_mixed_dates.csv",
+  "lang": "en",
+  "ok": true,
+  "secs": 11.5,
+  "want": {
+   "income": 1066110.0,
+   "expense": 1014540.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "en",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "In May 2026, your business had the following totals:\n\n*   **Total Income:** ৳10,66,110\n*   **Total Expenses:** ৳10,14,540\n*   **Net Cash Flow:** ৳51,570\n\n**Next Steps:**\n1. Review the **Inventory** category, as it accounted for 70.8% (৳7,18,600) of your expenses.\n2. Check your **Sales** ledger to se"
+ },
+ {
+  "file": "04_mixed_dates.csv",
+  "lang": "bn",
+  "ok": true,
+  "secs": 11.2,
+  "want": {
+   "income": 1066110.0,
+   "expense": 1014540.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "bn",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "২০২৬ সালের মে মাসে আপনার ব্যবসার হিসাব নিচে দেওয়া হলো:\n\n*   **মোট আয়:** ৳১০,৬৬,১১০\n*   **মোট খরচ:** ৳১০,১৪,৫৪০\n*   **নিট ক্যাশ ফ্লো:** ৳৫১,৫৭০\n\n**পরবর্তী ধাপ:**\n১. আপনি চাইলে খরচের প্রধান খাতগুলো (যেমন: ইনভেন্টরি বা ভাড়া) বিস্তারিত দেখতে পারেন।\n২. পরবর্তী মাসের জন্য ক্যাশ ফ্লো পূর্বাভাস দেখতে পারে"
+ },
+ {
+  "file": "04_mixed_dates.csv",
+  "lang": "banglish",
+  "ok": true,
+  "secs": 12.2,
+  "want": {
+   "income": 1066110.0,
+   "expense": 1014540.0
+  },
+  "hit": {
+   "income": true,
+   "expense": true
+  },
+  "fallback": false,
+  "fallback_reason": "",
+  "language": "banglish",
+  "tools": [
+   "get_financial_summary"
+  ],
+  "dashboard_status": 200,
+  "reply": "May 2026 mashe apnar mot ay chilo ৳10,66,110 ebong mot khoroch chilo ৳10,14,540. Ei mashe apnar net cash flow chilo ৳51,570.\n\nPorer dhap:\n1. Apni chaile inventory khoroch (৳7,18,600) er bishoyebare aro details dekhte paren.\n2. Gato masher khorocher category breakdown check korte paren."
+ }
+]
