@@ -61,3 +61,54 @@ def make_txn_df(rows):
                      "channel": "cash", "source": "test", "source_row": r[0] + 1, "batch_id": None,
                      "is_anomaly": False, "flags": []})
     return pd.DataFrame(recs)
+
+
+SMALL_LEDGER = "Date,Description,Amount,Type,Party\n" + "\n".join(
+    line for m in ("07", "08", "09") for line in (
+        f"10/{m}/2026,Sold zippers and buttons,300000,income,Karim Knit",
+        f"11/{m}/2026,Bought zippers from wholesaler,150000,expense,Islampur Traders",
+        f"01/{m}/2026,Shop rent,30000,expense,",
+        f"28/{m}/2026,Staff salary,45000,expense,",
+        f"15/{m}/2026,Courier and van delivery,15000,expense,",
+    )) + "\n"
+
+SMALL_INVOICES = """Invoice No,Customer,Amount,Invoice Date,Due Date,Paid Date,Phone
+INV-201,Karim Knit Composite,120000,01/08/2026,31/08/2026,,01711111111
+INV-202,Rahman Fashion,45000,15/08/2026,14/09/2026,20/09/2026,01722222222
+INV-203,Karim Knit Composite,80000,01/10/2026,31/10/2026,,
+"""
+
+
+@pytest.fixture
+def seeded(db, monkeypatch):
+    """Business + owner/accountant/viewer + 3 months of data; 'today' pinned to 2026-10-14."""
+    from datetime import date
+
+    from sme_copilot.config import reset_settings_cache
+    from sme_copilot.models import Business, SandboxAccount
+    from sme_copilot.security.auth import create_user
+    from sme_copilot.tools.ingestion import import_file
+
+    monkeypatch.setenv("AS_OF_DATE", "2026-10-14")
+    reset_settings_cache()
+    b = Business(name="Test Trims", sector="accessories", established_on=date(2022, 1, 1),
+                 opening_cash_balance=200_000, opening_balance_date=date(2026, 6, 30),
+                 has_trade_license=True, has_tin=True, collateral_value=500_000)
+    db.add(b)
+    db.flush()
+    owner = create_user(db, b.id, "owner", "owner-pass-123", "owner", "Nusrat")
+    acct = create_user(db, b.id, "accountant", "acct-pass-123", "accountant", "Rafiq")
+    viewer = create_user(db, b.id, "viewer", "viewer-pass-123", "viewer", "Mitu")
+    db.add(SandboxAccount(business_id=b.id, balance=300_000, account_no="9990001112223"))
+    import_file(db, b.id, SMALL_LEDGER.encode(), "ledger.csv")
+    import_file(db, b.id, SMALL_INVOICES.encode(), "invoices.csv")
+    db.commit()
+    return {"business": b, "owner": owner, "accountant": acct, "viewer": viewer, "db": db}
+
+
+def make_ctx(seeded, role="owner"):
+    from datetime import date
+
+    from sme_copilot.agent.toolkit import ToolContext
+    return ToolContext(session=seeded["db"], business=seeded["business"], user=seeded[role],
+                       as_of=date(2026, 10, 14), request_id="test")

@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     llm_max_retries: int = 2
 
+    # Fixed "today" for reproducible demos/benchmarks (YYYY-MM-DD). Empty = real date (Asia/Dhaka).
+    as_of_date: str = ""
+
     # --- Telemetry ------------------------------------------------------------------
     interaction_log_enabled: bool = True
 
