@@ -82,3 +82,34 @@ def read_all(path: Path | None = None) -> tuple[dict[str, dict[str, Any]], dict[
             elif rec.get("type") == "feedback":
                 fb[rec["id"]] = rec
     return inter, fb
+
+
+def purge_business(business_id: int) -> int:
+    """Right to erasure for the dataset: rewrite the JSONL without this business's interactions
+    (and the feedback attached to them). Returns the number of lines removed."""
+    p = _path()
+    if not p.exists():
+        return 0
+    ref = f"b{business_id}"
+    with _lock:
+        lines = p.read_text(encoding="utf-8").splitlines()
+        drop_ids: set[str] = set()
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("type") == "interaction" and rec.get("business_ref") == ref:
+                drop_ids.add(rec["id"])
+        keep = []
+        for line in lines:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                keep.append(line)
+                continue
+            if rec.get("id") in drop_ids:
+                continue
+            keep.append(line)
+        p.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8")
+    return len(lines) - len(keep)

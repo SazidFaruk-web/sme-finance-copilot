@@ -52,6 +52,16 @@ class Decision:
         return self.__dict__.copy()
 
 
+def pending_reserved(session: Session, business_id: int, *, exclude_pending_id: int | None = None) -> float:
+    """Money already promised to unexpired pending Tier-2 requests."""
+    q = select(func.coalesce(func.sum(PendingAction.amount), 0)).where(
+        PendingAction.business_id == business_id, PendingAction.tier == 2, PendingAction.status == "pending",
+        PendingAction.expires_at > utcnow())
+    if exclude_pending_id is not None:
+        q = q.where(PendingAction.id != exclude_pending_id)
+    return float(session.scalar(q) or 0)
+
+
 def daily_money_used(session: Session, business_id: int, *, exclude_pending_id: int | None = None) -> float:
     """Executed sandbox transfers today + still-pending Tier-2 requests (reserved against the cap)."""
     start, end = local_day_bounds_utc(local_today())
@@ -90,9 +100,11 @@ def authorize(session: Session, user: User, tool_name: str, tier: int, *, amount
                             f"Daily cap {s.sandbox_daily_cap:,.0f} BDT would be exceeded "
                             f"(already used or reserved today: {used:,.0f}).")
         acct = session.scalar(select(SandboxAccount).where(SandboxAccount.business_id == user.business_id))
-        if acct is None or float(acct.balance) < amount:
-            bal = float(acct.balance) if acct else 0.0
+        bal = float(acct.balance) if acct else 0.0
+        reserved = pending_reserved(session, user.business_id, exclude_pending_id=exclude_pending_id)
+        if bal - reserved < amount:
             return Decision(False, False, tier, "insufficient_funds",
-                            f"Sandbox balance {bal:,.0f} BDT is not enough for {amount:,.0f} BDT.")
+                            f"Sandbox balance {bal:,.0f} BDT minus {reserved:,.0f} BDT reserved by pending requests "
+                            f"is not enough for {amount:,.0f} BDT.")
         return Decision(True, True, tier, "ok", "Allowed after explicit confirmation by the owner.")
     return Decision(True, False, tier, "ok", "Allowed.")

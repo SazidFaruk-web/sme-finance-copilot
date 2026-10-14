@@ -82,6 +82,7 @@ class ToolDef:
     summarize: Callable[[Any], str] | None = None  # human-readable description for confirmations
     advisory: bool = False  # output needs the "not financial advice" disclaimer
     mutates: bool = False  # invalidates cached data
+    prepare: Callable[[ToolContext, Any], Any] | None = None  # fill derived args (e.g. amount) before authorization
 
     def spec(self) -> ToolSpec:
         schema = strip_nullable(inline_schema(self.args_model.model_json_schema()))

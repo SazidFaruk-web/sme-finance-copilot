@@ -113,6 +113,14 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
         _audit(ctx, tool, name, out, event_type="tool_call", confirmation="not_required")
         ctx.session.commit()
         return out
+    if tool.prepare is not None:
+        try:
+            args = tool.prepare(ctx, args)
+        except (ValueError, LookupError) as e:
+            out = ToolOutcome(name, "invalid_args", tool.tier, raw_args, message=str(e)[:400])
+            _audit(ctx, tool, name, out, event_type="tool_call", confirmation="not_required")
+            ctx.session.commit()
+            return out
     args_dict = args.model_dump(mode="json")
     amount = float(getattr(args, tool.amount_field)) if tool.amount_field else None
     decision = authorize(ctx.session, ctx.user, name, tool.tier, amount=amount)
@@ -155,7 +163,7 @@ def run_handler(ctx: ToolContext, tool: ToolDef, args: BaseModel, args_dict: dic
             result = tool.result_model.model_validate(result)
         data = _dump(result)
         out = ToolOutcome(tool.name, "ok", tool.tier, args_dict, data=data)
-    except (ValueError, LookupError) as e:
+    except (ValueError, LookupError, PermissionError) as e:
         ctx.session.rollback()
         out = ToolOutcome(tool.name, "error", tool.tier, args_dict, message=str(e)[:400])
     if tool.mutates:

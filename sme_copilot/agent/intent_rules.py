@@ -207,13 +207,21 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
 
     def reminder(t, o, c):
         name = _name_after(t, o, ("remind", "to", "for", "customer"))
-        return {"counterparty": name} if name else {"counterparty": ""}
+        return {"counterparty": name, "language": "bn" if c.get("language") == "bn" else "en"}
 
     def followup(t, o, c):
         name = _name_after(t, o, ("to", "for", "customer"))
         tone = "firm" if _has(t, ["firm", "strict", "final", "kora", "কড়া"]) else "polite"
         lang = c.get("language", "en")
         return {"counterparty": name, "tone": tone, "language": "bn" if lang == "bn" else "en"}
+
+    def pay_supplier(t, o, c):
+        if QUESTION_RX.search(t) and not t.startswith(("please", "can you")):
+            return None
+        name = _name_after(t, o, ("pay", "to", "for"))
+        if name.lower() in ("supplier", "the supplier", "bill", "the bill"):
+            name = ""
+        return {"counterparty": name} if name else {}
 
     def what_if(t, o, c):
         sc = parse_scenarios(t, o)
@@ -271,6 +279,8 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         ("create_payment_reminder", ["reminder", "remind", "tagada", "তাগাদা", "মনে করিয়ে"], reminder),
         ("draft_invoice_followup", ["draft", "follow up", "follow-up", "followup", "message to", "letter", "chithi",
                                     "চিঠি", "বার্তা", "write to", "sms likh"], followup),
+        ("pay_supplier_invoice", ["pay supplier", "pay the supplier", "pay bill", "pay the bill", "supplier payment",
+                                  "bill pay", "supplier er bill", "সরবরাহকারীর বিল"], pay_supplier),
         ("sandbox_transfer", ["transfer", "send money", "send", "pathao", "pathan", "পাঠাও", "পাঠান", "ট্রান্সফার",
                               "pay "], transfer),
         ("generate_loan_report", ["loan report", "readiness report", "pdf", "report for the bank", "bank report",
@@ -715,7 +725,66 @@ def c_catalog(r, f: Fmt) -> str:
                   f"{r['count']} dhoroner financing:") + "\n" + "\n".join(lines)
 
 
+def c_reminder(r, f: Fmt) -> str:
+    return f.pick(
+        f"Reminder scheduled for {r['remind_on']} by {r['channel'].upper()} to {r['counterparty']} ({r['to']}) for "
+        f"invoice {r['invoice_no']}: {f.m(r['amount'])}, {r['days_overdue']} days overdue.\nMessage: \"{r['message']}\"\n"
+        f"(Sandbox outbox - nothing is sent to a real phone.)",
+        f"{r['counterparty']}-কে {f.n(r['remind_on'])} তারিখে {r['channel'].upper()} রিমাইন্ডার সেট হয়েছে: ইনভয়েস "
+        f"{r['invoice_no']}, {f.m(r['amount'])}, {f.n(r['days_overdue'])} দিন মেয়াদোত্তীর্ণ।\nবার্তা: \"{r['message']}\"",
+        f"{r['counterparty']} ke {r['remind_on']} e {r['channel'].upper()} reminder set holo: invoice {r['invoice_no']}, "
+        f"{f.m(r['amount'])}, {r['days_overdue']} din overdue.\nMessage: \"{r['message']}\"")
+
+
+def c_followup(r, f: Fmt) -> str:
+    return f.pick(f"Draft saved (#{r['draft_id']}) for {r['counterparty']} - invoice {r['invoice_no']}, "
+                  f"{f.m(r['amount'])}. Review it before sending:\n\nSubject: {r['subject']}\n\n{r['body']}",
+                  f"খসড়া সংরক্ষিত (#{f.n(r['draft_id'])}) - {r['counterparty']}, ইনভয়েস {r['invoice_no']}, "
+                  f"{f.m(r['amount'])}। পাঠানোর আগে দেখে নিন:\n\n{r['subject']}\n\n{r['body']}",
+                  f"Draft save holo (#{r['draft_id']}) - {r['counterparty']}, invoice {r['invoice_no']}, "
+                  f"{f.m(r['amount'])}. Pathanor age dekhe nin:\n\n{r['subject']}\n\n{r['body']}")
+
+
+def c_report(r, f: Fmt) -> str:
+    return f.pick(f"Your loan-readiness report is ready ({r['filename']}), readiness score {r['readiness_score']:g}/100. "
+                  f"Download it from Actions > Reports. Financing terms inside are illustrative.",
+                  f"ঋণ-প্রস্তুতি রিপোর্ট তৈরি ({r['filename']}), স্কোর {f.n(r['readiness_score'])}/১০০। "
+                  f"Actions > Reports থেকে ডাউনলোড করুন।",
+                  f"Loan-readiness report ready ({r['filename']}), score {r['readiness_score']:g}/100. "
+                  f"Actions > Reports theke download korun.")
+
+
+def c_checklist(r, f: Fmt) -> str:
+    lines = [f"- [{'x' if i['status'] in ('have', 'can_generate') else ' '}] {i['document']}" for i in r["items"]]
+    return f.pick(f"Checklist for {r['product_name']} ({r['verify_label']}): {r['ready_count']}/{r['total']} ready.",
+                  f"{r['product_name']} এর জন্য চেকলিস্ট: {f.n(r['ready_count'])}/{f.n(r['total'])} প্রস্তুত।",
+                  f"{r['product_name']} er checklist: {r['ready_count']}/{r['total']} ready.") + "\n" + "\n".join(lines)
+
+
+def c_obligation(r, f: Fmt) -> str:
+    return f.pick(f"Added recurring payment '{r['name']}' of {f.m(r['amount'])}; next due {r['next_due']}.",
+                  f"নিয়মিত পরিশোধ '{r['name']}' ({f.m(r['amount'])}) যোগ হয়েছে; পরবর্তী তারিখ {f.n(r['next_due'])}।",
+                  f"Niyomito payment '{r['name']}' ({f.m(r['amount'])}) jog holo; porer tarikh {r['next_due']}.")
+
+
+def c_transfer(r, f: Fmt) -> str:
+    return f.pick(f"Sandbox transfer executed: {f.m(r['amount'])} to {r['recipient_name']}. Sandbox balance "
+                  f"{f.m(r['balance_before'])} -> {f.m(r['balance_after'])}.",
+                  f"স্যান্ডবক্স ট্রান্সফার সম্পন্ন: {r['recipient_name']}-কে {f.m(r['amount'])}। ব্যালেন্স "
+                  f"{f.m(r['balance_after'])}।",
+                  f"Sandbox transfer hoyeche: {r['recipient_name']} ke {f.m(r['amount'])}. Balance {f.m(r['balance_after'])}.")
+
+
+def c_compliance(r, f: Fmt) -> str:
+    lines = [f"- {x['title']}{' (applies to you)' if x['applies_to_you'] else ''}: {x['summary']} [{x['verify_label']}]"
+             for x in r.get("rules") or []][:4]
+    return "\n".join(lines) + "\n" + r.get("disclaimer", "")
+
+
 COMPOSERS: dict[str, Callable[[dict[str, Any], Fmt], str]] = {
+    "create_payment_reminder": c_reminder, "draft_invoice_followup": c_followup, "generate_loan_report": c_report,
+    "prepare_loan_checklist": c_checklist, "add_obligation": c_obligation, "sandbox_transfer": c_transfer,
+    "pay_supplier_invoice": c_transfer, "compliance_info": c_compliance,
     "match_financing": c_match, "loan_readiness_score": c_readiness, "get_financing_catalog": c_catalog,
     "forecast_cash_flow": c_forecast, "run_what_if": c_whatif, "list_alerts": c_alerts, "get_digest": c_digest,
     "acknowledge_alert": c_ack, "schedule_alert": c_schedule,
