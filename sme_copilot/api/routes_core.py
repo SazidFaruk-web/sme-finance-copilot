@@ -158,9 +158,10 @@ def chat_stream(body: ChatIn, user: User = Depends(current_user)) -> StreamingRe
             if kind == "end":
                 break
             if kind == "result":
-                words = payload["reply"].split(" ")
-                for i in range(0, len(words), 6):
-                    yield f"event: delta\ndata: {json.dumps({'text': ' '.join(words[i:i + 6]) + ' '}, ensure_ascii=False)}\n\n"
+                if not payload.get("streamed"):  # local models already streamed the text token by token
+                    words = payload["reply"].split(" ")
+                    for i in range(0, len(words), 6):
+                        yield f"event: delta\ndata: {json.dumps({'text': ' '.join(words[i:i + 6]) + ' '}, ensure_ascii=False)}\n\n"
                 yield f"event: done\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
             else:
                 yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"

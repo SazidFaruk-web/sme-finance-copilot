@@ -49,6 +49,7 @@ class AgentResult:
     requested_profile: str = ""
     fallback: bool = False  # True when a profile other than the requested one produced (part of) the answer
     fallback_reason: str = ""
+    streamed: bool = False  # answer text was already sent to the caller as live `delta` events
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     traces: list[dict[str, Any]] = field(default_factory=list)
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
@@ -135,11 +136,16 @@ class Agent:
         final = ""
         result.requested_profile = self.router.chain("advisory", profile, fallback=False)[0]
 
+        def on_delta(text: str) -> None:
+            result.streamed = True
+            on_event("delta", {"text": text})
+
         for step in range(MAX_STEPS):
             result.steps = step + 1
             try:
                 routed = self.router.chat(messages, task="advisory", override=profile, tools=tools,
-                                          transform=transform, max_tokens=1200, fallback=allow_fallback)
+                                          transform=transform, max_tokens=1200, fallback=allow_fallback,
+                                          on_delta=on_delta if on_event else None)
             except ProviderError as e:
                 result.error = str(e)[:300]
                 result.fallback, result.fallback_reason = True, result.error

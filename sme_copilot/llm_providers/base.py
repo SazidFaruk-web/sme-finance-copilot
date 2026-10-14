@@ -183,6 +183,19 @@ class LLMProvider(ABC):
         yield StreamChunk(delta=resp.content)
         yield StreamChunk(done=True, response=resp)
 
+    def chat_stream(
+        self,
+        messages: list[Message],
+        *,
+        tools: list[ToolSpec] | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 1024,
+        on_delta: Callable[[str], None],
+    ) -> ChatResponse:
+        """Like ``chat`` (tool calls included) but reports answer text through ``on_delta`` as it is
+        generated. Adapters without incremental output just return the full response."""
+        return self.chat(messages, tools=tools, temperature=temperature, max_tokens=max_tokens)
+
     def count_tokens(self, messages: list[Message]) -> int:
         return messages_token_estimate(messages)
 

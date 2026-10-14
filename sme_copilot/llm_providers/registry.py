@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -149,9 +149,12 @@ class ModelRouter:
     def chat(self, messages: list[Message], *, task: str = "advisory", override: str | None = None,
              tools: list[ToolSpec] | None = None, json_schema: dict[str, Any] | None = None,
              max_tokens: int = 1024, temperature: float = 0.2,
-             transform: Any = None, fallback: bool = True) -> RoutedResponse:
+             transform: Any = None, fallback: bool = True,
+             on_delta: Callable[[str], None] | None = None) -> RoutedResponse:
         """Try each profile in the chain. ``transform(provider, messages) -> (messages, restore)``
-        lets the caller mask PII for external providers and restore it in the reply."""
+        lets the caller mask PII for external providers and restore it in the reply. ``on_delta`` receives
+        answer text as it is generated, for local providers with native tools only (external replies are
+        PII-unmasked after the fact, and emulated tool calls are JSON, so neither is streamed)."""
         attempts: list[Attempt] = []
         for name in self.chain(task, override, fallback):
             info = self.registry.info(name)
@@ -163,6 +166,9 @@ class ModelRouter:
                 msgs, restore = (transform(provider, messages) if transform else (messages, None))
                 if tools and not provider.supports_tools:
                     resp = emulated_tool_chat(provider, msgs, tools, max_tokens=max_tokens)
+                elif on_delta and not provider.external and json_schema is None:
+                    resp = provider.chat_stream(msgs, tools=tools, temperature=temperature, max_tokens=max_tokens,
+                                                on_delta=on_delta)
                 else:
                     resp = provider.chat(msgs, tools=tools, json_schema=json_schema,
                                          temperature=temperature, max_tokens=max_tokens)

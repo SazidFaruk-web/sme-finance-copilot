@@ -122,6 +122,65 @@ class OpenAIProvider(LLMProvider):
             raw=data,
         )
 
+    def chat_stream(self, messages, *, tools=None, temperature=0.2, max_tokens=1024, on_delta) -> ChatResponse:
+        payload = self._payload(messages, tools, None, temperature, max_tokens)
+        payload["stream"] = True
+        if self.extra.get("stream_usage", True):
+            payload["stream_options"] = {"include_usage": True}
+        start = time.perf_counter()
+        ttft: float | None = None
+        parts: list[str] = []
+        calls: dict[int, dict[str, str]] = {}
+        usage, finish = Usage(), None
+        try:
+            with self._client() as client, client.stream(
+                "POST", f"{self.base_url}/chat/completions", json=payload, headers=self._headers()
+            ) as r:
+                if r.status_code >= 400:
+                    r.read()
+                    raise ProviderError(f"{self.profile}: HTTP {r.status_code}: {r.text[:300]}",
+                                        retryable=r.status_code >= 500, status=r.status_code)
+                for line in r.iter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    body = line[5:].strip()
+                    if body == "[DONE]":
+                        break
+                    try:
+                        evt = json.loads(body)
+                    except ValueError:
+                        continue
+                    if evt.get("usage"):
+                        usage = Usage(evt["usage"].get("prompt_tokens", 0) or 0,
+                                      evt["usage"].get("completion_tokens", 0) or 0)
+                    for ch in evt.get("choices") or []:
+                        finish = ch.get("finish_reason") or finish
+                        delta = ch.get("delta") or {}
+                        for tc in delta.get("tool_calls") or []:
+                            slot = calls.setdefault(tc.get("index", len(calls)), {"id": "", "name": "", "args": ""})
+                            slot["id"] = tc.get("id") or slot["id"]
+                            fn = tc.get("function") or {}
+                            slot["name"] += fn.get("name") or ""
+                            slot["args"] += fn.get("arguments") or ""
+                        text = delta.get("content")
+                        if text:
+                            if ttft is None:
+                                ttft = (time.perf_counter() - start) * 1000
+                            parts.append(text)
+                            on_delta(text)
+        except httpx.TimeoutException as e:
+            raise ProviderError(f"{self.profile}: timeout: {e}", retryable=True) from e
+        except httpx.HTTPError as e:
+            raise ProviderError(f"{self.profile}: stream error: {e}", retryable=True) from e
+        tool_calls = [ToolCall(id=c["id"] or f"call_{i}", name=c["name"], arguments=parse_json_arguments(c["args"]))
+                      for i, c in sorted(calls.items()) if c["name"]]
+        if not usage.output_tokens:
+            from .base import estimate_tokens, messages_token_estimate
+            usage = Usage(messages_token_estimate(messages), estimate_tokens("".join(parts)))
+        return ChatResponse(content="".join(parts), tool_calls=tool_calls, provider=self.adapter, model=self.model,
+                            usage=usage, latency_ms=(time.perf_counter() - start) * 1000, ttft_ms=ttft,
+                            finish_reason=finish)
+
     def stream(self, messages, *, temperature=0.2, max_tokens=1024) -> Iterator[StreamChunk]:
         payload = self._payload(messages, None, None, temperature, max_tokens)
         payload["stream"] = True

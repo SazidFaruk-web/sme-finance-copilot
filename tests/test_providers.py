@@ -275,6 +275,43 @@ def test_constrained_emulated_tools_send_per_tool_schema_and_request_params():
     assert seen["top_p"] == 0.8
 
 
+def _sse(*events):
+    return "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+
+
+def test_chat_stream_assembles_tool_calls_and_streams_text():
+    body = _sse(
+        {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "c1", "function": {"name": "get_aging", "arguments": '{"ki'}}]}}]},
+        {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": 'nd": "receivable"}'}}]}}]},
+        {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]})
+    p = OpenAICompatibleProvider("m", transport=mock(lambda r: httpx.Response(200, text=body)))
+    got = []
+    r = p.chat_stream([Message("user", "x")], tools=[TOOL], on_delta=got.append)
+    assert r.tool_calls[0].name == "get_aging" and r.tool_calls[0].arguments == {"kind": "receivable"} and got == []
+    body = _sse({"choices": [{"delta": {"content": "Cash is "}}]}, {"choices": [{"delta": {"content": "৳1,89,705."}}]})
+    p = OpenAICompatibleProvider("m", transport=mock(lambda r: httpx.Response(200, text=body)))
+    r = p.chat_stream([Message("user", "x")], on_delta=got.append)
+    assert got == ["Cash is ", "৳1,89,705."] and r.content == "Cash is ৳1,89,705." and not r.tool_calls
+
+
+def test_router_streams_only_local_providers():
+    body = _sse({"choices": [{"delta": {"content": "hi"}}]})
+    for external, streamed in ((False, ["hi"]), (True, [])):
+        cfg = {"default_profile": "p", "routing": {}, "profiles": {"p": {
+            "adapter": "openai_compatible", "model": "m", "base_url": "http://x.test/v1", "external": external,
+            "max_retries": 0}}}
+        seen = []
+
+        def handler(req):
+            if json.loads(req.content).get("stream"):
+                return httpx.Response(200, text=body)
+            return httpx.Response(200, json={"choices": [{"message": {"content": "hi"}}]})
+
+        router = ModelRouter(ProviderRegistry(cfg, Settings(llm_profile="p", local_only_mode=False), transport=mock(handler)))
+        res = router.chat([Message("user", "x")], on_delta=seen.append)
+        assert res.response.content == "hi" and seen == streamed
+
+
 def test_inline_schema_resolves_refs():
     class A(BaseModel):
         v: int
