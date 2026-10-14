@@ -21,6 +21,7 @@ from sme_copilot.forecasting.forecast import build_inputs, project
 from sme_copilot.models import Draft, Invoice, Obligation, Reminder, Report, SandboxAccount, SandboxTransfer, Transaction, utcnow
 from sme_copilot.sandbox import messages
 from sme_copilot.sandbox.pdf_report import build_pdf
+from sme_copilot.security.injection import neutralize
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools import repo
 from sme_copilot.tools.analysis import aging, business_metrics, monthly_table, profitability, resolve_period
@@ -50,7 +51,12 @@ def find_invoice(ctx: ToolContext, *, invoice_id: int | None, counterparty: str 
                        1.0 if target and target in normalize(i.counterparty) else 0.0), i) for i in rows]
         scored = [s for s in scored if s[0] >= 0.6]
         if not scored:
-            raise LookupError(f"no open {kind} invoice found for '{counterparty}'")
+            # Names may arrive in another script or spelling ("করিম নিট" vs "Karim Knit"): list the real ones so
+            # the model can retry with the exact record name. They are uploaded data, so neutralise them.
+            names = sorted({neutralize(i.counterparty) for i in rows if i.counterparty})[:15]
+            raise LookupError(f"no open {kind} invoice found for '{counterparty}'. Open {kind} invoices exist for: "
+                              f"{', '.join(names) or 'nobody'}. If one of these is meant (e.g. the same name in "
+                              "another script or spelling), call again with that exact name.")
         best = max(s[0] for s in scored)
         rows = [i for sc, i in scored if sc == best]
     if not rows:

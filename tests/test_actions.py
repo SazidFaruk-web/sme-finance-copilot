@@ -235,3 +235,10 @@ def test_pay_supplier_by_name_picks_that_supplier(seeded):
     db.commit()
     r = Agent().run(make_ctx(seeded), "Pay supplier Lalbagh Thread Mills")
     assert r.pending_actions[0]["recipient"] == "Lalbagh Thread Mills" and r.pending_actions[0]["amount"] == 96_000
+
+
+def test_unmatched_counterparty_lists_real_names_for_a_retry(seeded):
+    from sme_copilot.agent.executor import execute
+    out = execute(make_ctx(seeded), "create_payment_reminder", {"counterparty": "করিম নিট কম্পোজিট"})
+    assert out.status == "error" and "Open receivable invoices exist for:" in out.message
+    assert "call again with that exact name" in out.message

@@ -227,7 +227,7 @@ def run_handler(ctx: ToolContext, tool: ToolDef, args: BaseModel, args_dict: dic
         out = ToolOutcome(tool.name, "ok", tool.tier, args_dict, data=data)
     except (ValueError, LookupError, PermissionError) as e:
         ctx.session.rollback()
-        out = ToolOutcome(tool.name, "error", tool.tier, args_dict, message=str(e)[:400])
+        out = ToolOutcome(tool.name, "error", tool.tier, args_dict, message=str(e)[:800])
     if tool.mutates:
         ctx.invalidate()
     event_type = "operation" if tool.tier >= 1 else "tool_call"
