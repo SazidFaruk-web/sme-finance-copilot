@@ -1,6 +1,7 @@
 """Request bodies (validated; length-capped to limit abuse)."""
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -37,6 +38,11 @@ class EntryIn(BaseModel):
 class TxnPatch(BaseModel):
     category: str | None = Field(None, max_length=40)
     is_duplicate: bool | None = None
+    txn_date: date | None = None
+    amount: float | None = Field(None, gt=0, le=1e10)
+    direction: Literal["in", "out"] | None = None
+    description: str | None = Field(None, max_length=500)
+    counterparty: str | None = Field(None, max_length=200)
 
 
 class ToolCallIn(BaseModel):

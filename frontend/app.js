@@ -187,22 +187,68 @@ async function showRows(tr) {
   modal(`Rows used (${tr.row_count})`, h("div", {}, note, txnTable(d.rows, false)));
 }
 
-function txnTable(rows, editable, categories = []) {
-  const tb = h("table", { class: "t" }, h("tr", {}, ["Date", "Description / party", "Category", "Amount", "Flags", "Source"].map((x, i) => h("th", { class: i === 3 ? "r" : "" }, x))));
+function txnTable(rows, editable, categories = [], onChange) {
+  const actions = editable && onChange;
+  const tb = h("table", { class: "t txn" }, h("thead", {}, h("tr", {}, ["Date", "Description / party", "Category", "Amount", "Flags", "Source", actions ? "" : null]
+    .filter(x => x !== null).map((x, i) => h("th", { class: i === 3 ? "r" : "" }, x)))));
+  const body = h("tbody", {});
   for (const r of rows) {
-    const cat = editable ? h("select", { onchange: async e => {
-      try { await api(`/api/data/transactions/${r.id}`, { method: "PATCH", body: { category: e.target.value } }); toast("Category updated (audited)"); } catch (err) { toast(err.message); }
-    } }, categories.map(c => h("option", { value: c, selected: c === r.category }, c))) : r.category;
-    tb.appendChild(h("tr", {},
-      h("td", { class: "num" }, r.date),
+    const cat = editable ? h("select", { "aria-label": "Category", onchange: async e => {
+      try { await api(`/api/data/transactions/${r.id}`, { method: "PATCH", body: { category: e.target.value } }); toast("Category updated", "ok"); } catch (err) { toast(err.message, "bad"); }
+    } }, categories.map(c => h("option", { value: c, selected: c === r.category }, c.replace(/_/g, " ")))) : h("span", { class: "chip cat cat-" + catTone(r.category) }, r.category.replace(/_/g, " "));
+    const tr = h("tr", { class: S.flashId === r.id ? "flash" : "" },
+      h("td", { class: "num nowrap" }, r.date),
       h("td", {}, r.description || "", r.counterparty ? h("div", { class: "small muted" }, r.counterparty) : null,
-        r.anomaly_reason ? h("div", { class: "small", style: "color:#b87d00" }, "⚠ " + r.anomaly_reason) : null),
+        r.anomaly_reason ? h("div", { class: "small warn-text" }, "⚠ " + r.anomaly_reason) : null),
       h("td", {}, cat),
-      h("td", { class: "r", style: r.direction === "in" ? "color:var(--good-text)" : "" }, (r.direction === "in" ? "+" : "−") + money(r.amount).replace("-", "")),
-      h("td", {}, (r.flags || []).map(f => h("span", { class: "chip " + (f === "injection_suspect" ? "bad" : "pend"), title: f }, f.replace("_", " ")))),
-      h("td", { class: "small muted" }, `${r.source}${r.source_row ? " #" + r.source_row : ""}`)));
+      h("td", { class: "r amt " + (r.direction === "in" ? "in" : "out") }, (r.direction === "in" ? "+" : "−") + money(r.amount).replace("-", "")),
+      h("td", {}, (r.flags || []).map(f => h("span", { class: "chip flag " + (f === "injection_suspect" ? "bad" : "warn"), title: f }, f.replace(/_/g, " ")))),
+      h("td", { class: "small muted" }, `${r.source}${r.source_row ? " #" + r.source_row : ""}`),
+      actions ? h("td", { class: "row-actions" },
+        h("button", { class: "btn ghost sm", title: "Edit", "aria-label": "Edit", onclick: () => editTxn(r, onChange) }, "✎"),
+        h("button", { class: "btn ghost sm danger-text", title: "Delete", "aria-label": "Delete", onclick: () => deleteTxn(r, onChange) }, "🗑")) : null);
+    body.appendChild(tr);
   }
-  return h("div", { class: "scroll" }, tb);
+  if (rows.some(r => r.id === S.flashId)) S.flashId = null;
+  tb.appendChild(body);
+  return h("div", { class: "scroll sticky-head" }, tb);
+}
+// One colour family per category behaviour, used for chips on every page.
+const CAT_TONE = { sales: "in", other_income: "in", purchase_returns: "in", loan_received: "fin", owner_capital: "fin",
+  inventory: "stock", loan_repayment: "fin", equipment: "fin", owner_drawings: "fin", rent: "fixed", salary: "fixed",
+  utilities: "fixed", maintenance: "fixed", tax_vat: "fixed" };
+const catTone = c => CAT_TONE[c] || (c === "uncategorized" ? "none" : "var");
+
+function editTxn(r, onDone) {
+  const date = h("input", { type: "date", value: r.date });
+  const amount = h("input", { type: "number", value: r.amount, min: 0, step: "any" });
+  const dir = h("select", {}, [["in", "Money in"], ["out", "Money out"]].map(([k, l]) => h("option", { value: k, selected: k === r.direction }, l)));
+  const desc = h("input", { type: "text", value: r.description || "" });
+  const party = h("input", { type: "text", value: r.counterparty || "" });
+  const err = h("div", { class: "small", style: "color:var(--critical)" });
+  const m = modal("Edit record", h("div", { class: "grid", style: "gap:10px" },
+    h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Date", date), h("label", { class: "field" }, "Amount ৳", amount)),
+    h("label", { class: "field" }, "Money in or out", dir),
+    h("label", { class: "field" }, "Description", desc), h("label", { class: "field" }, "Customer / supplier", party, h("span", { class: "hint" }, "Optional")), err),
+    [h("button", { class: "btn primary", onclick: async () => {
+      const body = {};
+      if (date.value !== r.date) body.txn_date = date.value;
+      if (+amount.value !== r.amount) body.amount = +amount.value;
+      if (dir.value !== r.direction) body.direction = dir.value;
+      if (desc.value !== (r.description || "")) body.description = desc.value;
+      if (party.value !== (r.counterparty || "")) body.counterparty = party.value;
+      if (!Object.keys(body).length) return m.remove();
+      try { await api(`/api/data/transactions/${r.id}`, { method: "PATCH", body }); m.remove(); S.flashId = r.id; toast("Saved (change is in the audit log)", "ok"); onDone(); } catch (e) { err.textContent = e.message; }
+    } }, "Save changes")]);
+}
+async function deleteTxn(r, onDone) {
+  try {
+    const d = await api(`/api/books/transactions/${r.id}`, { method: "DELETE" });
+    onDone();
+    toast(h("span", {}, `Deleted ${money(r.amount)} · ${r.description || r.category}. `,
+      h("button", { class: "btn sm", onclick: async e => { e.target.closest(".toast").remove();
+        try { const x = await api(`/api/books/transactions/restore/${d.trash_id}`, { method: "POST" }); S.flashId = x.restored; toast("Restored", "ok"); onDone(); } catch (err) { toast(err.message, "bad"); } } }, "Undo")), "", 8000);
+  } catch (e) { toast(e.message, "bad"); }
 }
 
 // ------------------------------------------------------------------ login
@@ -805,6 +851,7 @@ function confirmCard(pa) {
 function confirmModal(pa) { const m = modal("Confirm sandbox payment", confirmCard(pa)); return m; }
 
 // ------------------------------------------------------------------ data
+// Tabs: Add (quick entry first, then file upload / paste) | Import history | Transactions (search, filters, edit, delete+undo).
 async function viewData(v) {
   const canWrite = S.user.max_tier >= 1;
   const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,.xlsx,.xls" });
@@ -815,17 +862,18 @@ async function viewData(v) {
       `Imported ${r.imported} of ${r.rows_total} rows as “${r.doc_type}”. Duplicates flagged: ${r.duplicates.length}. Anomalies: ${r.anomalies.length}. Suspicious text (possible prompt injection) flagged: ${r.injection_flags.length}. Errors: ${r.errors.length}.`,
     r.errors.length ? h("ul", { class: "small" }, r.errors.slice(0, 8).map(e => h("li", {}, `row ${e.row}: ${e.reason}`))) : null,
     r.injection_flags.length ? h("ul", { class: "small", style: "color:var(--critical)" }, r.injection_flags.map(e => h("li", {}, `row ${e.row}: “${e.text}” - treated as data, never as instructions`))) : null));
-  const showError = e => { result.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message); };
+  const showError = e => { result.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message, "bad"); };
   const upload = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
-    if (!file.files[0]) return toast("Choose a file");
+    if (!file.files[0]) return toast("Choose a file first", "warn");
     const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", dtype.value);
-    try { showReport(await api("/api/data/upload", { body: fd })); loadTxns(); } catch (e) { showError(e); }
+    try { showReport(await api("/api/data/upload", { body: fd })); toast("File imported", "ok"); } catch (e) { showError(e); }
   } }, "Upload");
   const paste = h("textarea", { placeholder: "Paste CSV text here (Date, Description, Amount, …)" });
-  const pasteBtn = h("button", { class: "btn", disabled: !canWrite, onclick: async () => { try { showReport(await api("/api/data/paste", { body: { text: paste.value, doc_type: dtype.value } })); loadTxns(); } catch (e) { showError(e); } } }, "Import pasted text");
+  const pasteBtn = h("a", { href: "#", class: "link", onclick: async e => { e.preventDefault(); if (!canWrite) return;
+    try { showReport(await api("/api/data/paste", { body: { text: paste.value, doc_type: dtype.value } })); toast("Pasted rows imported", "ok"); } catch (err) { showError(err); } } }, "Import pasted text");
 
-  const entry = h("input", { type: "text", placeholder: "e.g. sold 12 shirts for 6000 taka cash · dokan bhara 15000 dilam · ১২টা শার্ট বিক্রি ৬০০০ টাকা", class: "grow" });
-  const preview = h("div", { class: "small muted", style: "min-height:20px" });
+  const entry = h("input", { type: "text", placeholder: "e.g. sold 12 shirts for 6000 taka cash · dokan bhara 15000 dilam · ১২টা শার্ট বিক্রি ৬০০০ টাকা", class: "grow big-input", disabled: !canWrite });
+  const preview = h("div", { class: "small muted", style: "min-height:20px;margin-top:6px" });
   let timer;
   entry.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(async () => {
     if (!entry.value.trim()) { preview.textContent = ""; return; }
@@ -833,31 +881,70 @@ async function viewData(v) {
     preview.textContent = p.amount ? `→ ${p.direction === "in" ? "Income" : p.direction === "out" ? "Expense" : "?"} ${money(p.amount)} · ${p.category} · ${p.channel} · ${p.txn_date}${p.counterparty ? " · " + p.counterparty : ""}${p.quantity ? ` · qty ${p.quantity} ${p.item}` : ""} (confidence ${Math.round(p.confidence * 100)}%)` : `Missing: ${p.missing.join(", ")}`;
   }, 250); });
   const record = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
-    try { const r = await api("/api/data/entry", { body: { text: entry.value } }); toast(r.data.recorded ? "Recorded ✓" : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning}`); entry.value = ""; preview.textContent = ""; if (r.data.stock && r.data.stock.ask_item) askWhichItem(r.data.stock, preview); loadTxns(); } catch (e) { toast(e.message); }
+    if (!entry.value.trim()) return;
+    const btn = record; btn.classList.add("loading"); btn.disabled = true; preview.replaceChildren(h("span", { class: "skeleton-line" }));
+    try { const r = await api("/api/data/entry", { body: { text: entry.value } });
+      toast(r.data.recorded ? "Recorded ✓" : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning || r.data.preview || ""}`, r.data.recorded ? "ok" : "warn");
+      preview.textContent = "";
+      if (r.data.recorded) { S.flashId = r.data.transaction_id; entry.value = ""; }
+      if (r.data.stock && r.data.stock.ask_item) askWhichItem(r.data.stock, preview);
+    } catch (e) { preview.textContent = ""; toast(e.message, "bad"); }
+    finally { btn.classList.remove("loading"); btn.disabled = false; }
   } }, "Record");
+  entry.addEventListener("keydown", e => { if (e.key === "Enter") record.click(); });
 
+  // Transactions tab
+  const qInput = h("input", { type: "search", placeholder: "Search description, party, reference…", class: "grow", "aria-label": "Search" });
+  const from = h("input", { type: "date", "aria-label": "From date" }), to = h("input", { type: "date", "aria-label": "To date" });
+  const dir = h("select", { "aria-label": "Money in or out" }, [["", "In and out"], ["in", "Money in"], ["out", "Money out"]].map(([k, l]) => h("option", { value: k }, l)));
+  const cat = h("select", { "aria-label": "Category" }, h("option", { value: "" }, "All categories"));
   const flaggedOnly = h("input", { type: "checkbox" });
   const tableWrap = h("div", {});
-  const imports = h("div", {});
+  let cats = [];
   async function loadTxns() {
-    const d = await api(`/api/data/transactions?limit=200${flaggedOnly.checked ? "&flagged=true" : ""}`);
-    tableWrap.replaceChildren(txnTable(d.rows, canWrite, d.categories));
-    const im = await api("/api/data/imports");
-    imports.replaceChildren(h("table", { class: "t" }, h("tr", {}, ["File", "Type", "Rows", "Imported", "Dup.", "Anom.", "Inj.", "By"].map(x => h("th", {}, x))),
-      im.map(b => h("tr", {}, h("td", {}, b.filename), h("td", {}, b.doc_type), h("td", {}, b.rows_total), h("td", {}, b.imported), h("td", {}, b.duplicates), h("td", {}, b.anomalies), h("td", {}, b.injection_flags), h("td", {}, b.created_by)))));
+    const p = new URLSearchParams({ limit: 300 });
+    if (qInput.value.trim()) p.set("q", qInput.value.trim());
+    if (from.value) p.set("start", from.value); if (to.value) p.set("end", to.value);
+    if (dir.value) p.set("direction", dir.value); if (cat.value) p.set("category", cat.value);
+    if (flaggedOnly.checked) p.set("flagged", "true");
+    const d = await api(`/api/data/transactions?${p}`);
+    if (!cats.length) { cats = d.categories; cat.append(...cats.map(c => h("option", { value: c }, c.replace(/_/g, " ")))); }
+    tableWrap.replaceChildren(d.rows.length ? txnTable(d.rows, canWrite, cats, loadTxns)
+      : emptyState(p.size > 1 ? "No records match these filters." : "No records yet. Add your first one.", "Add a record", () => tabBtns[0].click()));
   }
-  flaggedOnly.addEventListener("change", loadTxns);
-  v.replaceChildren(
+  let qt; qInput.addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(loadTxns, 250); });
+  [from, to, dir, cat, flaggedOnly].forEach(x => x.addEventListener("change", loadTxns));
+
+  const imports = h("div", {});
+  async function loadImports() {
+    const im = await api("/api/data/imports");
+    imports.replaceChildren(im.length ? h("div", { class: "scroll" }, h("table", { class: "t" }, h("tr", {}, ["File", "Type", "Rows", "Imported", "Dup.", "Anom.", "Inj.", "By"].map((x, i) => h("th", { class: i > 1 && i < 7 ? "r" : "" }, x))),
+      im.map(b => h("tr", {}, h("td", {}, b.filename), h("td", {}, b.doc_type), h("td", { class: "r" }, b.rows_total), h("td", { class: "r" }, b.imported), h("td", { class: "r" }, b.duplicates), h("td", { class: "r" }, b.anomalies), h("td", { class: "r" }, b.injection_flags), h("td", {}, b.created_by)))))
+      : emptyState("No files imported yet.", "Upload a file", () => tabBtns[0].click()));
+  }
+
+  const panes = [
+    h("div", {},
+      h("div", { class: "card hero-card" }, h("h2", {}, "Quick entry"), h("p", { class: "hint" }, "Write what happened in English, বাংলা or Banglish. We read the amount, type and category for you."),
+        h("div", { class: "row" }, entry, record), preview),
+      h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Upload a file"),
+        h("p", { class: "hint" }, "Sales, expenses, bank or bKash/Nagad/Rocket statements, invoices (.csv, .xlsx)."),
+        h("div", { class: "row" }, file, h("label", { class: "row small" }, "Type", dtype), upload),
+        h("details", { style: "margin-top:10px" }, h("summary", { class: "link" }, "…or paste text"), paste, h("div", { style: "margin-top:6px" }, pasteBtn)), result)),
+    h("div", { class: "card" }, h("h2", {}, "Import history"), imports),
+    h("div", { class: "card" }, h("div", { class: "row filters" }, qInput, from, to, dir, cat,
+      h("label", { class: "row small" }, flaggedOnly, "Only flagged")), tableWrap),
+  ];
+  const loaders = [async () => {}, loadImports, loadTxns];
+  const body = h("div", {});
+  const show = i => { tabBtns.forEach((b, j) => b.classList.toggle("active", i === j)); body.replaceChildren(panes[i]); loaders[i]().catch(e => toast(e.message, "bad")); };
+  const tabBtns = ["Add", "Import history", "Transactions"].map((n, i) => h("button", { onclick: () => show(i) }, n));
+  v.replaceChildren(...[
     h("h1", {}, t("data")),
     !canWrite ? h("div", { class: "notice" }, "Your role is read-only (Tier 0): uploads and entries are disabled.") : null,
-    h("div", { class: "grid g-2e", style: "margin-top:12px" },
-      h("div", { class: "card" }, h("h2", {}, "Upload sales, expenses, bank or bKash/Nagad/Rocket statements, invoices"),
-        h("div", { class: "row" }, file, dtype, upload), h("h3", {}, "…or paste"), paste, h("div", { class: "row", style: "margin-top:6px" }, pasteBtn), result),
-      h("div", { class: "card" }, h("h2", {}, "Quick entry (English / বাংলা / Banglish)"), h("div", { class: "row" }, entry, record), preview,
-        h("h3", {}, "Import history"), imports)),
-    h("div", { class: "card", style: "margin-top:16px" }, h("div", { class: "row" }, h("h2", { class: "grow" }, "Transactions"),
-      h("label", { class: "row small" }, flaggedOnly, "Only flagged (duplicates / anomalies)")), tableWrap));
-  await loadTxns();
+    h("div", { class: "tabs" }, tabBtns), body,
+  ].filter(Boolean));
+  show(0);
 }
 
 // ------------------------------------------------------------------ financing

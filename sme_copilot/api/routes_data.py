@@ -1,15 +1,16 @@
 """Data ingestion and browsing endpoints."""
 from __future__ import annotations
 
-from typing import Any
+from datetime import date
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from sme_copilot.agent.executor import execute
 from sme_copilot.db import get_db
-from sme_copilot.models import ImportBatch, Invoice, Transaction, User
+from sme_copilot.models import ImportBatch, Invoice, InvoicePayment, Transaction, User
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools.categorize import all_category_names
@@ -92,16 +93,28 @@ def _txn_dict(t: Transaction) -> dict[str, Any]:
 
 @router.get("/transactions")
 def transactions(limit: int = 100, offset: int = 0, category: str = "", flagged: bool = False,
-                 ids: str = "", user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
-    q = select(Transaction).where(Transaction.business_id == user.business_id)
+                 ids: str = "", q: str = "", start: date | None = None, end: date | None = None,
+                 direction: Literal["", "in", "out"] = "", user: User = Depends(current_user),
+                 db: Session = Depends(get_db)) -> dict[str, Any]:
+    sel = select(Transaction).where(Transaction.business_id == user.business_id)
     if ids:  # explainability: fetch the exact rows a trace refers to
         id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()][:200]
-        q = q.where(Transaction.id.in_(id_list))
+        sel = sel.where(Transaction.id.in_(id_list))
     if category:
-        q = q.where(Transaction.category == category)
+        sel = sel.where(Transaction.category == category)
     if flagged:
-        q = q.where((Transaction.is_duplicate.is_(True)) | (Transaction.is_anomaly.is_(True)))
-    rows = db.scalars(q.order_by(Transaction.txn_date.desc(), Transaction.id.desc())
+        sel = sel.where((Transaction.is_duplicate.is_(True)) | (Transaction.is_anomaly.is_(True)))
+    if q.strip():
+        like = f"%{q.strip()[:100]}%"
+        sel = sel.where(or_(Transaction.description.ilike(like), Transaction.counterparty.ilike(like),
+                            Transaction.reference.ilike(like), Transaction.category.ilike(like)))
+    if start:
+        sel = sel.where(Transaction.txn_date >= start)
+    if end:
+        sel = sel.where(Transaction.txn_date <= end)
+    if direction:
+        sel = sel.where(Transaction.direction == direction)
+    rows = db.scalars(sel.order_by(Transaction.txn_date.desc(), Transaction.id.desc())
                       .offset(max(0, offset)).limit(min(limit, 500))).all()
     return {"rows": [_txn_dict(t) for t in rows], "categories": all_category_names()}
 
@@ -130,7 +143,14 @@ def patch_transaction(txn_id: int, body: TxnPatch, user: User = Depends(require_
     t = db.get(Transaction, txn_id)
     if t is None or t.business_id != user.business_id:
         raise HTTPException(404, "transaction not found")
-    before = {"category": t.category, "is_duplicate": t.is_duplicate}
+    changes = body.model_dump(exclude_none=True)
+    money_fields = {"txn_date", "amount", "direction"} & changes.keys()
+    if money_fields and db.scalar(select(InvoicePayment.id).where(InvoicePayment.transaction_id == t.id)):
+        raise HTTPException(409, "this row is an invoice payment; change it from the invoice instead")
+    before = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in
+              {"category": t.category, "is_duplicate": t.is_duplicate, "txn_date": t.txn_date,
+               "amount": float(t.amount), "direction": t.direction, "description": t.description,
+               "counterparty": t.counterparty}.items() if k in changes}
     if body.category is not None:
         if body.category not in all_category_names():
             raise HTTPException(422, "unknown category")
@@ -139,12 +159,19 @@ def patch_transaction(txn_id: int, body: TxnPatch, user: User = Depends(require_
     if body.is_duplicate is not None:
         t.is_duplicate = body.is_duplicate
         t.flags = [f for f in (t.flags or []) if f != "duplicate"] + (["duplicate"] if body.is_duplicate else [])
+    for k, col in (("txn_date", "txn_date"), ("amount", "amount"), ("description", "description"),
+                   ("counterparty", "counterparty")):
+        if k in changes:
+            setattr(t, col, changes[k])
+    if body.direction is not None and body.direction != t.direction:
+        t.direction = body.direction
+        stock.relink_after_edit(db, t)
     db.flush()
     refresh_anomalies(db, user.business_id)
     db.commit()
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
                  action="edit_transaction", tier=1, inputs={"id": txn_id, "before": before,
-                                                           "after": body.model_dump(exclude_none=True)})
+                                                           "after": body.model_dump(mode="json", exclude_none=True)})
     return _txn_dict(t)
 
 

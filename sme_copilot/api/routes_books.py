@@ -1,10 +1,10 @@
 """Bookkeeping basics: customer/supplier balances (baki ledger), invoices with full/partial payments,
-P&L / cash-flow / aging reports with CSV and PDF export."""
+P&L / cash-flow / aging reports with CSV and PDF export, transaction delete with undo."""
 from __future__ import annotations
 
 import csv
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 import pandas as pd
@@ -15,10 +15,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sme_copilot.db import get_db
-from sme_copilot.models import Business, Invoice, InvoiceLine, InvoicePayment, Transaction, User
+from sme_copilot.models import (
+    Business,
+    DeletedTransaction,
+    ImportBatch,
+    Invoice,
+    InvoiceLine,
+    InvoicePayment,
+    Item,
+    StockMovement,
+    Transaction,
+    User,
+)
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
-from sme_copilot.tools import repo
+from sme_copilot.tools import repo, stock
 from sme_copilot.tools.analysis import aging, profitability, resolve_period
 from sme_copilot.tools.books_pdf import invoice_pdf, pdf_money, table_pdf
 from sme_copilot.tools.categorize import categories
@@ -406,3 +417,68 @@ def report(kind: Literal["pnl", "cashflow", "aging"], period: str = "month", sta
 def _csv_safe(v: Any) -> Any:
     """Stop spreadsheet formula injection from names in imported files."""
     return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v
+
+
+# ----------------------------------------------------------------------------- delete with undo
+TXN_FIELDS = ("txn_date", "amount", "direction", "category", "counterparty", "description", "channel", "reference",
+              "quantity", "item", "source", "batch_id", "source_row", "is_duplicate", "duplicate_of", "is_anomaly",
+              "anomaly_reason", "flags", "categorized_by", "category_confidence", "created_at")
+
+
+def _jsonable(v: Any) -> Any:
+    return v.isoformat() if isinstance(v, (date, datetime)) else v
+
+
+@router.delete("/transactions/{txn_id}")
+def delete_transaction(txn_id: int, user: User = Depends(require_tier(1)),
+                       db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Delete any transaction into a restorable trash (the UI offers Undo)."""
+    t = db.get(Transaction, txn_id)
+    if t is None or t.business_id != user.business_id:
+        raise HTTPException(404, "transaction not found")
+    if db.scalar(select(InvoicePayment.id).where(InvoicePayment.transaction_id == t.id)):
+        raise HTTPException(409, "this row is an invoice payment; it cannot be deleted here")
+    first = db.scalar(select(StockMovement).where(StockMovement.transaction_id == t.id).order_by(StockMovement.id))
+    trash = DeletedTransaction(business_id=user.business_id, original_id=t.id, account_ref=t.account_ref,
+                               data={f: _jsonable(getattr(t, f)) for f in TXN_FIELDS},
+                               item_id=first.item_id if first else None, deleted_by=user.username)
+    db.add(trash)
+    stock.reverse_for_transaction(db, t.id)
+    db.delete(t)
+    db.flush()
+    refresh_anomalies(db, user.business_id)
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="delete_transaction", tier=1, inputs={"id": txn_id},
+                 result={"trash_id": trash.id, "amount": trash.data["amount"], "date": trash.data["txn_date"]},
+                 commit=False)
+    db.commit()
+    return {"deleted": txn_id, "trash_id": trash.id}
+
+
+@router.post("/transactions/restore/{trash_id}")
+def restore_transaction(trash_id: int, user: User = Depends(require_tier(1)),
+                        db: Session = Depends(get_db)) -> dict[str, Any]:
+    tr = db.get(DeletedTransaction, trash_id)
+    if tr is None or tr.business_id != user.business_id:
+        raise HTTPException(404, "nothing to restore")
+    d = dict(tr.data)
+    d["txn_date"] = date.fromisoformat(d["txn_date"])
+    d["created_at"] = datetime.fromisoformat(d["created_at"]) if d.get("created_at") else None
+    if d.get("batch_id") and db.get(ImportBatch, d["batch_id"]) is None:
+        d["batch_id"] = None
+    t = Transaction(business_id=user.business_id, account_ref=tr.account_ref,
+                    **{k: v for k, v in d.items() if k in TXN_FIELDS and v is not None})
+    db.add(t)
+    db.flush()
+    it = db.get(Item, tr.item_id) if tr.item_id else None
+    rtype = stock.txn_type(t)
+    if it is not None and it.business_id == user.business_id and rtype and t.quantity and t.quantity > 0:
+        stock.add_movement(db, it, stock.MOVE_SIGN[rtype] * t.quantity, rtype, t.id)
+    db.delete(tr)
+    db.flush()
+    refresh_anomalies(db, user.business_id)
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="restore_transaction", tier=1, inputs={"trash_id": trash_id},
+                 result={"original_id": tr.original_id, "new_id": t.id}, commit=False)
+    db.commit()
+    return {"restored": t.id, "original_id": tr.original_id}

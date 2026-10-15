@@ -365,3 +365,16 @@ class InvoicePayment(Base):
     transaction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # no FK: survives txn deletion
     created_by: Mapped[str] = mapped_column(String(80), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DeletedTransaction(Base):
+    """Trash for undo: a deleted transaction's fields, restorable until the user empties it or deletes all data."""
+    __tablename__ = "deleted_transactions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    original_id: Mapped[int] = mapped_column(Integer)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    account_ref: Mapped[str | None] = mapped_column(EncryptedString(255), nullable=True)  # kept encrypted
+    item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # stock item it was linked to
+    deleted_by: Mapped[str] = mapped_column(String(80), default="")
+    deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

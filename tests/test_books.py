@@ -153,3 +153,67 @@ def test_report_exports(client):
     assert r.status_code == 200 and r.content[:4] == b"%PDF"
     actions = [e["action"] for e in client.get("/api/audit?limit=10", headers=h).json()]
     assert actions.count("export_report") == 2
+
+
+def test_transaction_search_and_filters(client):
+    h = login(client)
+    get = lambda qs: client.get(f"/api/data/transactions?limit=500&{qs}", headers=h).json()["rows"]  # noqa: E731
+    rent = get("q=RENT")
+    assert len(rent) == 3 and all("rent" in r["description"].lower() for r in rent)
+    assert {r["counterparty"] for r in get("q=karim")} == {"Karim Knit"}
+    aug = get("start=2026-08-01&end=2026-08-31")
+    assert len(aug) == 5 and all(r["date"].startswith("2026-08") for r in aug)
+    assert all(r["direction"] == "in" for r in get("direction=in")) and len(get("direction=in")) == 3
+    assert get("q=karim&direction=out") == []
+
+
+def test_edit_transaction_fields_audited(client):
+    h = login(client)
+    row = client.get("/api/data/transactions?q=courier&limit=1", headers=h).json()["rows"][0]
+    r = client.patch(f"/api/data/transactions/{row['id']}", json={"amount": 16000, "txn_date": "2026-09-16",
+                                                                   "description": "Courier (fixed)"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["amount"] == 16000 and r.json()["date"] == "2026-09-16"
+    ev = next(e for e in client.get("/api/audit?limit=5", headers=h).json() if e["action"] == "edit_transaction")
+    assert ev["inputs"]["before"]["amount"] == 15000 and ev["inputs"]["after"]["amount"] == 16000
+    assert client.patch(f"/api/data/transactions/{row['id']}", json={"amount": -5}, headers=h).status_code == 422
+
+
+def test_delete_any_transaction_and_undo(client):
+    h = login(client)
+    row = client.get("/api/data/transactions?q=rent&limit=1", headers=h).json()["rows"][0]
+    assert row["source"] != "manual"  # imported rows can be deleted too (into the trash)
+    d = client.delete(f"/api/books/transactions/{row['id']}", headers=h).json()
+    assert client.get(f"/api/data/transactions?ids={row['id']}", headers=h).json()["rows"] == []
+    r = client.post(f"/api/books/transactions/restore/{d['trash_id']}", headers=h).json()
+    back = client.get(f"/api/data/transactions?ids={r['restored']}", headers=h).json()["rows"][0]
+    assert {k: back[k] for k in ("date", "amount", "category", "description", "source_row")} == \
+        {k: row[k] for k in ("date", "amount", "category", "description", "source_row")}
+    assert client.post(f"/api/books/transactions/restore/{d['trash_id']}", headers=h).status_code == 404
+    actions = [e["action"] for e in client.get("/api/audit?limit=5", headers=h).json()]
+    assert "delete_transaction" in actions and "restore_transaction" in actions
+
+
+def test_delete_undo_restores_stock(client):
+    h = login(client)
+    item = client.post("/api/items", json={"name": "Zipper", "opening_qty": 100}, headers=h).json()
+    e = client.post("/api/data/entry", json={"text": "sold 10 zipper for 500 taka cash", "confirmed": True},
+                    headers=h).json()["data"]
+    qty = lambda: next(i["qty"] for i in client.get("/api/stock", headers=h).json()["items"] if i["id"] == item["id"])  # noqa: E731
+    assert qty() == 90
+    d = client.delete(f"/api/books/transactions/{e['transaction_id']}", headers=h).json()
+    assert qty() == 100
+    client.post(f"/api/books/transactions/restore/{d['trash_id']}", headers=h)
+    assert qty() == 90
+
+
+def test_invoice_payment_rows_are_protected(client):
+    h = login(client)
+    inv = _new_invoice(client, h, send=True)
+    p = client.post(f"/api/books/invoices/{inv['id']}/payments", json={"amount": 100}, headers=h).json()
+    tid = p["transaction_id"]
+    assert client.delete(f"/api/books/transactions/{tid}", headers=h).status_code == 409
+    assert client.patch(f"/api/data/transactions/{tid}", json={"amount": 5}, headers=h).status_code == 409
+    assert client.patch(f"/api/data/transactions/{tid}", json={"description": "note"}, headers=h).status_code == 200
+    hv = login(client, "viewer", "viewer-pass-123")
+    assert client.delete(f"/api/books/transactions/{tid}", headers=hv).status_code == 403
