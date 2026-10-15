@@ -35,6 +35,8 @@ function showTip(evt, title, rows) {
   const y = Math.min(evt.clientY + 14, window.innerHeight - t.offsetHeight - 8);
   t.style.left = x + "px"; t.style.top = y + "px";
 }
+// Bar corner radius from the active style (--chart-bar-r: 4 = soft corners, 99 = pill ends).
+const barR = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--chart-bar-r")) || 4;
 function hideTip() { tooltip().classList.add("hidden"); }
 
 function niceTicks(min, max, n = 5) {
@@ -191,7 +193,7 @@ export function barChart(opts) {
       const v = s.values[i];
       const top = Y(Math.max(v, 0)), bot = Y(Math.min(v, 0));
       const h = Math.max(1, bot - top);
-      const r = Math.min(4, bw / 2, h);
+      const r = Math.min(barR(), bw / 2, h);
       const x = x0 + j * (bw + gap);
       // rounded data-end anchored to the baseline
       const d = v >= 0
@@ -219,7 +221,7 @@ export function hbarChart(items, { fmt, color = "var(--series-1)" } = {}) {
     const y = i * rowH + 6;
     const t = el("text", { x: 0, y: y + 13, class: "lbl" }, svg); t.textContent = it.label;
     const w = Math.max(2, (W - lw - vw) * it.value / max);
-    const r = Math.min(4, w / 2);
+    const r = Math.min(barR(), w / 2, 8);
     el("path", { d: `M${lw},${y}H${lw + w - r}Q${lw + w},${y} ${lw + w},${y + r}V${y + 16 - r}Q${lw + w},${y + 16} ${lw + w - r},${y + 16}H${lw}Z`, fill: color }, svg);
     const v = el("text", { x: lw + w + 8, y: y + 13, class: "lbl" }, svg); v.textContent = fmt ? fmt(it.value) : it.value;
     const hit = el("rect", { x: 0, y: y - 4, width: W, height: rowH, fill: "transparent" }, svg);

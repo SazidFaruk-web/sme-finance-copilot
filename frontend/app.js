@@ -3,7 +3,7 @@
 // uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
-import { barChart, hbarChart, lineChart } from "./charts.js";
+import { barChart, hbarChart, lineChart } from "./charts.js?v=5";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -30,7 +30,11 @@ const T = {
     s_recent: "Recent records", s_score: "Your loan-readiness score", s_improve: "How to improve", s_best: "Best options for you",
     s_amount: "How much do you need? (৳)", s_find: "Find loans", s_per_month: "per month", s_months: "months",
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
-    s_switch: "Want charts and details? Switch to Advanced in Settings." },
+    s_switch: "Want charts and details? Switch to Advanced in Settings.",
+    // styles + dashboard sections
+    style: "Style", st_general: "General", st_green: "Green", st_blue: "Blue", theme_note: "Light/Dark applies to the General style.",
+    search_ph: "Search records…", range: "Date range", welcome: "Welcome back", sec_work: "What's working", sec_alerts: "Alerts",
+    sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip" },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
     parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট", profit_m: "এই মাসের লাভ", costs_m: "খরচ ক্যাটাগরি অনুযায়ী (এই মাস)", aging_t: "ক্রেতাদের বকেয়া, কত দেরি",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
@@ -52,7 +56,10 @@ const T = {
     s_recent: "সাম্প্রতিক হিসাব", s_score: "আপনার ঋণ-প্রস্তুতি স্কোর", s_improve: "কীভাবে বাড়াবেন", s_best: "আপনার জন্য সেরা বিকল্প",
     s_amount: "কত টাকা দরকার? (৳)", s_find: "ঋণ খুঁজুন", s_per_month: "প্রতি মাসে", s_months: "মাস",
     s_pdf: "ঋণ রিপোর্ট বানান (PDF)", s_dismiss: "লুকান", s_ask_ph: "আপনার ব্যবসা নিয়ে যেকোনো প্রশ্ন করুন…",
-    s_switch: "চার্ট ও বিস্তারিত চান? সেটিংসে অ্যাডভান্সড চালু করুন।" },
+    s_switch: "চার্ট ও বিস্তারিত চান? সেটিংসে অ্যাডভান্সড চালু করুন।",
+    style: "স্টাইল", st_general: "সাধারণ", st_green: "সবুজ", st_blue: "নীল", theme_note: "লাইট/ডার্ক শুধু সাধারণ স্টাইলে কাজ করে।",
+    search_ph: "হিসাব খুঁজুন…", range: "সময়সীমা", welcome: "আবার স্বাগতম", sec_work: "যা ভালো চলছে", sec_alerts: "সতর্কতা",
+    sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস" },
 };
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -61,11 +68,15 @@ const S = {
   ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
   theme: pref("theme", "system"),          // system | light | dark
   mode: pref("ui_mode", "advanced"),       // simple | advanced
+  look: "general",                         // Settings > Style: general | green | blue (per user, set after login)
+  counts: { overdue: 0, low_stock: 0, recurring_due: 0 },
 };
 const t = k => (T[S.ui] && T[S.ui][k]) || T.en[k] || k;
 function applyPrefs() {
   const root = document.documentElement;
-  if (S.theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", S.theme);
+  root.dataset.style = S.look;
+  const theme = S.look === "general" ? S.theme : "light";  // Green and Blue are light-only styles
+  if (theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
   root.lang = S.ui === "bn" ? "bn" : "en";
   document.body.classList.toggle("simple", S.mode === "simple");
 }
@@ -88,6 +99,7 @@ function h(tag, attrs = {}, ...kids) {
   return e;
 }
 const $ = sel => document.querySelector(sel);
+const hashParam = k => new URLSearchParams(location.hash.split("?")[1] || "").get(k);
 
 function groupLakh(intStr) {
   if (intStr.length <= 3) return intStr;
@@ -343,7 +355,7 @@ async function renderLogin(err) {
     e.preventDefault();
     try {
       const r = await api("/api/auth/login", { body: { username: u.value, password: p.value } });
-      sessionStorage.removeItem("token"); S.user = r.user; boot();
+      sessionStorage.removeItem("token"); boot();
     } catch (ex) { msg.textContent = ex.message; }
   };
   const demo = S.health.demo_users ? h("div", { class: "notice", style: "margin-top:12px" },
@@ -375,7 +387,7 @@ const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
 // Re-render everything after a preference change (language, theme, mode).
 function setPref(key, value) {
   S[key] = value;
-  savePref({ ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
+  savePref(key === "look" ? `ui_style:${S.user ? S.user.username : ""}` : { ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
   applyPrefs();
   if (S.user) { renderShell(); route(); }
 }
@@ -385,9 +397,12 @@ function prefControls() {
   const sel = (value, options, onchange) => h("select", { onchange: e => onchange(e.target.value) },
     options.map(([v, l]) => h("option", { value: v, selected: v === value }, l)));
   const field = (label, control) => h("label", { class: "field" }, label, control);
+  const theme = sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v));
+  if (S.look !== "general") { theme.disabled = true; theme.title = t("theme_note"); }
   return [
+    field(t("style"), sel(S.look, [["general", t("st_general")], ["green", t("st_green")], ["blue", t("st_blue")]], v => setPref("look", v))),
     field(t("language"), sel(S.ui, [["en", "English"], ["bn", "বাংলা"]], v => setPref("ui", v))),
-    field(t("theme"), sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v))),
+    field(t("theme"), theme),
     field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
     field(t("numbers"), sel(S.style, [["lakh", "৳1,00,000 (lakh)"], ["intl", "৳100,000"]], async v => {
       S.style = v; try { await api("/api/settings", { method: "PATCH", body: { number_style: v } }); } catch { /* viewer */ } route();
@@ -420,6 +435,7 @@ async function boot() {
     const me = await fetch("/api/auth/me", { credentials: "same-origin" });  // cookie session, if any
     if (!me.ok) return renderLogin();
     S.user = await me.json();
+    S.look = pref("ui_style:" + S.user.username, "general"); applyPrefs();
     S.models = await api("/api/models");
     const st = await api("/api/settings"); S.style = st.number_style; S.stepUp = st.step_up_amount;
   } catch { return; }
@@ -434,7 +450,15 @@ function renderShell() {
   const simple = S.mode === "simple";
   const nav = h("nav", { class: "nav", "aria-label": "Main" }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
     .map(r => h("a", { href: "#" + r, id: "nav-" + r }, h("span", { "aria-hidden": "true" }, ICONS[r]), t(simple ? SIMPLE_LABELS[r] : r),
-      r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null)));
+      r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null,
+      r === "invoices" || r === "stock" ? h("span", { class: "badge hidden", id: "badge-" + r }, "0") : null)));
+  const name = S.user.full_name || S.user.username;
+  const search = simple ? null : h("input", { type: "search", class: "top-search", placeholder: t("search_ph"), "aria-label": t("search_ph"),
+    onkeydown: e => { if (e.key === "Enter" && e.target.value.trim()) location.hash = "#data?q=" + encodeURIComponent(e.target.value.trim()); } });
+  const range = simple ? null : h("select", { "aria-label": t("range"), onchange: e => { const p = e.target.value; e.target.selectedIndex = 0; if (p) location.hash = "#reports?period=" + p; } },
+    [["", "▦ " + t("range")], ["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"]].map(([v, l]) => h("option", { value: v }, l)));
+  const avatar = h("a", { class: "avatar", href: "#settings", title: `${name} · ${S.user.role}`, "aria-label": `${name} · ${S.user.role}` },
+    name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase());
   const modelSel = h("select", { id: "model-select", title: "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
     S.models.profiles.map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
       `${p.label}${p.external ? " ☁" : " ⌂"}${p.available ? "" : " (" + p.reason + ")"}`)));
@@ -445,10 +469,9 @@ function renderShell() {
       h("div", { class: "foot" }, "Decision support, not licensed financial advice. Financing data is illustrative.")),
     h("div", { class: "main" },
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
-        simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""),
-        h("span", { class: "grow" }), simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
-        simple ? null : h("span", { class: "chip", title: "Role-based permissions" }, `${S.user.full_name || S.user.username} · ${S.user.role}`),
-        settingsMenu()),
+        simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
+        h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
+        settingsMenu(), avatar),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }
@@ -458,6 +481,17 @@ async function refreshPending() {
     pendingCount = p.filter(x => x.status === "pending").length;
     const b = $("#pend-badge"); if (b) { b.textContent = pendingCount; b.classList.toggle("hidden", !pendingCount); }
   } catch { /* ignore */ }
+  loadCounts();
+}
+// Counts for the sidebar badges and the "Pending actions" cards: overdue invoices, low stock, repeating items due.
+async function loadCounts() {
+  const [inv, st, rec] = await Promise.all([api("/api/books/invoices?status=overdue").catch(() => []),
+    api("/api/stock").catch(() => ({ items: [] })), api("/api/books/recurring").catch(() => ({ due_count: 0 }))]);
+  S.counts = { overdue: inv.length, low_stock: (st.items || []).filter(i => i.status !== "ok").length, recurring_due: rec.due_count || 0 };
+  for (const [r, n] of [["invoices", S.counts.overdue], ["stock", S.counts.low_stock]]) {
+    const b = $("#badge-" + r); if (b) { b.textContent = n; b.classList.toggle("hidden", !n); }
+  }
+  return S.counts;
 }
 function route() {
   const r = (location.hash || "#dashboard").slice(1).split("?")[0];
@@ -591,6 +625,7 @@ async function viewReports(v) {
   const bar = h("div", { class: "tabs" }, [["pnl", "Profit & loss"], ["cashflow", "Cash flow"], ["aging", "Who owes, how late"]].map(([k, l], i) =>
     h("button", { class: i ? "" : "active", onclick: e => { bar.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); kind = k; load(); } }, l)));
   [period, start, end, party].forEach(x => x.addEventListener("change", load));
+  if (hashParam("period")) period.value = hashParam("period");
   v.replaceChildren(h("h1", {}, t("reports")), bar, h("div", { class: "row", style: "margin-bottom:12px" }, period, start, end, party), out);
   await load();
 }
@@ -664,27 +699,117 @@ async function viewStock(v) {
 }
 
 // ------------------------------------------------------------------ dashboard
+// One KPI card for every style: title, big number, arrow link and delta chip; Blue also shows an icon chip and a thin
+// progress bar (hidden by CSS in the other styles).
+function kpiCard({ label, value, sub, tone = "", count, delta, color = "blue", icon = "৳", bar, barTitle, href, info }) {
+  return h("div", { class: "card kpi" + (tone ? " tone-" + tone : ""), "data-c": color },
+    h("div", { class: "label" }, h("span", { class: "kpi-ico", "aria-hidden": "true" }, icon), h("span", {}, label), info || null),
+    h("div", { class: "kpi-main" }, h("div", { class: "value num", "data-count": count }, value),
+      href ? h("a", { class: "kpi-arrow", href, title: label, "aria-label": label }, "↗") : h("span", { class: "kpi-arrow", "aria-hidden": "true" }, "↗")),
+    delta || sub ? h("div", { class: "kpi-foot" }, delta || null, sub ? h("span", { class: "sub" }, sub) : null) : null,
+    bar === undefined || bar === null ? null : h("div", { class: "kpi-bar", title: barTitle || "" },
+      h("i", { style: `width:${Math.max(0, Math.min(100, Math.round(bar)))}%` })));
+}
+// Delta chip: arrow follows the sign, colour follows whether that change is good.
+function deltaChip(now, prev, goodUp = true, title = "vs last month") {
+  if (!prev || now === null || now === undefined) return null;
+  const p = Math.round((now - prev) / Math.abs(prev) * 100);
+  return h("span", { class: "delta " + (!p ? "flat" : (p > 0) === goodUp ? "good" : "bad"), title }, (p > 0 ? "▲ " : p < 0 ? "▼ " : "") + Math.abs(p) + "%");
+}
+// This month vs last month, compared at the same pace (a half-finished month is scaled to a full one).
+function monthPace(d) {
+  const asof = new Date(d.as_of + "T00:00:00");
+  const frac = asof.getDate() / new Date(asof.getFullYear(), asof.getMonth() + 1, 0).getDate();
+  const lm = new Date(asof.getFullYear(), asof.getMonth() - 1, 1);
+  const key = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, "0")}`;
+  return { frac, last: d.monthly.find(m => m.month === key) || null };
+}
+function heroBanner(d) {
+  const k = d.kpis, first = (S.user.full_name || S.user.username).split(" ")[0];
+  const tile = (label, v) => h("div", { class: "hero-tile" }, h("span", { class: "small" }, label), h("b", {}, money(v)));
+  return h("section", { class: "hero-banner", "aria-label": t("welcome") }, h("h1", {}, `${t("welcome")}, ${first}`),
+    h("p", {}, `${d.business.name} · as of ${fmtDate(d.as_of)}`),
+    h("div", { class: "hero-tiles" }, tile(t("s_cash_now"), k.cash_balance), tile(t("s_in"), k.income_this_month),
+      tile(t("s_out"), k.expense_this_month), tile(t("s_owed"), k.receivables_outstanding)));
+}
+function quickActions(d) {
+  const w = canWrite();
+  const rem = d.alerts.map(a => a.data && a.data.suggested_tool).find(st => st && st.name === "create_payment_reminder");
+  const tile = (ico, label, sub, onclick, disabled) => h("button", { class: "qa-tile", onclick, disabled },
+    h("span", { class: "qa-ico", "aria-hidden": "true" }, ico), label, h("span", { class: "small" }, sub));
+  return h("section", { "aria-label": t("qa"), style: "margin-top:16px" }, h("h2", {}, t("qa")), h("div", { class: "qa-grid" },
+    tile("✎", "Add record", "Sale, expense or payment", () => { location.hash = "#data"; }, !w),
+    tile("≣", "New invoice", "Bill a customer", () => invoiceForm(() => { location.hash = "#invoices"; }), !w),
+    tile("✉", "Send reminder", rem ? "To the customer who is most late" : "See who owes you", e => rem ? runTool(rem.name, rem.args) : (location.hash = "#parties"), !w && !!rem),
+    tile("৳", "Find loans", "Matched to your numbers", () => { location.hash = "#financing"; })));
+}
+function pendingActions(c) {
+  const card = (n, label, href, tone) => h("a", { class: `pa-card t-${tone}${n ? "" : " zero"}`, href },
+    h("span", { class: "count num" }, n), h("span", { class: "grow" }, label), h("span", { "aria-hidden": "true" }, "›"));
+  return h("section", { "aria-label": t("pa"), style: "margin-top:16px" }, h("h2", {}, t("pa")), h("div", { class: "pa-grid" },
+    card(c.overdue, "Overdue invoices", "#invoices", "bad"), card(c.low_stock, "Items low on stock", "#stock", "warn"),
+    card(c.recurring_due, "Repeating items due", "#data?tab=repeating", "info")));
+}
+// What's working (positive signals from the KPIs), Needs attention (critical alerts), Alerts (the rest),
+// Recommendations (the digest's suggested actions).
+function insightSections(d, recs) {
+  const k = d.kpis, f = d.forecast, { frac, last } = monthPace(d);
+  const good = [];
+  if (last && last.income && k.income_this_month / frac > last.income) good.push(["Sales are ahead of last month's pace", `${money(k.income_this_month)} so far this month`]);
+  if (k.profit_this_month > 0) good.push(["Profitable this month", `${money(k.profit_this_month)} after costs`]);
+  if (k.gross_margin_3m !== null && k.gross_margin_3m >= 20) good.push([`Healthy gross margin: ${pct(k.gross_margin_3m)}`, "Average of the last 3 months"]);
+  if (k.forecast_min_30d >= f.threshold) good.push(["Cash stays above your safety level", `Lowest in 30 days: ${money(k.forecast_min_30d)}`]);
+  if (!k.receivables_overdue) good.push(["No customer is late paying", "Nothing overdue right now"]);
+  if (k.runway_months === null) good.push(["Not burning cash", "More money is coming in than going out"]);
+  const crit = d.alerts.filter(a => a.severity === "critical"), rest = d.alerts.filter(a => a.severity !== "critical");
+  const sec = (cls, title, items, empty) => h("div", { class: "card sec-card " + cls }, h("h2", {}, title),
+    items.length ? items : h("p", { class: "muted small" }, empty));
+  return h("div", { class: "grid g-4s", style: "margin-top:16px" },
+    sec("s-good", t("sec_work"), good.map(([a, b]) => h("div", { class: "sec-item" }, h("b", {}, "✓ " + a), h("span", { class: "muted" }, b))),
+      "Keep recording sales and costs to see what is going well."),
+    sec("s-attn", t("alerts"), crit.map(alertItem), "Nothing urgent. 👍"),
+    sec("s-alert", t("sec_alerts"), rest.map(alertItem), "No alerts."),
+    sec("s-rec", t("sec_recs"), recs.map(r => h("div", { class: "sec-item" }, h("b", {}, r.title), h("span", { class: "muted" }, r.reason),
+      h("div", { style: "margin-top:4px" }, h("button", { class: "btn sm primary", onclick: () => runTool(r.tool, r.args) }, "Do it")))),
+      "No recommendations right now."));
+}
+function tipCard() {
+  return h("div", { class: "card tip-card" }, h("h2", {}, "💡 " + t("tip")),
+    h("p", { class: "small" }, "Lenders look at regular records. Recording every sale and uploading bank or bKash statements raises your loan-readiness score."),
+    h("a", { class: "btn sm", href: "#financing" }, "Check my loan readiness"));
+}
+
 async function viewDashboard(v) {
-  const d = await api("/api/dashboard");
+  const [d, dg] = await Promise.all([api("/api/dashboard"), api("/api/digest?period=weekly").catch(() => ({ actions: [] }))]);
   $("#biz-name").textContent = d.business.name;
   $("#asof").textContent = "as of " + d.as_of;
-  const k = d.kpis;
-  const kpi = (label, value, sub, traceKey, tone = "", count) => h("div", { class: "card kpi" + (tone ? " tone-" + tone : "") },
-    h("div", { class: "label" }, label, traceKey && d.kpi_traces[traceKey] ? h("button", { class: "btn ghost sm", title: t("howcalc"),
-      onclick: () => modal(label, traceView(d.kpi_traces[traceKey])) }, "ⓘ") : null),
-    h("div", { class: "value num", "data-count": count }, value), sub ? h("div", { class: "sub" }, sub) : null);
+  const k = d.kpis, { frac, last } = monthPace(d);
+  const info = (label, key) => key && d.kpi_traces[key] ? h("button", { class: "btn ghost sm", title: t("howcalc"), "aria-label": t("howcalc"),
+    onclick: () => modal(label, traceView(d.kpi_traces[key])) }, "ⓘ") : null;
+  const paceTitle = "pace vs last month (this month so far, scaled to a full month)";
   const kpis = h("div", { class: "grid g-kpi" },
-    kpi(t("cash"), money(k.cash_balance), "opening balance + recorded flows", "cash_balance", k.cash_balance < 0 ? "bad" : "", k.cash_balance),
-    kpi(t("income_m"), money(k.income_this_month), `expenses ${money(k.expense_this_month)}`, "income_this_month", "in", k.income_this_month),
-    kpi(t("gm"), pct(k.gross_margin_3m), `net operating margin ${pct(k.net_margin_3m)}`, "margins"),
-    kpi(t("ar_over"), money(k.receivables_overdue), `outstanding ${money(k.receivables_outstanding)}`, "receivables", k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue));
-  const minTone = k.forecast_min_30d < 0 ? "color:var(--critical)" : "";
+    kpiCard({ label: t("cash"), value: money(k.cash_balance), count: k.cash_balance, tone: k.cash_balance < 0 ? "bad" : "", color: "blue", icon: "৳",
+      info: info(t("cash"), "cash_balance"), sub: `${t("net_last")}: ${money(k.net_last_month)}`, href: "#reports",
+      delta: deltaChip(k.cash_balance, k.cash_balance - k.income_this_month + k.expense_this_month, true, "vs start of this month"),
+      bar: k.cash_balance > 0 ? Math.max(0, k.forecast_min_30d) / k.cash_balance * 100 : 0, barTitle: "Share of today's cash still there at the 30-day low" }),
+    kpiCard({ label: t("income_m"), value: money(k.income_this_month), count: k.income_this_month, tone: "in", color: "green", icon: "↓",
+      info: info(t("income_m"), "income_this_month"), href: "#data", delta: last ? deltaChip(k.income_this_month / frac, last.income, true, paceTitle) : null,
+      bar: last && last.income ? k.income_this_month / last.income * 100 : null, barTitle: "Share of last month's sales reached" }),
+    kpiCard({ label: t("expense_m"), value: money(k.expense_this_month), count: k.expense_this_month, tone: "out", color: "orange", icon: "↑",
+      href: "#reports", delta: last ? deltaChip(k.expense_this_month / frac, last.expense, false, paceTitle) : null,
+      bar: k.income_this_month ? k.expense_this_month / k.income_this_month * 100 : null, barTitle: "Expenses as a share of income this month" }),
+    kpiCard({ label: t("ar_over"), value: money(k.receivables_overdue), count: k.receivables_overdue, tone: k.receivables_overdue > 0 ? "bad" : "in",
+      color: "purple", icon: "⏱", info: info(t("ar_over"), "receivables"), sub: `outstanding ${money(k.receivables_outstanding)}`, href: "#parties",
+      bar: k.receivables_outstanding ? k.receivables_overdue / k.receivables_outstanding * 100 : 0, barTitle: "Share of what customers owe that is late" }));
   const kpis2 = h("div", { class: "grid g-kpi", style: "margin-top:16px" },
-    h("div", { class: "card kpi" + (k.forecast_min_30d < 0 ? " tone-bad" : k.forecast_min_30d < d.forecast.threshold ? " tone-warn" : "") }, h("div", { class: "label" }, t("fmin")), h("div", { class: "value num", style: minTone }, money(k.forecast_min_30d)),
-      h("div", { class: "sub" }, d.forecast.first_negative_date ? `⚠ below zero around ${d.forecast.first_negative_date}` : "estimate")),
-    kpi(t("net_last"), money(k.net_last_month), null, null, k.net_last_month < 0 ? "out" : "in", k.net_last_month),
-    kpi(t("runway"), k.runway_months === null ? "not burning cash" : `${k.runway_months} months`, "at current average net cash flow", null, k.runway_months !== null && k.runway_months < 3 ? "warn" : ""),
-    kpi(t("profit_m"), money(k.profit_this_month), "sales - costs, before loans & owner drawings", "profit_this_month", k.profit_this_month < 0 ? "bad" : "in", k.profit_this_month));
+    kpiCard({ label: t("fmin"), value: money(k.forecast_min_30d), tone: k.forecast_min_30d < 0 ? "bad" : k.forecast_min_30d < d.forecast.threshold ? "warn" : "",
+      color: "teal", icon: "◔", sub: d.forecast.first_negative_date ? `⚠ below zero around ${d.forecast.first_negative_date}` : "estimate" }),
+    kpiCard({ label: t("profit_m"), value: money(k.profit_this_month), count: k.profit_this_month, tone: k.profit_this_month < 0 ? "bad" : "in", color: "green",
+      icon: "＋", info: info(t("profit_m"), "profit_this_month"), sub: "sales - costs, before loans & owner drawings" }),
+    kpiCard({ label: t("gm"), value: pct(k.gross_margin_3m), color: "amber", icon: "%", info: info(t("gm"), "margins"),
+      sub: `net operating margin ${pct(k.net_margin_3m)}`, bar: k.gross_margin_3m }),
+    kpiCard({ label: t("runway"), value: k.runway_months === null ? "not burning cash" : `${k.runway_months} months`, color: "blue", icon: "⧗",
+      tone: k.runway_months !== null && k.runway_months < 3 ? "warn" : "", sub: "at current average net cash flow" }));
 
   // forecast chart
   const series = d.forecast.series;
@@ -695,10 +820,6 @@ async function viewDashboard(v) {
   const fcCard = h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, t("forecast")),
     h("button", { class: "btn ghost sm", onclick: async () => modal("Forecast model", traceView((await api("/api/forecast?horizon=90")).trace)) }, t("howcalc"))),
     fcChart, h("div", { class: "small muted" }, d.forecast.notes.join(" ")));
-
-  // alerts
-  const alertsCard = h("div", { class: "card alerts-card" }, h("h2", {}, t("alerts")),
-    d.alerts.length ? d.alerts.map(a => alertItem(a)) : emptyState("Nothing urgent. Nice work. 👍", "Ask the copilot", () => { location.hash = "#chat"; }));
 
   // monthly + costs
   const months = d.monthly.slice(-12);
@@ -716,14 +837,16 @@ async function viewDashboard(v) {
     .map(([label, key]) => ({ label, value: ag[key] || 0 })), { fmt: x => money(x), color: "var(--serious)" });
   const costsM = d.expense_this_month.length ? hbarChart(d.expense_this_month.map(c => ({ label: c.category.replace(/_/g, " "), value: c.amount,
     sub: [["Share", c.share_pct + "%"]] })), { fmt: x => money(x) }) : h("div", { class: "muted" }, "No expenses recorded this month yet.");
-  v.replaceChildren(kpis, kpis2,
-    h("div", { class: "grid g-2", style: "margin-top:16px" }, fcCard, alertsCard),
+  const pending = pendingActions(S.counts);
+  v.replaceChildren(heroBanner(d), kpis, kpis2, quickActions(d), pending, insightSections(d, dg.actions || []),
+    h("div", { class: "grid g-2", style: "margin-top:16px" }, fcCard, tipCard()),
     whatIfCard(series),
     h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("monthly")), mChart),
       h("div", { class: "card" }, h("h2", {}, t("costs")), costs)),
     h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("costs_m")), costsM),
       h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, t("aging_t")), h("a", { href: "#reports", class: "link small" }, "Full report →")), agingChart)));
   countUp(v);
+  loadCounts().then(c => pending.replaceWith(pendingActions(c))).catch(() => {});
 }
 
 function alertItem(a) {
@@ -1143,7 +1266,9 @@ async function viewData(v) {
     !canWrite ? h("div", { class: "notice" }, "Your role is read-only (Tier 0): uploads and entries are disabled.") : null,
     h("div", { class: "tabs" }, tabBtns), body,
   ].filter(Boolean));
-  show(0);
+  const q = hashParam("q");
+  if (q) qInput.value = q;
+  show(q ? 2 : hashParam("tab") === "repeating" ? 3 : 0);
 }
 
 // ------------------------------------------------------------------ financing
@@ -1345,8 +1470,7 @@ async function viewSimpleHome(v) {
     ? h("div", { class: "status bad" }, "⚠ ", f.first_negative_date ? `${t("s_low")} ${fmtDate(f.first_negative_date)}. ` : "",
       `${t("s_lowest")} `, h("b", { class: "num" }, money(k.forecast_min_30d)))
     : h("div", { class: "status good" }, "✓ ", t("s_ok"));
-  const tile = (label, value, tone, n) => h("div", { class: "card kpi" + (tone ? " tone-" + tone : "") }, h("div", { class: "label" }, label),
-    h("div", { class: "value num", "data-count": n }, money(value)));
+  const tile = (label, value, tone, n, color, icon) => kpiCard({ label, value: money(value), tone, count: n, color, icon });
   const waiting = pend.filter(x => x.status === "pending");
   const todo = d.alerts.slice(0, 5).map(a => {
     const st = a.data && a.data.suggested_tool;
@@ -1361,12 +1485,12 @@ async function viewSimpleHome(v) {
   const chart = lineChart({ series: [{ name: t("s_next90"), color: "var(--series-1)", points: f.series.map(p => ({ x: p.date, y: p.balance })) }],
     threshold: { value: f.threshold, label: money(f.threshold) }, yfmt: (x, axis) => money(x, axis), xfmt: fmtDate, height: 220, ariaLabel: t("s_next90") });
   v.replaceChildren(
-    h("h1", {}, `${t("hello")}, ${first} 👋`), status,
+    heroBanner(d), h("h1", { class: "hello-h1" }, `${t("hello")}, ${first} 👋`), status,
     h("div", { class: "grid g-kpi", style: "margin-top:16px" },
-      tile(t("s_cash_now"), k.cash_balance, k.cash_balance < 0 ? "bad" : "", k.cash_balance),
-      tile(t("s_in"), k.income_this_month, "in", k.income_this_month),
-      tile(t("s_out"), k.expense_this_month, "out", k.expense_this_month),
-      tile(t("s_owed"), k.receivables_overdue, k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue)),
+      tile(t("s_cash_now"), k.cash_balance, k.cash_balance < 0 ? "bad" : "", k.cash_balance, "blue", "৳"),
+      tile(t("s_in"), k.income_this_month, "in", k.income_this_month, "green", "↓"),
+      tile(t("s_out"), k.expense_this_month, "out", k.expense_this_month, "orange", "↑"),
+      tile(t("s_owed"), k.receivables_overdue, k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue, "purple", "⏱")),
     waiting.length ? h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, `${t("s_confirm")} (${waiting.length})`), waiting.map(confirmCard)) : "",
     h("div", { class: "grid g-2e", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", {}, t("s_todo")), todo.length ? todo : h("div", { class: "empty" }, h("p", {}, t("s_nothing")))),
