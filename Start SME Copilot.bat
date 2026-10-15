@@ -35,7 +35,8 @@ pause
 exit /b 1
 
 :open
-start "" "%URL%"
+rem A fresh query string makes the browser fetch the page again instead of reusing a cached old version.
+start "" "%URL%/?t=%RANDOM%%RANDOM%"
 exit /b 0
 
 :is_up
