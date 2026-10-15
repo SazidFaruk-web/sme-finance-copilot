@@ -30,11 +30,18 @@ categories:
   sales_returns:  # customer returned goods: refund paid out, reduces revenue (not an expense)
     direction: out
     behavior: contra_revenue
-    keywords: {en: [], bn: [], banglish: []}
+    # "ferot dilam" = gave money back; "ferot pelam" (got money back) stays other_income via the "pelam" verb.
+    keywords:
+      en: [return, returned, returns, sales return, customer return, returned by customer, refund to customer, refund given, refunded]
+      bn: [ফেরত দিলাম, ফেরত দিয়েছি, ফেরত দিলো, ফেরত দিল, ফেরত নিলাম, কাস্টমার ফেরত, মাল ফেরত]
+      banglish: [ferot dilam, ferot diyechi, ferot dilo, ferot dise, ferot nilam, kastomar ferot, customer ferot, mal ferot]
   purchase_returns:  # goods returned to a supplier: money back in, reduces COGS
     direction: in
     behavior: contra_cogs
-    keywords: {en: [], bn: [], banglish: []}
+    keywords:
+      en: [purchase return, returned to supplier, return to supplier, supplier return, supplier refund]
+      bn: []
+      banglish: []
   loan_received:
     direction: in
     behavior: financing
@@ -102,7 +109,7 @@ categories:
     direction: out
     behavior: variable
     keywords:
-      en: [cash out fee, cashout fee, transaction fee, bank charge, service charge, mfs fee, send money fee]
+      en: [cash out fee, cashout fee, transaction fee, bank charge, service charge, mfs fee, send money fee, cheque return charge, return charge, cheque bounce charge]
       bn: [ক্যাশ আউট চার্জ, ব্যাংক চার্জ]
       banglish: [cash out charge, bank charge]
   maintenance:
@@ -124,8 +131,8 @@ categories:
     behavior: financing
     keywords:
       en: [emi, installment, instalment, loan repayment, loan payment, kisti]
-      bn: [কিস্তি, ঋণ পরিশোধ, লোনের কিস্তি]
-      banglish: [kisti dilam, loan er kisti, rin shodh]
+      bn: [কিস্তি, ঋণ পরিশোধ, লোনের কিস্তি, ঋণ ফেরত দিলাম, লোন ফেরত দিলাম, ধার ফেরত দিলাম, ঋণ ফেরত দিয়েছি, ধার ফেরত দিয়েছি]
+      banglish: [kisti dilam, loan er kisti, rin shodh, loan ferot dilam, loan ferot diyechi, rin ferot dilam, dhar ferot dilam, dhar ferot diyechi]
   equipment:
     direction: out
     behavior: capex

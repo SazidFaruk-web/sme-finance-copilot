@@ -101,11 +101,13 @@ def main() -> None:
     (out / "04_mixed_dates.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
     expected["04_mixed_dates.csv"] = _expect(mixed, outcome="imported")
 
-    # Exact duplicate rows: the importer should flag them, not double-count.
+    # Rows exported twice (same bank reference): the importer should flag them, not double-count.
+    # Identical rows *without* a shared reference are separate real transactions and are kept.
     dup = _rows(50, 5)
     dup_file = pd.concat([dup, dup.iloc[:10]]).sort_values("date", kind="stable")
-    lines = ["Date,Description,Withdrawal,Deposit"] + [
-        f"{r.date.strftime('%d/%m/%Y')},\"{r.desc}\",{r.out or ''},{r._4 or ''}" for r in dup_file.itertuples()]
+    lines = ["Date,Ref No,Description,Withdrawal,Deposit"] + [
+        f"{r.date.strftime('%d/%m/%Y')},FAKEREF{r.Index:05d},\"{r.desc}\",{r.out or ''},{r._4 or ''}"
+        for r in dup_file.itertuples()]
     (out / "05_duplicates.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
     expected["05_duplicates.csv"] = _expect(dup, outcome="imported", duplicate_rows_in_file=10,
                                             note="totals exclude the 10 repeated rows")

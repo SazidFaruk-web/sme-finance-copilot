@@ -22,7 +22,8 @@ def test_generate_is_deterministic():
 def test_seed_story(db):
     res = load(db, AS_OF, write=False)
     imp = res["imports"]
-    assert imp["expenses_ledger.csv"]["duplicates"] == 1 and imp["expenses_ledger.csv"]["anomalies"] >= 1
+    assert imp["bank_statement.csv"]["duplicates"] == 1 and imp["expenses_ledger.csv"]["duplicates"] == 0
+    assert imp["expenses_ledger.csv"]["anomalies"] >= 1
     assert imp["bkash_statement.csv"]["injection_flags"] == 1 and imp["bkash_statement.csv"]["errors"] == 1
     b = db.query(Business).one()
     txns, inv = repo.load_transactions(db, b.id, end=AS_OF), repo.load_invoices(db, b.id)

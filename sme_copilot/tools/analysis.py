@@ -656,6 +656,10 @@ def explain_change(txns: pd.DataFrame, start: date, end: date, label: str = "",
 
 
 # ----------------------------------------------------------------------------- metrics for lending
+DAYS_PER_MONTH = 30
+MIN_RUN_RATE_DAYS = 7  # never scale fewer than a week of records up to a month
+
+
 class BusinessMetrics(BaseModel):
     as_of: date
     months_of_data: int
@@ -682,6 +686,20 @@ class BusinessMetrics(BaseModel):
 def business_metrics(txns: pd.DataFrame, invoices: pd.DataFrame, business: Any, as_of: date) -> BusinessMetrics:
     s6, e6, l6 = resolve_period("last_6_months", as_of)
     s12, e12, _ = resolve_period("last_12_months", as_of)
+    # Monthly averages use the period the records actually cover: the last 6 complete months when the books
+    # reach back that far, otherwise first record -> as_of (incl. the current month) as a monthly run-rate.
+    # "months_of_data" stays the separate, unscaled records-history requirement.
+    first_record = txns["date"].min().date() if not txns.empty else None
+    if first_record is not None and first_record > s6:
+        covered_days = (as_of - first_record).days + 1
+        n_months = max(covered_days, MIN_RUN_RATE_DAYS) / DAYS_PER_MONTH
+        s6, e6 = first_record, as_of
+        l6 = f"{first_record.isoformat()} to {as_of.isoformat()} ({covered_days} days of records)"
+        avg_basis = (f"records cover only {covered_days} days: totals / {max(covered_days, MIN_RUN_RATE_DAYS)} days "
+                     f"x {DAYS_PER_MONTH} (monthly run-rate)")
+    else:
+        n_months = 6.0
+        avg_basis = "last 6 complete months / 6"
     p6 = profitability(txns, s6, e6, l6)
     df12 = _slice(txns, s12, e12)
     monthly = [m.income for m in monthly_table(df12[(df12["direction"] == "in") & (df12["category"] == "sales")])] \
@@ -696,17 +714,19 @@ def business_metrics(txns: pd.DataFrame, invoices: pd.DataFrame, business: Any, 
     if getattr(business, "established_on", None):
         eo = business.established_on
         age = (as_of.year - eo.year) * 12 + as_of.month - eo.month
-    op_cf = p6.operating_profit / 6
+    op_cf = p6.operating_profit / n_months
     existing_ds = float(business.existing_monthly_debt_service or 0)
     if existing_ds == 0 and not txns.empty:
         rep = _slice(txns, s6, e6)
         rep = rep[(rep["direction"] == "out") & (rep["category"] == "loan_repayment")]
-        existing_ds = float(rep["amount"].sum()) / 6 if not rep.empty else 0.0
+        existing_ds = float(rep["amount"].sum()) / n_months if not rep.empty else 0.0
     ex_dscr = safe_div(op_cf, existing_ds) if existing_ds else None
     ag = aging(invoices, as_of, "receivable") if not invoices.empty else None
     t = Trace(formula="DSCR = average monthly operating cash flow / monthly debt service; "
                       "revenue CV = std / mean of monthly sales", period=l6)
-    t.step("Average monthly operating cash flow (6m)", round(op_cf, 2), f"{fmt(p6.operating_profit)} / 6")
+    t.step("Average monthly revenue", round(p6.revenue / n_months, 2), avg_basis)
+    t.step("Average monthly operating cash flow (6m)", round(op_cf, 2),
+           f"{fmt(p6.operating_profit)} / {round(n_months, 2):g} months")
     t.step("Existing monthly debt service", round(existing_ds, 2))
     t.step("Existing DSCR", round(ex_dscr, 2) if ex_dscr else None,
            f"{fmt(op_cf)} / {fmt(existing_ds)}" if existing_ds else "no existing debt")
@@ -717,7 +737,7 @@ def business_metrics(txns: pd.DataFrame, invoices: pd.DataFrame, business: Any, 
     t.sources = p6.trace.sources
     return BusinessMetrics(
         as_of=as_of, months_of_data=months_of_data, business_age_months=age,
-        avg_monthly_revenue_6m=round(p6.revenue / 6, 2), avg_monthly_revenue_12m=round(rev12, 2),
+        avg_monthly_revenue_6m=round(p6.revenue / n_months, 2), avg_monthly_revenue_12m=round(rev12, 2),
         revenue_cv_12m=round(cv, 3) if cv is not None else None, avg_monthly_operating_cash_flow_6m=round(op_cf, 2),
         existing_monthly_debt_service=round(existing_ds, 2), existing_dscr=round(ex_dscr, 2) if ex_dscr else None,
         gross_margin_pct_6m=p6.gross_margin_pct, net_margin_pct_6m=p6.net_margin_pct,

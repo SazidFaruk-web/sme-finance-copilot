@@ -240,11 +240,12 @@ def generate(as_of: date, seed: int = 2026) -> SeedData:
     wallet_rows.append([inj_day.strftime("%Y-%m-%d 09:20:00"), f"TRX{70001 + n}", "Send Money", "01700000000", 5000, 5,
                         bal - 50, "Failed"])
 
-    # duplicate: the same courier payment typed in the ledger twice
+    # duplicate: a courier payment typed in the expenses ledger that also shows on the bank statement
+    # (identical rows inside one file are separate real transactions; overlap across files is not)
     dup_day = as_of - timedelta(days=6)
-    exp_rows.append([fmt(dup_day), "Courier to Karim Knit factory", 1_850, "expense", "Pathao Courier"])
-    exp_rows.append([fmt(dup_day), "Courier to Karim Knit factory", 1_850, "expense", "Pathao Courier"])
-    net -= 1_850  # only one counts; the second will be flagged as a duplicate
+    exp_rows.append([fmt(dup_day), "Courier to Karim Knit factory", 1_850, "expense", ""])
+    bank_rows.append([fmt(dup_day), "Courier to Karim Knit factory", 1_850, ""])
+    net -= 1_850  # only one counts; the bank copy will be flagged as a duplicate
 
     sd.files = {
         "sales_ledger.csv": _csv(sales_rows, ["Date", "Description", "Amount", "Type", "Party"]),

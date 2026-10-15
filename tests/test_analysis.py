@@ -172,7 +172,38 @@ def test_business_metrics_for_lending():
 
     df = three_months()
     m = business_metrics(df, invoices_df(), B(), AS_OF)
-    # Only Jul-Sep in the 6m window: operating profit 180k / 6 = 30k; repayments 60k / 6 = 10k
-    assert m.avg_monthly_operating_cash_flow_6m == 30_000
-    assert m.existing_monthly_debt_service == 10_000 and m.existing_dscr == 3.0
+    # Records start 10 Jul, so averages use the 97 days covered (10 Jul - 14 Oct), not 6 months:
+    # operating profit 180k / (97/30) = 55,670.10; repayments 60k / (97/30) = 18,556.70
+    assert m.months_of_data == 3
+    assert m.avg_monthly_revenue_6m == round(900_000 / (97 / 30), 2)
+    assert m.avg_monthly_operating_cash_flow_6m == round(180_000 / (97 / 30), 2)
+    assert m.existing_monthly_debt_service == round(60_000 / (97 / 30), 2) and m.existing_dscr == 3.0
     assert m.business_age_months == 45 and m.receivables_overdue == 140_000
+
+
+def test_short_history_average_uses_covered_days_not_six_months():
+    """A shop with 12 days of khata (27 Sep - 8 Oct) must not be averaged over 6 months."""
+    class B:
+        established_on = None
+        existing_monthly_debt_service = 0
+        collateral_value = 0
+        has_trade_license = has_tin = has_bank_account = vat_registered = women_led = False
+        sector = "phone accessories"
+
+    rows = [(1, "2025-09-27", 13_050, "in", "sales", ""), (2, "2025-10-08", 21_450, "in", "sales", "")]
+    m = business_metrics(make_txn_df(rows), invoices_df().iloc[0:0], B(), date(2025, 10, 8))
+    assert m.avg_monthly_revenue_6m == round(34_500 / 12 * 30, 2)   # 86,250 run-rate, not 13,050 / 6
+    assert m.months_of_data == 1                                     # records requirement unchanged
+
+
+def test_tiny_history_is_not_scaled_beyond_a_week():
+    class B:
+        established_on = None
+        existing_monthly_debt_service = 0
+        collateral_value = 0
+        has_trade_license = has_tin = has_bank_account = vat_registered = women_led = False
+        sector = ""
+
+    rows = [(1, "2025-10-08", 7_000, "in", "sales", "")]
+    m = business_metrics(make_txn_df(rows), invoices_df().iloc[0:0], B(), date(2025, 10, 8))
+    assert m.avg_monthly_revenue_6m == 30_000  # 7,000 over a 7-day minimum span x 30

@@ -44,21 +44,32 @@ def duplicate_reason(new: TxnKey, old: TxnKey) -> str | None:
 def find_duplicates(new_rows: list[TxnKey], existing: list[TxnKey]) -> dict[int, tuple[str, str]]:
     """Return {index_in_new_rows: (duplicate_of, reason)}; duplicate_of is 'txn:<id>' or 'row:<i>'.
 
-    Existing rows are bucketed by (direction, rounded amount) so this stays ~O(n).
+    New rows are compared with already-stored rows using every rule in duplicate_reason. Within one
+    import, identical rows are separate real transactions (two "iPhone cover 200" sold on one day are
+    two lines in the khata), so rows of the same batch only duplicate each other when they share a
+    reference such as a Trx ID. Existing rows are bucketed by (direction, rounded amount) so this stays ~O(n).
     """
     buckets: dict[tuple[str, int], list[tuple[str, TxnKey]]] = {}
     for t in existing:
         buckets.setdefault((t.direction, round(t.amount * 100)), []).append((f"txn:{t.id}", t))
+    batch_refs: dict[tuple[str, int, str], int] = {}
     out: dict[int, tuple[str, str]] = {}
     for i, t in enumerate(new_rows):
         key = (t.direction, round(t.amount * 100))
-        for ref, old in buckets.get(key, []):
+        bucket = buckets.get(key, [])
+        for j, (ref, old) in enumerate(bucket):
             reason = duplicate_reason(t, old)
             if reason:
                 out[i] = (ref, reason)
+                del bucket[j]  # one stored row stands for one new row: 3 covers vs 2 stored -> 1 is new
                 break
-        if i not in out:
-            buckets.setdefault(key, []).append((f"row:{i}", t))
+        if i in out:
+            continue
+        ref_key = (*key, (t.reference or "").strip().lower())
+        if ref_key[2] and ref_key in batch_refs:
+            out[i] = (f"row:{batch_refs[ref_key]}", f"same reference '{t.reference}'")
+        elif ref_key[2]:
+            batch_refs[ref_key] = i
     return out
 
 

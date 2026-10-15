@@ -138,7 +138,7 @@ def evaluate(p: Product, m: BusinessMetrics, business: Any, amount: float, purpo
                 f"business is young enough for this scheme ({age} months)",
                 f"meant for businesses under {e.max_business_age_months} months old; you have {age}")
     add("revenue", m.avg_monthly_revenue_6m >= e.min_avg_monthly_revenue, True,
-        f"6-month average revenue {M(m.avg_monthly_revenue_6m)} meets the {M(e.min_avg_monthly_revenue)} minimum",
+        f"average monthly revenue {M(m.avg_monthly_revenue_6m)} meets the {M(e.min_avg_monthly_revenue)} minimum",
         f"needs average monthly revenue of {M(e.min_avg_monthly_revenue)}; yours is {M(m.avg_monthly_revenue_6m)}")
     if m.revenue_cv_12m is not None:
         add("revenue_stability", m.revenue_cv_12m <= e.max_revenue_cv, False,
@@ -247,7 +247,7 @@ def match(metrics: BusinessMetrics, business: Any, *, amount: float | None, purp
     t.step("Requested amount", amount, basis)
     t.step("Average monthly operating cash flow (6m)", metrics.avg_monthly_operating_cash_flow_6m)
     t.step("Existing monthly debt service", metrics.existing_monthly_debt_service)
-    t.step("Average monthly revenue (6m)", metrics.avg_monthly_revenue_6m)
+    t.step("Average monthly revenue (6m, or run-rate for shorter records)", metrics.avg_monthly_revenue_6m)
     t.step("Revenue variation (CV, 12m)", metrics.revenue_cv_12m)
     t.step("Business age (months)", metrics.business_age_months)
     for r in elig[:3]:

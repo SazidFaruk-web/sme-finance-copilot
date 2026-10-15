@@ -60,3 +60,19 @@ def test_direction_respected_in_categorize():
 ])
 def test_parse_date_any(raw, expected):
     assert parse_date_any(raw) == expected
+
+
+@pytest.mark.parametrize("text,amount,direction,category", [
+    ("kastomar cover ferot dilo 200", 200, "out", "sales_returns"),
+    ("customer return 500", 500, "out", "sales_returns"),
+    ("ferot dilam 300", 300, "out", "sales_returns"),
+    ("ফেরত দিলাম ২০০", 200, "out", "sales_returns"),
+    ("ফেরত দিয়েছি ২০০", 200, "out", "sales_returns"),
+    ("ferot pelam 400", 400, "in", "other_income"),        # money received back, not a customer return
+    ("ফেরত পেলাম ৪০০", 400, "in", "other_income"),
+    ("loan ferot dilam 5000", 5000, "out", "loan_repayment"),
+    ("return to supplier 900", 900, "in", "purchase_returns"),
+])
+def test_returns_and_refunds(text, amount, direction, category):
+    e = parse_entry(text, T)
+    assert (e.amount, e.direction, e.category) == (amount, direction, category)

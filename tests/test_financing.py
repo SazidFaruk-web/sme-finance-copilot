@@ -159,6 +159,7 @@ def test_match_on_seeded_business_uses_real_numbers(seeded):
     from sme_copilot.agent.executor import execute
     out = execute(make_ctx(seeded), "match_financing", {"amount": 500_000})
     d = out.data
-    assert d["metrics"]["avg_monthly_operating_cash_flow_6m"] == pytest.approx(30_000)  # 180k over 6 months
+    assert d["metrics"]["avg_monthly_operating_cash_flow_6m"] == pytest.approx(180_000 / (106 / 30), abs=0.01)
+    # 180k over the 106 days the records cover (1 Jul - 14 Oct), not over 6 months
     assert any(x["product_id"] == "mfi_microenterprise_loan" for x in d["recommendations"] + d["rejected"])
     assert all(x["offered_amount"] <= 500_000 for x in d["recommendations"])
