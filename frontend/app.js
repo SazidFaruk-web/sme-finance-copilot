@@ -7,6 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js";
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
   en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
+    parties: "Customers & suppliers", s_parties: "Baki khata",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
@@ -30,6 +31,7 @@ const T = {
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings." },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
+    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
@@ -235,10 +237,10 @@ function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "chat", "data", "stock", "financing", "actions", "audit", "settings"];
-const SIMPLE_ROUTES = ["dashboard", "chat", "data", "financing", "settings"];
-const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", financing: "s_loans", settings: "settings_btn" };
-const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const ROUTES = ["dashboard", "chat", "data", "parties", "stock", "financing", "actions", "audit", "settings"];
+const SIMPLE_ROUTES = ["dashboard", "chat", "data", "parties", "financing", "settings"];
+const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties", financing: "s_loans", settings: "settings_btn" };
+const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", parties: "☺", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -332,10 +334,49 @@ function route() {
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.id === "nav-" + name));
   const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
   const views = S.mode === "simple"
-    ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, financing: viewSimpleFinancing, settings: viewSimpleSettings }
-    : { dashboard: viewDashboard, chat: viewChat, data: viewData, stock: viewStock, financing: viewFinancing, actions: viewActions,
+    ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings }
+    : { dashboard: viewDashboard, chat: viewChat, data: viewData, parties: viewParties, stock: viewStock, financing: viewFinancing, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
+}
+
+// ------------------------------------------------------------------ customers & suppliers (baki ledger)
+async function viewParties(v) {
+  let kind = "customer";
+  const body = h("div", {});
+  const bar = h("div", { class: "tabs" }, [["customer", "Customers (they owe you)"], ["supplier", "Suppliers (you owe them)"]].map(([k, l], i) =>
+    h("button", { class: i ? "" : "active", onclick: e => { bar.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); kind = k; load(); } }, l)));
+  async function load() {
+    const d = await api(`/api/books/parties?kind=${kind}`);
+    if (!d.rows.length) { body.replaceChildren(emptyState(kind === "customer" ? "No customer invoices yet." : "No supplier bills yet.")); return; }
+    body.replaceChildren(
+      h("div", { class: "grid g-kpi", style: "margin-bottom:16px" },
+        h("div", { class: "card kpi" }, h("div", { class: "label" }, "Total balance"), h("div", { class: "value num" }, money(d.total_balance))),
+        h("div", { class: "card kpi" }, h("div", { class: "label" }, "Overdue"), h("div", { class: "value num", style: d.total_overdue > 0 ? "color:var(--critical)" : "" }, money(d.total_overdue)))),
+      h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t" },
+        h("tr", {}, ["Name", "Invoices", "Billed", "Paid", "Balance", "Overdue", "Last activity"].map((x, i) => h("th", { class: i && i < 6 ? "r" : "" }, x))),
+        d.rows.map(p => h("tr", {},
+          h("td", {}, h("button", { class: "btn ghost", onclick: () => showLedger(p.name, kind) }, p.name)),
+          h("td", { class: "r" }, p.invoices), h("td", { class: "r" }, money(p.invoiced)), h("td", { class: "r" }, money(p.paid)),
+          h("td", { class: "r", style: "font-weight:600" }, money(p.balance)),
+          h("td", { class: "r", style: p.overdue > 0 ? "color:var(--critical)" : "" }, money(p.overdue)),
+          h("td", { class: "small muted" }, p.last_date || "–")))))));
+  }
+  v.replaceChildren(h("h1", {}, t(S.mode === "simple" ? "s_parties" : "parties")),
+    h("p", { class: "small muted" }, "Click a name to see every invoice and payment with the running balance."), bar, body);
+  await load();
+}
+async function showLedger(name, kind) {
+  const d = await api(`/api/books/parties/ledger?kind=${kind}&name=${encodeURIComponent(name)}`);
+  modal(`${name} · balance ${money(d.balance)}`, h("div", { class: "scroll" }, h("table", { class: "t" },
+    h("tr", {}, ["Date", "Entry", "Ref", "Billed", "Paid", "Balance"].map((x, i) => h("th", { class: i > 2 ? "r" : "" }, x))),
+    d.lines.map(l => h("tr", {}, h("td", { class: "num" }, l.date), h("td", {}, l.type, l.note ? h("div", { class: "small muted" }, l.note) : null), h("td", {}, l.ref),
+      h("td", { class: "r" }, l.debit ? money(l.debit) : ""), h("td", { class: "r", style: "color:var(--good-text)" }, l.credit ? money(l.credit) : ""),
+      h("td", { class: "r", style: "font-weight:600" }, money(l.balance)))))));
+}
+function emptyState(line, btnLabel, onclick) {
+  return h("div", { class: "card empty" }, h("div", { class: "empty-ico", "aria-hidden": "true" }, "○"), h("p", {}, line),
+    btnLabel ? h("button", { class: "btn primary", onclick }, btnLabel) : null);
 }
 
 // ------------------------------------------------------------------ stock

@@ -64,7 +64,7 @@ def create_app() -> FastAPI:
     from . import routes_core, routes_data
     app.include_router(routes_core.router)
     app.include_router(routes_data.router)
-    for mod in ("routes_insights", "routes_actions", "routes_stock"):
+    for mod in ("routes_insights", "routes_actions", "routes_stock", "routes_books"):
         try:
             m = __import__(f"sme_copilot.api.{mod}", fromlist=["router"])
             app.include_router(m.router)
