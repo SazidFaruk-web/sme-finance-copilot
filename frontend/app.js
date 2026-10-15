@@ -3,7 +3,7 @@
 // uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
-import { barChart, hbarChart, lineChart } from "./charts.js?v=5";
+import { barChart, hbarChart, lineChart } from "./charts.js?v=6";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -34,7 +34,8 @@ const T = {
     // styles + dashboard sections
     style: "Style", st_general: "General", st_green: "Green", st_blue: "Blue", theme_note: "Light/Dark applies to the General style.",
     search_ph: "Search records…", range: "Date range", welcome: "Welcome back", sec_work: "What's working", sec_alerts: "Alerts",
-    sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip" },
+    sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip",
+    home_layout: "Business & home layout", change_layout: "Change layout" },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
     parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট", profit_m: "এই মাসের লাভ", costs_m: "খরচ ক্যাটাগরি অনুযায়ী (এই মাস)", aging_t: "ক্রেতাদের বকেয়া, কত দেরি",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
@@ -59,7 +60,8 @@ const T = {
     s_switch: "চার্ট ও বিস্তারিত চান? সেটিংসে অ্যাডভান্সড চালু করুন।",
     style: "স্টাইল", st_general: "সাধারণ", st_green: "সবুজ", st_blue: "নীল", theme_note: "লাইট/ডার্ক শুধু সাধারণ স্টাইলে কাজ করে।",
     search_ph: "হিসাব খুঁজুন…", range: "সময়সীমা", welcome: "আবার স্বাগতম", sec_work: "যা ভালো চলছে", sec_alerts: "সতর্কতা",
-    sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস" },
+    sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস",
+    home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান" },
 };
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -70,6 +72,7 @@ const S = {
   mode: pref("ui_mode", "advanced"),       // simple | advanced
   look: "general",                         // Settings > Style: general | green | blue (per user, set after login)
   counts: { overdue: 0, low_stock: 0, recurring_due: 0 },
+  home: null, reg: null,                   // home_prefs (widgets, nav, style) + widget/nav registry from the server
 };
 const t = k => (T[S.ui] && T[S.ui][k]) || T.en[k] || k;
 function applyPrefs() {
@@ -382,12 +385,15 @@ const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "reports", "
 const SIMPLE_ROUTES = ["dashboard", "chat", "data", "parties", "financing", "settings"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties", financing: "s_loans", settings: "settings_btn" };
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
-const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
+const routes = () => (S.mode === "simple" ? SIMPLE_ROUTES : ROUTES)
+  .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
+const showWidget = id => !S.home || S.home.widgets.includes(id);
 
 // Re-render everything after a preference change (language, theme, mode).
 function setPref(key, value) {
   S[key] = value;
   savePref(key === "look" ? `ui_style:${S.user ? S.user.username : ""}` : { ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
+  if (key === "look" && S.home && S.home.exists) api("/api/home/prefs", { body: { style: value } }).then(r => { S.home = r; }).catch(() => {});
   applyPrefs();
   if (S.user) { renderShell(); route(); }
 }
@@ -438,11 +444,14 @@ async function boot() {
     S.look = pref("ui_style:" + S.user.username, "general"); applyPrefs();
     S.models = await api("/api/models");
     const st = await api("/api/settings"); S.style = st.number_style; S.stepUp = st.step_up_amount;
+    [S.home, S.reg] = await Promise.all([api("/api/home/prefs"), api("/api/home/registry")]);
+    if (S.home.exists) { S.look = S.home.style; savePref("ui_style:" + S.user.username, S.look); applyPrefs(); }
   } catch { return; }
   if (!S.profile || !S.models.profiles.some(p => p.name === S.profile)) S.profile = S.models.default;
   renderShell();
   window.onhashchange = route;
   route();
+  if (!S.home.exists) openWizard(true);
 }
 
 let pendingCount = 0;
@@ -838,16 +847,81 @@ async function viewDashboard(v) {
   const costsM = d.expense_this_month.length ? hbarChart(d.expense_this_month.map(c => ({ label: c.category.replace(/_/g, " "), value: c.amount,
     sub: [["Share", c.share_pct + "%"]] })), { fmt: x => money(x) }) : h("div", { class: "muted" }, "No expenses recorded this month yet.");
   const pending = pendingActions(S.counts);
-  v.replaceChildren(heroBanner(d), kpis, kpis2, quickActions(d), pending, insightSections(d, dg.actions || []),
-    h("div", { class: "grid g-2", style: "margin-top:16px" }, fcCard, tipCard()),
-    whatIfCard(series),
-    h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("monthly")), mChart),
-      h("div", { class: "card" }, h("h2", {}, t("costs")), costs)),
-    h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("costs_m")), costsM),
-      h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, t("aging_t")), h("a", { href: "#reports", class: "link small" }, "Full report →")), agingChart)));
+  // Widget registry (home_prefs.widgets, in the user's order): KPI cards first, then the blocks.
+  const [ck, ik, ek, ok] = kpis.children, [fk, pk, gk, rk] = kpis2.children;
+  const KPI = { cash_now: [ck], money_in_out: [ik, ek], receivables_aging: [ok], profit_month: [pk, gk], cash_forecast: [fk, rk] };
+  const half = el => ({ half: el }), card = (title, body) => h("div", { class: "card" }, h("h2", {}, title), body);
+  const BLOCKS = {
+    todo_actions: () => [quickActions(d), pending, insightSections(d, dg.actions || [])],
+    cash_forecast: () => [h("div", { style: "margin-top:16px" }, fcCard), whatIfCard(series)],
+    money_in_out: () => [half(card(t("monthly"), mChart))],
+    expenses_by_category: () => [half(card(t("costs_m"), costsM)), half(card(t("costs"), costs))],
+    receivables_aging: () => [half(h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, t("aging_t")),
+      h("a", { href: "#reports", class: "link small" }, "Full report →")), agingChart))],
+    ...ASYNC_WIDGETS,
+  };
+  const order = S.home ? S.home.widgets : Object.keys(BLOCKS);
+  const kpiCards = order.flatMap(id => KPI[id] || []);
+  v.replaceChildren(heroBanner(d), kpiCards.length ? h("div", { class: "grid g-kpi" }, kpiCards) : "",
+    ...layoutBlocks([...order.flatMap(id => BLOCKS[id] ? BLOCKS[id]() : []), half(tipCard())]));
   countUp(v);
-  loadCounts().then(c => pending.replaceWith(pendingActions(c))).catch(() => {});
+  if (showWidget("todo_actions")) loadCounts().then(c => pending.replaceWith(pendingActions(c))).catch(() => {});
 }
+// Full-width blocks as they are; consecutive half-width cards paired in two-column grids.
+function layoutBlocks(items) {
+  const out = [];
+  for (const it of items) {
+    if (it && it.half) {
+      const last = out[out.length - 1];
+      if (last && last.classList.contains("g-2e") && last.children.length < 2) last.appendChild(it.half);
+      else out.push(h("div", { class: "grid g-2e", style: "margin-top:16px" }, it.half));
+    } else if (it) out.push(it);
+  }
+  return out;
+}
+// Widgets that load their own data (existing endpoints); each shows a skeleton until it arrives.
+function asyncCard(title, route, load) {
+  const body = h("div", { class: "skeleton-block" }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" }));
+  const link = route && routes().includes(route.split("?")[0]) ? h("a", { href: "#" + route, class: "link small" }, "Open →") : null;
+  const el = h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, title), link), body);
+  load().then(x => body.replaceWith(x)).catch(e => body.replaceWith(h("div", { class: "muted small" }, e.message)));
+  return { half: el };
+}
+const recRow = (title, sub, right) => h("div", { class: "rec" }, h("div", { class: "grow" }, h("div", {}, title), sub ? h("div", { class: "small muted" }, sub) : null), right);
+const listOrEmpty = (rows, empty) => rows.length ? h("div", {}, rows) : h("p", { class: "muted small" }, empty);
+const ASYNC_WIDGETS = {
+  stock_alerts: () => [asyncCard("Stock running low", "stock", async () => {
+    const { items } = await api("/api/stock");
+    return listOrEmpty(items.filter(i => i.status !== "ok").slice(0, 6).map(i => recRow(i.name, `${i.qty} ${i.unit} left${i.days_left != null ? ` · about ${i.days_left} days` : ""}`,
+      h("span", { class: "chip " + (i.status === "out" ? "bad" : "warn") }, i.status === "out" ? "Out" : "Low"))), "All items have enough stock.");
+  })],
+  loan_readiness: () => [asyncCard(t("s_score"), "financing", async () => {
+    const rd = (await api("/api/tools/loan_readiness_score", { body: { args: {} } })).data;
+    return h("div", {}, h("div", { class: "row" }, h("span", { class: "gauge num" }, rd.score), h("span", { class: "muted" }, `/ 100 · ${rd.band.replace(/_/g, " ")}`)),
+      h("div", { class: "bar-track", style: "margin:8px 0" }, h("div", { class: "bar-fill", style: `width:${rd.score}%` })),
+      h("ul", { class: "small" }, rd.top_tips.slice(0, 2).map(x => h("li", {}, x))));
+  })],
+  top_customers: () => [asyncCard("Top customers", "parties", async () => {
+    const d = await api("/api/books/parties?kind=customer");
+    return listOrEmpty([...d.rows].sort((a, b) => b.invoiced - a.invoiced).slice(0, 5).map(p => recRow(p.name, `billed ${money(p.invoiced)}`,
+      h("span", { class: "num", style: p.overdue > 0 ? "color:var(--out);font-weight:600" : "font-weight:600" }, money(p.balance)))), "No customer invoices yet.");
+  })],
+  recent_records: () => [asyncCard(t("s_recent"), "data", async () => {
+    const d = await api("/api/data/transactions?limit=6");
+    return listOrEmpty(d.rows.map(r => recRow(r.description || r.counterparty || r.category.replace(/_/g, " "), `${fmtDate(r.date)} · ${r.category.replace(/_/g, " ")}`,
+      h("span", { class: "num " + (r.direction === "in" ? "amt-in" : "amt-out"), style: "font-weight:650" }, (r.direction === "in" ? "+" : "−") + money(r.amount).replace("-", "")))), "No records yet.");
+  })],
+  invoices_due: () => [asyncCard("Invoices due", "invoices", async () => {
+    const rows = (await api("/api/books/invoices?kind=receivable")).filter(i => i.outstanding > 0 && i.status !== "draft").sort((a, b) => a.due_date.localeCompare(b.due_date));
+    return listOrEmpty(rows.slice(0, 6).map(i => recRow(`${i.counterparty} · ${i.invoice_no || "#" + i.id}`, `due ${i.due_date}`,
+      h("span", { class: "row" }, h("b", { class: "num" }, money(i.outstanding)), statusBadge(i.status)))), "No invoices waiting for payment.");
+  })],
+  recurring_due: () => [asyncCard("Repeating items due", "data?tab=repeating", async () => {
+    const d = await api("/api/books/recurring");
+    return listOrEmpty(d.rows.filter(r => r.active).sort((a, b) => a.next_due.localeCompare(b.next_due)).slice(0, 6).map(r => recRow(r.name, `next ${r.next_due} · ${r.frequency}`,
+      h("span", { class: "row" }, h("b", { class: "num" }, money(r.amount)), r.due_now ? h("span", { class: "chip warn" }, "due") : null))), "Nothing repeating yet.");
+  })],
+};
 
 function alertItem(a) {
   const st = a.data && a.data.suggested_tool;
@@ -1402,7 +1476,7 @@ async function viewSettings(v) {
   const pw = h("input", { type: "password", placeholder: "your password" });
   const phrase = h("input", { type: "text", placeholder: "type: DELETE MY DATA" });
   const isOwner = S.user.role === "owner";
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), await privacyCard(),
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), homeLayoutCard(), await privacyCard(),
     h("div", { class: "grid g-2e", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", {}, "Alerts"), h("label", { class: "field" }, "Low-balance safety level (৳)", thr,
           h("span", { class: "hint" }, "We warn you when cash is expected to drop below this amount.")),
@@ -1487,14 +1561,15 @@ async function viewSimpleHome(v) {
   v.replaceChildren(
     heroBanner(d), h("h1", { class: "hello-h1" }, `${t("hello")}, ${first} 👋`), status,
     h("div", { class: "grid g-kpi", style: "margin-top:16px" },
-      tile(t("s_cash_now"), k.cash_balance, k.cash_balance < 0 ? "bad" : "", k.cash_balance, "blue", "৳"),
-      tile(t("s_in"), k.income_this_month, "in", k.income_this_month, "green", "↓"),
-      tile(t("s_out"), k.expense_this_month, "out", k.expense_this_month, "orange", "↑"),
-      tile(t("s_owed"), k.receivables_overdue, k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue, "purple", "⏱")),
+      showWidget("cash_now") ? tile(t("s_cash_now"), k.cash_balance, k.cash_balance < 0 ? "bad" : "", k.cash_balance, "blue", "৳") : null,
+      showWidget("money_in_out") ? tile(t("s_in"), k.income_this_month, "in", k.income_this_month, "green", "↓") : null,
+      showWidget("money_in_out") ? tile(t("s_out"), k.expense_this_month, "out", k.expense_this_month, "orange", "↑") : null,
+      showWidget("receivables_aging") ? tile(t("s_owed"), k.receivables_overdue, k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue, "purple", "⏱") : null),
     waiting.length ? h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, `${t("s_confirm")} (${waiting.length})`), waiting.map(confirmCard)) : "",
-    h("div", { class: "grid g-2e", style: "margin-top:16px" },
-      h("div", { class: "card" }, h("h2", {}, t("s_todo")), todo.length ? todo : h("div", { class: "empty" }, h("p", {}, t("s_nothing")))),
-      h("div", { class: "card" }, h("h2", {}, t("s_next90")), chart)),
+    ...layoutBlocks([
+      showWidget("todo_actions") ? { half: h("div", { class: "card" }, h("h2", {}, t("s_todo")), todo.length ? todo : h("div", { class: "empty" }, h("p", {}, t("s_nothing")))) } : null,
+      showWidget("cash_forecast") ? { half: h("div", { class: "card" }, h("h2", {}, t("s_next90")), chart) } : null,
+      ...Object.keys(ASYNC_WIDGETS).filter(id => S.home && S.home.widgets.includes(id)).flatMap(id => ASYNC_WIDGETS[id]())]),
     quickEntryCard(),
     h("p", { class: "small muted", style: "margin-top:16px" }, t("s_switch")));
   countUp(v);
@@ -1615,7 +1690,124 @@ async function viewSimpleFinancing(v) {
 }
 
 async function viewSimpleSettings(v) {
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), await privacyCard());
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), homeLayoutCard(), await privacyCard());
+}
+
+// ------------------------------------------------------------------ onboarding wizard + home layout settings
+function homeLayoutCard() {
+  const hp = S.home || { widgets: [] }, bt = hp.business_type || "";
+  const type = bt.startsWith("other:") ? bt.slice(6) : (S.reg && S.reg.business_types[bt]) || "Not set yet";
+  const mode = { general: "Everything (general home)", simplified: "Simplified", custom: "Custom" }[hp.mode] || "–";
+  return h("div", { class: "card", style: "margin-top:16px" },
+    h("div", { class: "row" }, h("h2", { class: "grow" }, t("home_layout")), h("button", { class: "btn primary", onclick: () => openWizard(false) }, t("change_layout"))),
+    h("p", { class: "small muted", style: "margin:0 0 8px" }, `Business type: ${type} · Layout: ${mode}`),
+    h("div", { class: "row" }, hp.widgets.map((w, i) => h("span", { class: "chip" }, `${i + 1}. ${(S.reg && S.reg.widgets[w]) || w}`))),
+    h("p", { class: "hint", style: "margin-top:8px" }, "Every change is recorded in the audit log."));
+}
+
+const BT_ICONS = { retail: "🛍", garments_trims: "🧵", restaurant_food: "🍲", pharmacy_grocery: "💊", wholesale_trading: "📦", service_salon: "✂", other: "✎" };
+// Full-screen wizard: 1) business type, 2) pick a layout (AI-suggested, Simplified or Skip), 3) tick/order widgets + pages.
+function openWizard(first) {
+  const reg = S.reg, cur = S.home || {};
+  const curBt = cur.business_type || "";
+  let type = curBt ? curBt.split(":")[0] : "", text = curBt.startsWith("other:") ? curBt.slice(6) : "";
+  let pick = null, widgets = [], nav = [], step = 0, reqId = 0;
+  const stage = h("div", { class: "wiz-stage", "aria-live": "polite" });
+  const dots = [0, 1, 2].map(i => h("li", {}, ["Your business", "Pick a layout", "Fine-tune"][i]));
+  const close = () => { document.removeEventListener("keydown", onKey); wiz.remove(); };
+  const onKey = e => { if (e.key === "Escape" && !first) close(); };
+  const wiz = animatedRemove(h("div", { class: "wizard", role: "dialog", "aria-modal": "true", "aria-label": t("home_layout") },
+    h("div", { class: "wiz-card" },
+      h("div", { class: "row" }, h("h1", { class: "grow" }, first ? `${t("hello")}, ${(S.user.full_name || S.user.username).split(" ")[0]} 👋` : t("home_layout")),
+        first ? null : h("button", { class: "btn ghost", onclick: close, "aria-label": "Close" }, "✕")),
+      h("p", { class: "muted", style: "margin-top:0" }, "Let's set up your home screen. You can change this any time in Settings."),
+      h("ol", { class: "wiz-steps" }, dots), stage)), 260);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(wiz);
+
+  const save = async (mode, simple) => {
+    try {
+      S.home = await api("/api/home/prefs", { body: { business_type: type || "other", text, mode, widgets, nav, style: S.look } });
+      close();
+      if (simple) { S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); }
+      renderShell(); route(); toast("Home layout saved", "ok");
+    } catch (e) { toast(e.message, "bad"); }
+  };
+  const nextBtn = (label, onclick, disabled) => h("button", { class: "btn primary", onclick, disabled }, label);
+  const backBtn = () => h("button", { class: "btn ghost", onclick: () => go(step - 1) }, "← Back");
+  const STEPS = [
+    () => {  // 1. business type
+      const other = h("input", { type: "text", maxlength: 60, value: text, placeholder: "e.g. mobile phone repair", "aria-label": "Describe your business",
+        class: type === "other" ? "" : "hidden", oninput: e => { text = e.target.value; } });
+      const next = nextBtn("Next →", () => go(1), !type);
+      const chips = Object.entries(reg.business_types).map(([k, label]) => h("button", { class: "bt-chip", "aria-pressed": String(k === type), onclick: e => {
+        type = k; chips.forEach(c => c.setAttribute("aria-pressed", String(c === e.currentTarget)));
+        other.classList.toggle("hidden", k !== "other"); next.disabled = false; if (k === "other") other.focus();
+      } }, h("span", { "aria-hidden": "true" }, BT_ICONS[k] || "•"), label));
+      return h("div", {}, h("h2", {}, "What kind of business do you run?"), h("div", { class: "bt-chips", role: "group" }, chips), other,
+        h("div", { class: "row wiz-actions" }, h("span", { class: "grow" }), next));
+    },
+    () => {  // 2. layouts
+      const grid = h("div", { class: "lay-grid" }, [0, 1, 2].map(() => h("div", { class: "lay-card skel" },
+        h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" }), h("span", { class: "skeleton-line short" }))));
+      const label = id => reg.widgets[id] || id;
+      const layCard = (name, reason, ws, tag, onclick) => h("button", { class: "lay-card", onclick },
+        h("div", { class: "row" }, h("b", { class: "grow" }, name), tag ? h("span", { class: "chip info" }, tag) : null),
+        h("p", { class: "small muted" }, reason), h("div", { class: "lay-ws" }, ws.slice(0, 6).map(w => h("span", { class: "chip" }, label(w))),
+          ws.length > 6 ? h("span", { class: "chip" }, `+${ws.length - 6}`) : null));
+      const fixed = [
+        layCard("Simplified", "Just the essentials in large, plain language.", reg.simplified, "Simple", () => choose({ mode: "simplified", widgets: reg.simplified, simple: true, name: "Simplified" })),
+        layCard("Skip for now", "The full home screen with every widget.", Object.keys(reg.widgets), null, () => { widgets = Object.keys(reg.widgets); nav = defaultNav(); save("general", false); }),
+      ];
+      const id = ++reqId;
+      api("/api/home/suggest", { body: { business_type: type, text } }).then(r => {
+        if (id !== reqId) return;
+        grid.replaceChildren(...r.layouts.map(l => layCard(l.name, l.reason, l.widgets, r.source === "rules" ? null : "AI", () => choose({ mode: "custom", widgets: l.widgets, name: l.name }))), ...fixed);
+      }).catch(() => grid.replaceChildren(...fixed));
+      return h("div", {}, h("h2", {}, "Pick a starting layout"), h("p", { class: "hint" }, "Suggested for your business. You can change the widgets in the next step."),
+        grid, h("div", { class: "row wiz-actions" }, backBtn()));
+    },
+    () => {  // 3. tick/untick + order widgets, choose sidebar pages
+      const list = h("ol", { class: "w-list" });
+      const draw = () => {
+        const all = [...widgets, ...Object.keys(reg.widgets).filter(w => !widgets.includes(w))];
+        list.replaceChildren(...all.map(w => {
+          const on = widgets.includes(w), i = widgets.indexOf(w);
+          const move = d => { const j = i + d; [widgets[i], widgets[j]] = [widgets[j], widgets[i]]; draw(); list.querySelectorAll(".w-row")[j].querySelector(d < 0 ? ".up" : ".down")?.focus(); };
+          return h("li", { class: "w-row" + (on ? "" : " off") },
+            h("label", { class: "row grow" }, h("input", { type: "checkbox", checked: on, onchange: e => { if (e.target.checked) widgets.push(w); else widgets.splice(i, 1); draw(); } }), reg.widgets[w]),
+            h("button", { class: "btn ghost sm up", disabled: !on || i === 0, "aria-label": `Move ${reg.widgets[w]} up`, onclick: () => move(-1) }, "↑"),
+            h("button", { class: "btn ghost sm down", disabled: !on || i === widgets.length - 1, "aria-label": `Move ${reg.widgets[w]} down`, onclick: () => move(1) }, "↓"));
+        }));
+      };
+      draw();
+      const pages = h("div", { class: "row" }, reg.nav.map(r => h("label", { class: "chip nav-pick" },
+        h("input", { type: "checkbox", checked: nav.includes(r), disabled: reg.nav_required.includes(r), onchange: e => {
+          nav = e.target.checked ? reg.nav.filter(x => x === r || nav.includes(x)) : nav.filter(x => x !== r); } }), t(r))));
+      return h("div", {}, h("h2", {}, pick.name || "Fine-tune your home"), h("p", { class: "hint" }, "Tick the widgets you want on your home screen and move them up or down."),
+        list, h("h3", {}, "Pages in the sidebar"), pages,
+        h("div", { class: "row wiz-actions" }, backBtn(), h("span", { class: "grow" }), nextBtn("Finish ✓", () => {
+          if (!widgets.length) return toast("Pick at least one widget", "warn");
+          const same = pick.mode === "simplified" && widgets.join() === reg.simplified.join();
+          save(pick.mode === "simplified" && !same ? "custom" : pick.mode, !!pick.simple);
+        })));
+    },
+  ];
+  const defaultNav = () => reg.nav.filter(r => r !== "stock" || !reg.service_types.includes(type));  // service types: no Stock page
+  const choose = p => {
+    pick = p; widgets = p.widgets.slice();
+    const sameType = curBt && curBt.split(":")[0] === type;
+    nav = sameType && cur.nav ? cur.nav.slice() : defaultNav();
+    go(2);
+  };
+  function go(n) {
+    const dir = n >= step ? "fwd" : "back"; step = n;
+    dots.forEach((d, i) => { d.classList.toggle("on", i <= n); d.toggleAttribute("aria-current", i === n); });
+    const el = STEPS[n](); el.classList.add("wiz-step", "wiz-" + dir);
+    stage.replaceChildren(el);
+    (el.querySelector("[aria-pressed=true], .lay-card, input, button") || el).focus?.();
+  }
+  go(0);
 }
 
 // ------------------------------------------------------------------ tab bars (every page): sliding ink + panel cross-fade

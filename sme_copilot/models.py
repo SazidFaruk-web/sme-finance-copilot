@@ -394,3 +394,18 @@ class RecurringInvoice(Base):
     due_days: Mapped[int] = mapped_column(Integer, default=30)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class HomePrefs(Base):
+    """Per-user home layout from onboarding: business type, chosen widgets/nav (registry ids) and UI style."""
+    __tablename__ = "home_prefs"
+    __table_args__ = (UniqueConstraint("user_id", "business_id", name="uq_home_prefs_user_business"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    business_type: Mapped[str | None] = mapped_column(String(80), nullable=True)  # None until onboarding finishes
+    mode: Mapped[str] = mapped_column(String(12), default="general")  # general | simplified | custom
+    widgets: Mapped[list[str]] = mapped_column(JSON, default=list)
+    nav: Mapped[list[str]] = mapped_column(JSON, default=list)
+    style: Mapped[str] = mapped_column(String(12), default="general")  # general | green | blue
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
