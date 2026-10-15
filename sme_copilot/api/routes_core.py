@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import queue
+import secrets
 import threading
 from typing import Any, Iterator
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from sme_copilot.agent.executor import execute
 from sme_copilot.agent.orchestrator import Agent, AgentResult
 from sme_copilot.agent.toolkit import REGISTRY, load_all_tools
+from sme_copilot.config import get_settings
 from sme_copilot.db import SessionLocal, get_db
 from sme_copilot.llm_providers import Message, get_registry
 from sme_copilot.models import AuditEvent, ChatMessage, Conversation, User
@@ -22,7 +24,7 @@ from sme_copilot.security.auth import AuthError, authenticate, create_session, r
 from sme_copilot.security.permissions import TIER_NAMES
 from sme_copilot.telemetry.interactions import log_feedback, log_interaction
 
-from .deps import bearer_token, current_user, require_tier, tool_context
+from .deps import CSRF_COOKIE, SESSION_COOKIE, bearer_token, current_user, require_tier, tool_context
 from .schemas import ChatIn, FeedbackIn, LoginIn, ToolCallIn
 
 router = APIRouter(prefix="/api")
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/api")
 
 # ----------------------------------------------------------------------------- auth
 @router.post("/auth/login")
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> dict[str, Any]:
+def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)) -> dict[str, Any]:
     ip = request.client.host if request.client else ""
     try:
         user = authenticate(db, body.username, body.password)
@@ -41,13 +43,22 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> dic
     token = create_session(db, user)
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="auth",
                  action="login", inputs={"ip": ip})
-    return {"token": token, "user": _user_dict(user)}
+    st = get_settings()
+    secure = st.cookie_secure or request.url.scheme == "https"
+    csrf = secrets.token_urlsafe(24)
+    response.set_cookie(SESSION_COOKIE, token, max_age=st.session_ttl_minutes * 60, httponly=True, samesite="strict",
+                        secure=secure, path="/")
+    response.set_cookie(CSRF_COOKIE, csrf, max_age=st.session_ttl_minutes * 60, httponly=False, samesite="strict",
+                        secure=secure, path="/")
+    return {"token": token, "csrf": csrf, "user": _user_dict(user)}
 
 
 @router.post("/auth/logout")
-def logout(token: str = Depends(bearer_token), user: User = Depends(current_user),
+def logout(response: Response, token: str = Depends(bearer_token), user: User = Depends(current_user),
            db: Session = Depends(get_db)) -> dict[str, str]:
     revoke_token(db, token)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(CSRF_COOKIE, path="/")
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="auth",
                  action="logout")
     return {"status": "logged_out"}

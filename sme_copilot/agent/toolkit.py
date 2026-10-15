@@ -87,6 +87,7 @@ class ToolDef:
     advisory: bool = False  # output needs the "not financial advice" disclaimer
     mutates: bool = False  # invalidates cached data
     prepare: Callable[[ToolContext, Any], Any] | None = None  # fill derived args (e.g. amount) before authorization
+    always_confirm: bool = False  # high-risk: any call only PROPOSES; the user's confirm click executes it
 
     def spec(self) -> ToolSpec:
         # Range/length constraints are enforced by the executor's pydantic validation (invalid_args is fed

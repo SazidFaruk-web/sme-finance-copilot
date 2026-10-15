@@ -59,7 +59,7 @@ def create_app() -> FastAPI:
                                                                 get_settings().login_rate_limit_per_minute))
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origin_list, allow_credentials=False,
-                       allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"])
+                       allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"])
 
     from . import routes_core, routes_data
     app.include_router(routes_core.router)

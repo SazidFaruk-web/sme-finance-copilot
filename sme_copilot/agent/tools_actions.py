@@ -78,6 +78,18 @@ class ReminderArgs(InvoiceRef):
     remind_on: date | None = Field(None, description="Date to send; default tomorrow")
     channel: Literal["sms", "whatsapp", "email"] = "sms"
     language: Literal["en", "bn"] = "en"
+    amount: float = Field(0, ge=0, le=1e10, description="Filled automatically")
+    recipient_name: str = Field("", max_length=200, description="Filled automatically")
+    preview: str = Field("", max_length=1000, description="Filled automatically")
+
+
+def _prepare_reminder(ctx: ToolContext, a: ReminderArgs) -> ReminderArgs:
+    """Resolve the invoice and build the exact message so the confirm dialog can show it (never model text)."""
+    inv = find_invoice(ctx, invoice_id=a.invoice_id, counterparty=a.counterparty, kind="receivable")
+    msg = messages.sms(a.language, biz=ctx.business.name, inv=inv.invoice_no or f"#{inv.id}", amount=_outstanding(inv),
+                       due=inv.due_date, style=ctx.style)
+    return a.model_copy(update={"invoice_id": inv.id, "amount": _outstanding(inv), "recipient_name": inv.counterparty,
+                                "preview": msg})
 
 
 class ReminderResult(BaseModel):
@@ -96,7 +108,10 @@ class ReminderResult(BaseModel):
 
 
 @tool("create_payment_reminder", "Schedule a payment reminder (SMS/WhatsApp/email, simulated outbox) to a customer "
-      "for an open invoice, with a ready message.", ReminderArgs, 1, category="action", result_model=ReminderResult)
+      "for an open invoice, with a ready message.", ReminderArgs, 1, category="action", result_model=ReminderResult,
+      prepare=_prepare_reminder, always_confirm=True, amount_field="amount", recipient_field="recipient_name",
+      summarize=lambda a: f"Queue a {a.channel} reminder to {a.recipient_name} for {format_bdt(a.amount)} "
+                          f"(simulated outbox, nothing is sent to a real phone)")
 def create_payment_reminder(ctx: ToolContext, a: ReminderArgs):
     inv = find_invoice(ctx, invoice_id=a.invoice_id, counterparty=a.counterparty, kind="receivable")
     when = a.remind_on or ctx.as_of + timedelta(days=1)
@@ -168,7 +183,10 @@ class ReportResult(BaseModel):
 
 @tool("generate_loan_report", "Generate a loan-readiness PDF report for a bank (KPIs, forecast, readiness score, "
       "financing options).", ReportArgs, 1,
-      category="action", result_model=ReportResult, advisory=True)
+      category="action", result_model=ReportResult, advisory=True, always_confirm=True,
+      summarize=lambda a: "Create a loan-readiness PDF with your sales, costs, cash forecast and readiness score"
+                          + (f" for a {format_bdt(a.amount)} loan" if a.amount else "")
+                          + ". It stays on this computer until you download and share it.")
 def generate_loan_report(ctx: ToolContext, a: ReportArgs):
     txns, inv = ctx.txns(), ctx.invoices()
     s6, e6, l6 = resolve_period("last_6_months", ctx.as_of)

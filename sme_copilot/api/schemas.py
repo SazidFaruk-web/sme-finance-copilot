@@ -50,7 +50,13 @@ class ToolCallIn(BaseModel):
 
 
 class ConfirmIn(BaseModel):
-    confirm_amount: float = Field(..., description="The user re-types the amount as a deliberate confirmation")
+    confirm_amount: float | None = Field(None, description="Money actions: the user re-types the amount")
+    password: str | None = Field(None, max_length=200)  # step-up for large payments
+
+
+class CancelIn(BaseModel):
+    action: str = Field(..., min_length=1, max_length=60)
+    summary: str = Field("", max_length=300)
 
 
 class DeleteDataIn(BaseModel):

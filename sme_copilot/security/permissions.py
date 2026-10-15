@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from sme_copilot.config import Settings, get_settings
-from sme_copilot.models import PendingAction, SandboxAccount, SandboxTransfer, User, utcnow
+from sme_copilot.models import PendingAction, Reminder, SandboxAccount, SandboxTransfer, User, utcnow
 
 TIER_NAMES = {
     0: "Tier 0 - read-only analysis",
@@ -88,6 +88,13 @@ def authorize(session: Session, user: User, tool_name: str, tier: int, *, amount
         return Decision(False, False, tier, "role",
                         f"Your role '{user.role}' allows up to {TIER_NAMES.get(max_tier, 'nothing')}; "
                         f"'{tool_name}' needs {TIER_NAMES[tier]}.")
+    if tool_name == "create_payment_reminder":
+        start, end = local_day_bounds_utc(local_today())
+        sent = session.scalar(select(func.count(Reminder.id)).where(
+            Reminder.business_id == user.business_id, Reminder.created_at >= start, Reminder.created_at < end)) or 0
+        if sent >= s.reminder_daily_limit:
+            return Decision(False, False, tier, "limit_daily",
+                            f"Daily limit of {s.reminder_daily_limit} reminders reached; try again tomorrow.")
     if tier == 2:
         if amount is None or amount <= 0:
             return Decision(False, False, tier, "invalid_amount", "Amount must be greater than zero.")

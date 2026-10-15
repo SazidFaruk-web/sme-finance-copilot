@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from sme_copilot.agent.executor import execute
+from sme_copilot.config import get_settings
 from sme_copilot.db import get_db
 from sme_copilot.forecasting.alerts import alert_dict, refresh_alerts
 from sme_copilot.forecasting.digest import build_digest
@@ -153,7 +154,8 @@ def get_settings_(user: User = Depends(current_user), db: Session = Depends(get_
     b = _biz(db, user)
     return {"number_style": (b.prefs or {}).get("number_style", "lakh"),
             "language": (b.prefs or {}).get("language", "en"),
-            "low_balance_threshold": float(b.low_balance_threshold or 0)}
+            "low_balance_threshold": float(b.low_balance_threshold or 0),
+            "step_up_amount": get_settings().step_up_amount}
 
 
 @router.patch("/settings")

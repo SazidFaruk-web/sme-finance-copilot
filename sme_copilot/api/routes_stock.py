@@ -99,6 +99,11 @@ def link(body: LinkIn, user: User = Depends(require_tier(1)), db: Session = Depe
     return {"linked": True, "item": it.name}
 
 
+def _cell(v: Any) -> Any:
+    """openpyxl turns strings starting with '=' into live formulas: neutralise spreadsheet formula injection."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v
+
+
 @router.get("/stock/export")
 def export(user: User = Depends(current_user), db: Session = Depends(get_db)) -> StreamingResponse:
     from openpyxl import Workbook
@@ -107,7 +112,8 @@ def export(user: User = Depends(current_user), db: Session = Depends(get_db)) ->
     ws.title = "Stock"
     ws.append(["Item", "Unit", "Sold 30d", "Remaining", "Days left", "Reorder level", "Status"])
     for r in S.stock_rows(db, user.business_id, as_of_today()):
-        ws.append([r["name"], r["unit"], r["sold_30d"], r["qty"], r["days_left"], r["reorder_level"], r["status"]])
+        ws.append([_cell(r["name"]), _cell(r["unit"]), r["sold_30d"], r["qty"], r["days_left"], r["reorder_level"],
+                   r["status"]])
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from sme_copilot.config import get_settings
 from sme_copilot.db import get_db
 from sme_copilot.models import (
     Business,
@@ -39,7 +40,7 @@ from sme_copilot.tools.books_pdf import invoice_pdf, pdf_money, table_pdf
 from sme_copilot.tools.categorize import categories
 from sme_copilot.tools.ingestion import refresh_anomalies
 
-from .deps import as_of_today, current_user, require_tier
+from .deps import as_of_today, current_user, require_owner, require_tier, step_up
 
 router = APIRouter(prefix="/api/books")
 PARTY_KIND = {"customer": "receivable", "supplier": "payable"}
@@ -177,6 +178,11 @@ class PaymentIn(BaseModel):
     amount: float = Field(..., gt=0, le=1e10)
     paid_on: date | None = None
     channel: Literal["cash", "bank", "bkash", "nagad", "rocket", "card"] = "cash"
+    password: str | None = Field(None, max_length=200)  # step-up for large amounts
+
+
+class StepUpIn(BaseModel):
+    password: str | None = Field(None, max_length=200)
 
 
 @router.get("/invoices")
@@ -270,7 +276,7 @@ def invoice_pdf_download(invoice_id: int, user: User = Depends(current_user),
 
 
 @router.post("/invoices/{invoice_id}/payments")
-def record_payment(invoice_id: int, body: PaymentIn, user: User = Depends(require_tier(1)),
+def record_payment(invoice_id: int, body: PaymentIn, user: User = Depends(require_owner),
                    db: Session = Depends(get_db)) -> dict[str, Any]:
     """Record a full or partial payment that already happened (bookkeeping only; no money is moved).
     Creates the matching cash transaction so cash balance and reports stay in step."""
@@ -282,6 +288,8 @@ def record_payment(invoice_id: int, body: PaymentIn, user: User = Depends(requir
         raise HTTPException(409, "invoice is already fully paid")
     if body.amount > owed + 0.005:
         raise HTTPException(422, f"amount is more than the balance due ({owed:.2f})")
+    if body.amount >= get_settings().step_up_amount:
+        step_up(db, user, body.password, action="record_invoice_payment", amount=body.amount)
     paid_on = body.paid_on or as_of_today()
     rec = i.kind == "receivable"
     t = Transaction(business_id=user.business_id, txn_date=paid_on, amount=body.amount,
@@ -301,7 +309,8 @@ def record_payment(invoice_id: int, body: PaymentIn, user: User = Depends(requir
     db.flush()
     refresh_anomalies(db, user.business_id)
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
-                 action="record_invoice_payment", tier=1, inputs={"invoice_id": i.id, **body.model_dump(mode="json")},
+                 action="record_invoice_payment", tier=1,
+                 inputs={"invoice_id": i.id, **body.model_dump(mode="json", exclude={"password"})},
                  result={"payment_id": p.id, "transaction_id": t.id, "status": i.status,
                          "outstanding": _outstanding(i)}, commit=False)
     db.commit()
@@ -434,7 +443,7 @@ def _jsonable(v: Any) -> Any:
 
 
 @router.delete("/transactions/{txn_id}")
-def delete_transaction(txn_id: int, user: User = Depends(require_tier(1)),
+def delete_transaction(txn_id: int, body: StepUpIn | None = None, user: User = Depends(require_tier(1)),
                        db: Session = Depends(get_db)) -> dict[str, Any]:
     """Delete any transaction into a restorable trash (the UI offers Undo)."""
     t = db.get(Transaction, txn_id)
@@ -442,6 +451,8 @@ def delete_transaction(txn_id: int, user: User = Depends(require_tier(1)),
         raise HTTPException(404, "transaction not found")
     if db.scalar(select(InvoicePayment.id).where(InvoicePayment.transaction_id == t.id)):
         raise HTTPException(409, "this row is an invoice payment; it cannot be deleted here")
+    if float(t.amount) >= get_settings().step_up_amount:
+        step_up(db, user, body.password if body else None, action="delete_transaction", amount=float(t.amount))
     first = db.scalar(select(StockMovement).where(StockMovement.transaction_id == t.id).order_by(StockMovement.id))
     trash = DeletedTransaction(business_id=user.business_id, original_id=t.id, account_ref=t.account_ref,
                                data={f: _jsonable(getattr(t, f)) for f in TXN_FIELDS},

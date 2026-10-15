@@ -195,7 +195,7 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
         ctx.session.commit()
         return out
 
-    if decision.requires_confirmation:
+    if decision.requires_confirmation or tool.always_confirm:
         summary = tool.summarize(args) if tool.summarize else f"{name}({args_dict})"
         pa = PendingAction(business_id=ctx.business.id, user_id=ctx.user.id, tool=name, args=args_dict,
                            tier=tool.tier, summary=summary, amount=amount or 0,
@@ -206,8 +206,8 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
         ctx.session.flush()
         out = ToolOutcome(name, "pending_confirmation", tool.tier, args_dict, pending_action_id=pa.id,
                           message=f"Waiting for the owner's confirmation in the app: {summary}",
-                          data={"summary": summary, "amount": amount, "recipient": pa.recipient,
-                                "expires_at": pa.expires_at.isoformat()})
+                          data={"summary": summary, "amount": amount, "recipient": pa.recipient, "tier": tool.tier,
+                                "preview": args_dict.get("preview", ""), "expires_at": pa.expires_at.isoformat()})
         _audit(ctx, tool, name, out, event_type="operation", confirmation="pending")
         ctx.session.commit()
         return out
@@ -242,7 +242,8 @@ class ConfirmationError(Exception):
         self.code = code
 
 
-def confirm_pending(ctx: ToolContext, pending_id: int, *, confirm_amount: float | None) -> ToolOutcome:
+def confirm_pending(ctx: ToolContext, pending_id: int, *, confirm_amount: float | None,
+                    password: str | None = None) -> ToolOutcome:
     """Human-in-the-loop confirmation of a Tier-2 action. Reachable only from the authenticated
     POST /api/actions/{id}/confirm endpoint - there is deliberately no tool for it, so the model
     cannot confirm its own request."""
@@ -262,12 +263,19 @@ def confirm_pending(ctx: ToolContext, pending_id: int, *, confirm_amount: float 
                      result={"status": "expired", "pending_action_id": pa.id}, confirmation_status="expired",
                      request_id=pa.request_id)
         raise ConfirmationError("confirmation window expired; please create the request again", "expired")
-    if confirm_amount is None or abs(float(confirm_amount) - float(pa.amount)) > 0.005:
+    if pa.tier >= 2 and (confirm_amount is None or abs(float(confirm_amount) - float(pa.amount)) > 0.005):
         audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,
                      event_type="security", action="confirm_amount_mismatch", tier=pa.tier,
                      inputs={"pending_action_id": pa.id, "typed_amount": confirm_amount},
                      result={"expected": pa.amount}, confirmation_status="rejected", request_id=pa.request_id)
         raise ConfirmationError("the amount you typed does not match the request; nothing was sent", "amount_mismatch")
+    if pa.tier >= 2 and float(pa.amount) >= get_settings().step_up_amount:
+        from sme_copilot.security.auth import verify_password
+        if not password or not verify_password(password, ctx.user.password_hash):
+            audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,
+                         event_type="security", action="step_up_failed", tier=pa.tier,
+                         inputs={"pending_action_id": pa.id}, confirmation_status="rejected", request_id=pa.request_id)
+            raise ConfirmationError("re-enter your password to confirm a payment this large", "step_up_required")
     # Re-check permissions at execution time: role, limits and balance may have changed.
     decision = authorize(ctx.session, ctx.user, pa.tool, pa.tier, amount=float(pa.amount),
                          exclude_pending_id=pa.id)

@@ -45,7 +45,7 @@ from sme_copilot.security.pii import mask_account
 from sme_copilot.telemetry.interactions import purge_business
 
 from .deps import current_user, require_owner, require_tier, tool_context
-from .schemas import ConfirmIn, DeleteDataIn
+from .schemas import CancelIn, ConfirmIn, DeleteDataIn
 
 router = APIRouter(prefix="/api")
 
@@ -73,15 +73,18 @@ def pending(user: User = Depends(current_user), db: Session = Depends(get_db)) -
 
 
 @router.post("/actions/{pending_id}/confirm")
-def confirm(pending_id: int, body: ConfirmIn, user: User = Depends(require_tier(2)),
+def confirm(pending_id: int, body: ConfirmIn, user: User = Depends(require_tier(1)),
             db: Session = Depends(get_db)) -> dict[str, Any]:
+    """The user's click. Role is re-checked per action tier (money = owner only) inside confirm_pending."""
     ctx = tool_context(db, user, origin="confirmation")
     try:
-        out = confirm_pending(ctx, pending_id, confirm_amount=body.confirm_amount)
+        out = confirm_pending(ctx, pending_id, confirm_amount=body.confirm_amount, password=body.password)
     except ConfirmationError as e:
         db.commit()
-        code = {"not_found": 404, "expired": 410, "amount_mismatch": 409, "not_pending": 409}.get(e.code, 400)
-        raise HTTPException(code, str(e)) from e
+        code = {"not_found": 404, "expired": 410, "amount_mismatch": 409, "not_pending": 409,
+                "step_up_required": 403}.get(e.code, 400)
+        raise HTTPException(code, {"code": e.code, "message": str(e)} if e.code == "step_up_required"
+                            else str(e)) from e
     if out.status == "denied":
         raise HTTPException(403, out.message)
     return out.as_dict()
@@ -95,6 +98,14 @@ def reject(pending_id: int, user: User = Depends(current_user), db: Session = De
     except ConfirmationError as e:
         raise HTTPException(404 if e.code == "not_found" else 409, str(e)) from e
     return {"status": "rejected"}
+
+
+@router.post("/actions/cancelled")
+def cancelled(body: CancelIn, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, str]:
+    """The user closed a confirm dialog without confirming: logged so every attempt is in the audit trail."""
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action=f"cancelled:{body.action}", inputs={"summary": body.summary}, confirmation_status="rejected")
+    return {"status": "logged"}
 
 
 # ----------------------------------------------------------------------------- outbox / drafts / reports
@@ -263,6 +274,15 @@ def delete_my_data(body: DeleteDataIn, user: User = Depends(require_owner), db: 
                  result={"rows_deleted": counts, "interaction_lines_purged": purged, "users_deactivated": len(users)})
     return {"status": "deleted", "rows_deleted": counts, "interaction_lines_purged": purged,
             "note": "Audit log retained with masked data to prove what happened, including this deletion."}
+
+
+@router.get("/privacy/recent")
+def recent_activity(user: User = Depends(current_user), db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    """Last 5 audit events for the "What this app can see" panel (action names only, no inputs)."""
+    rows = db.scalars(select(AuditEvent).where(AuditEvent.business_id == user.business_id)
+                      .order_by(AuditEvent.id.desc()).limit(5))
+    return [{"ts": e.ts.isoformat(timespec="seconds"), "actor": e.actor, "action": e.action,
+             "confirmation": e.confirmation_status} for e in rows]
 
 
 @router.get("/privacy/export")

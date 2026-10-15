@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # --- Sandbox money limits (BDT) ----------------------------------------------------
     sandbox_per_txn_limit: float = 200_000
     sandbox_daily_cap: float = 500_000
+    step_up_amount: float = 50_000  # payments/deletes at or above this need the password again
+    reminder_daily_limit: int = 20  # reminders queued per business per day
+    cookie_secure: bool = False  # set COOKIE_SECURE=true behind HTTPS
     confirmation_ttl_minutes: int = 10
 
     # --- LLM ------------------------------------------------------------------------

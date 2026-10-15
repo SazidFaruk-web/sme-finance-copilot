@@ -32,14 +32,21 @@ def balance(db):
 
 
 # ----------------------------------------------------------------------------- tier 1
-def test_reminder_via_chat_is_created_and_logged(seeded):
+def test_reminder_via_chat_is_only_proposed_until_confirmed(seeded):
+    from sme_copilot.agent.executor import confirm_pending
     r = Agent().run(make_ctx(seeded), "Send a payment reminder to Karim Knit")
-    assert r.tool_calls[0]["tool"] == "create_payment_reminder" and r.tool_calls[0]["status"] == "ok"
+    assert r.tool_calls[0]["tool"] == "create_payment_reminder"
+    assert r.tool_calls[0]["status"] == "pending_confirmation"
+    assert seeded["db"].query(Reminder).count() == 0  # the model's call alone does nothing
+    pa = r.pending_actions[0]
+    assert pa["recipient"] == "Karim Knit Composite" and pa["amount"] == 120_000 and "INV-201" in pa["preview"]
+    out = confirm_pending(make_ctx(seeded), pa["id"], confirm_amount=None)  # the user's click
+    assert out.status == "ok"
     rem = seeded["db"].query(Reminder).one()
     assert rem.counterparty == "Karim Knit Composite" and float(rem.amount) == 120_000  # most overdue invoice
-    assert "INV-201" in rem.message and "Sandbox outbox" in r.reply
-    ev = seeded["db"].query(AuditEvent).filter_by(action="create_payment_reminder").one()
-    assert ev.event_type == "operation" and ev.tier == 1 and ev.result["status"] == "ok"
+    assert "INV-201" in rem.message and rem.message == pa["preview"]
+    evs = seeded["db"].query(AuditEvent).filter_by(action="create_payment_reminder").all()
+    assert [e.confirmation_status for e in evs] == ["pending", "confirmed"] and evs[1].result["status"] == "ok"
 
 
 def test_bangla_followup_draft(seeded):
@@ -55,7 +62,10 @@ def test_followup_unknown_customer_errors_cleanly(seeded):
 
 
 def test_loan_report_pdf(seeded, client):
-    out = execute(make_ctx(seeded), "generate_loan_report", {"amount": 300_000, "purpose": "inventory"})
+    from sme_copilot.agent.executor import confirm_pending
+    pend = execute(make_ctx(seeded), "generate_loan_report", {"amount": 300_000, "purpose": "inventory"})
+    assert pend.status == "pending_confirmation" and "loan-readiness PDF" in pend.data["summary"]
+    out = confirm_pending(make_ctx(seeded), pend.pending_action_id, confirm_amount=None)
     assert out.status == "ok", out.message
     rid = out.data["report_id"]
     r = client.get(f"/api/reports/{rid}/download", headers=login(client, "viewer", "viewer-pass-123"))
@@ -240,5 +250,5 @@ def test_pay_supplier_by_name_picks_that_supplier(seeded):
 def test_unmatched_counterparty_lists_real_names_for_a_retry(seeded):
     from sme_copilot.agent.executor import execute
     out = execute(make_ctx(seeded), "create_payment_reminder", {"counterparty": "করিম নিট কম্পোজিট"})
-    assert out.status == "error" and "Open receivable invoices exist for:" in out.message
+    assert out.status == "invalid_args" and "Open receivable invoices exist for:" in out.message
     assert "call again with that exact name" in out.message
