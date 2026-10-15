@@ -317,3 +317,28 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Item(Base):
+    __tablename__ = "items"
+    __table_args__ = (Index("ix_item_business", "business_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(120))
+    aliases: Mapped[list[str]] = mapped_column(JSON, default=list)
+    unit: Mapped[str] = mapped_column(String(20), default="pcs")
+    opening_qty: Mapped[float] = mapped_column(Float, default=0)
+    reorder_level: Mapped[float] = mapped_column(Float, default=0)
+    cost_price: Mapped[float] = mapped_column(Money, default=0)
+
+
+class StockMovement(Base):
+    """Append-only: current stock = item.opening_qty + SUM(qty_change). Corrections are new (reversal) rows."""
+    __tablename__ = "stock_movements"
+    __table_args__ = (Index("ix_move_item", "item_id"), Index("ix_move_txn", "transaction_id"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    qty_change: Mapped[float] = mapped_column(Float)  # signed
+    reason: Mapped[str] = mapped_column(String(40))  # sale|sale_return|purchase|purchase_return|adjust|reversal:<reason>
+    transaction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # no FK: survives txn deletion
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

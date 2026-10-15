@@ -188,12 +188,40 @@ def compute_alerts(business: Business, txns: pd.DataFrame, invoices: pd.DataFram
     return out
 
 
+def stock_alerts(session: Session, business: Business, as_of: date, fc: ForecastResult) -> list[AlertCandidate]:
+    from sme_copilot.tools import stock as stock_tools
+    style = (business.prefs or {}).get("number_style", "lakh")
+    rows = stock_tools.stock_rows(session, business.id, as_of)
+    out: list[AlertCandidate] = []
+    for r in rows:
+        if r["status"] == "out":
+            out.append(AlertCandidate("stock_out", "critical", f"{r['name']} out of stock",
+                                      f"{r['name']} has run out. Sold {r['sold_30d']:g} {r['unit']} in the last 30 days.",
+                                      f"stock_out:{r['id']}", None, {"item_id": r["id"]}))
+        elif r["status"] == "low":
+            left = (f"~{max(1, round(r['days_left']))} days left" if r["days_left"] is not None
+                    else f"{r['qty']:g} {r['unit']} left")
+            out.append(AlertCandidate("stock_low", "warning", f"{r['name']} low, {left}",
+                                      f"{r['qty']:g} {r['unit']} remaining; reorder level {r['reorder_level']:g}.",
+                                      f"stock_low:{r['id']}", None, {"item_id": r["id"], "days_left": r["days_left"]}))
+    cost = stock_tools.restock_cost(rows)
+    s30 = next((s for s in fc.summaries if s.days == 30), None)
+    if out and s30 and cost > s30.min_balance:
+        out.append(AlertCandidate(
+            "stock_cash", "warning", "Restocking would outrun your cash",
+            f"Restocking low/out items costs about {_m(cost, style)}, more than your lowest forecast cash in the "
+            f"next 30 days ({_m(s30.min_balance, style)}). Prioritise or stagger the orders.",
+            "stock_cash", None, {"restock_cost": cost, "min_balance": s30.min_balance}))
+    return out
+
+
 def refresh_alerts(session: Session, business: Business, as_of: date, *, fc: ForecastResult | None = None) -> list[Alert]:
     """Recompute alerts and upsert by dedupe key. Returns open + scheduled alerts, most severe first."""
     txns = repo.load_transactions(session, business.id, end=as_of)
     inv = repo.load_invoices(session, business.id)
     obl = repo.load_obligations(session, business.id)
-    cands = compute_alerts(business, txns, inv, obl, as_of, fc)
+    fc = fc or forecast(txns, inv, obl, business, as_of, 90)
+    cands = compute_alerts(business, txns, inv, obl, as_of, fc) + stock_alerts(session, business, as_of, fc)
     existing = {a.dedupe_key: a for a in session.scalars(select(Alert).where(Alert.business_id == business.id))}
     live_keys = set()
     for c in cands:

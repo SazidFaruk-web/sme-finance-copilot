@@ -202,8 +202,8 @@ def profitability(txns: pd.DataFrame, start: date, end: date, label: str = "") -
             return 0.0
         return float(df[(df["direction"] == direction) & (df["behavior"] == beh)]["amount"].sum())
 
-    revenue, other = total("in", "revenue"), total("in", "other_income")
-    cogs, var, fixed = total("out", "cogs"), total("out", "variable"), total("out", "fixed")
+    revenue, other = total("in", "revenue") - total("out", "contra_revenue"), total("in", "other_income")
+    cogs, var, fixed = total("out", "cogs") - total("in", "contra_cogs"), total("out", "variable"), total("out", "fixed")
     gp = revenue - cogs
     op = revenue + other - cogs - var - fixed
     excluded = {
@@ -228,7 +228,7 @@ def profitability(txns: pd.DataFrame, start: date, end: date, label: str = "") -
     t.step("Operating profit", round(op, 2), f"{fmt(revenue)} + {fmt(other)} - {fmt(cogs)} - {fmt(var)} - {fmt(fixed)}")
     t.step("Net operating margin %", round(nm * 100, 2) if nm is not None else None,
            f"{fmt(op)} / {fmt(revenue)} x 100" if revenue else "no revenue")
-    used = df[df["behavior"].isin(["revenue", "other_income", *OPERATING_OUT])] if not df.empty else df
+    used = df[df["behavior"].isin(["revenue", "other_income", "contra_revenue", "contra_cogs", *OPERATING_OUT])] if not df.empty else df
     t.rows(used["id"].tolist() if not used.empty else [])
     t.sources = _sources(used) if not used.empty else []
     t.assumptions += [

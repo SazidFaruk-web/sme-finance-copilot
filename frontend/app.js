@@ -6,7 +6,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
-  en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", financing: "Financing", actions: "Actions",
+  en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
@@ -29,7 +29,7 @@ const T = {
     s_amount: "How much do you need? (৳)", s_find: "Find loans", s_per_month: "per month", s_months: "months",
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings." },
-  bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", financing: "অর্থায়ন", actions: "কাজসমূহ",
+  bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
@@ -235,10 +235,10 @@ function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "chat", "data", "financing", "actions", "audit", "settings"];
+const ROUTES = ["dashboard", "chat", "data", "stock", "financing", "actions", "audit", "settings"];
 const SIMPLE_ROUTES = ["dashboard", "chat", "data", "financing", "settings"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", financing: "s_loans", settings: "settings_btn" };
-const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -333,9 +333,39 @@ function route() {
   const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
   const views = S.mode === "simple"
     ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, financing: viewSimpleFinancing, settings: viewSimpleSettings }
-    : { dashboard: viewDashboard, chat: viewChat, data: viewData, financing: viewFinancing, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewChat, data: viewData, stock: viewStock, financing: viewFinancing, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
+}
+
+// ------------------------------------------------------------------ stock
+async function viewStock(v) {
+  const owner = S.user.role === "owner";
+  const body = h("div", {});
+  const BADGE = { out: ["bad", "Out"], low: ["warn", "Low"], ok: ["ok", "OK"] };
+  const form = async (title, fields, path, mk) => {
+    const vals = {}; for (const [k, label, dflt] of fields) { const x = prompt(`${title}: ${label}`, dflt ?? ""); if (x === null) return; vals[k] = x; }
+    try { await api(path, { body: mk(vals) }); load(); } catch (e) { toast(e.message); }
+  };
+  const num = x => (x === "" || x == null ? 0 : Number(x));
+  async function load() {
+    const { items } = await api("/api/stock");
+    const bar = h("div", { class: "row", style: "margin-bottom:12px" },
+      h("button", { class: "btn primary", disabled: !owner, title: owner ? "" : "Owner only", onclick: () => form("New item", [["name", "Name"], ["unit", "Unit", "pcs"], ["opening_qty", "Opening quantity", "0"], ["reorder_level", "Reorder level", "0"], ["cost_price", "Cost price ৳", "0"], ["aliases", "Other names (comma separated)"]], "/api/items",
+        x => ({ name: x.name, unit: x.unit || "pcs", opening_qty: num(x.opening_qty), reorder_level: num(x.reorder_level), cost_price: num(x.cost_price), aliases: x.aliases.split(",").map(a => a.trim()).filter(Boolean) })) }, "Add item"),
+      h("button", { class: "btn", disabled: !owner || !items.length, onclick: () => {
+        const name = prompt("Adjust which item? " + items.map(i => i.name).join(", ")); const it = items.find(i => i.name.toLowerCase() === (name || "").trim().toLowerCase()); if (!it) return;
+        form("Adjust " + it.name, [["q", "Change (+ adds, − removes)"], ["r", "Reason", "count correction"]], "/api/stock/adjust", x => ({ item_id: it.id, qty_change: Number(x.q), reason: (x.r || "adjust").slice(0, 30) })); } }, "Adjust"),
+      h("button", { class: "btn", onclick: () => download("/api/stock/export", "stock.xlsx").catch(e => toast(e.message)) }, "Export Excel"));
+    body.replaceChildren(bar, items.length
+      ? h("table", { class: "t" }, h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map(x => h("th", {}, x))),
+        items.map(i => h("tr", {}, h("td", {}, i.name), h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
+          h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))
+      : h("div", { class: "card" }, h("p", { class: "muted" }, "No items yet. Add your products to track how much is left."),
+        h("button", { class: "btn primary", disabled: !owner, onclick: () => bar.firstChild.click() }, "Add item")));
+  }
+  v.replaceChildren(h("h1", {}, t("stock")), body);
+  await load();
 }
 
 // ------------------------------------------------------------------ dashboard
@@ -647,7 +677,7 @@ async function viewData(v) {
     preview.textContent = p.amount ? `→ ${p.direction === "in" ? "Income" : p.direction === "out" ? "Expense" : "?"} ${money(p.amount)} · ${p.category} · ${p.channel} · ${p.txn_date}${p.counterparty ? " · " + p.counterparty : ""}${p.quantity ? ` · qty ${p.quantity} ${p.item}` : ""} (confidence ${Math.round(p.confidence * 100)}%)` : `Missing: ${p.missing.join(", ")}`;
   }, 250); });
   const record = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
-    try { const r = await api("/api/data/entry", { body: { text: entry.value } }); toast(r.data.recorded ? "Recorded ✓" : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning}`); entry.value = ""; preview.textContent = ""; loadTxns(); } catch (e) { toast(e.message); }
+    try { const r = await api("/api/data/entry", { body: { text: entry.value } }); toast(r.data.recorded ? "Recorded ✓" : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning}`); entry.value = ""; preview.textContent = ""; if (r.data.stock && r.data.stock.ask_item) askWhichItem(r.data.stock, preview); loadTxns(); } catch (e) { toast(e.message); }
   } }, "Record");
 
   const flaggedOnly = h("input", { type: "checkbox" });
@@ -880,6 +910,21 @@ async function viewSimpleHome(v) {
     h("p", { class: "small muted", style: "margin-top:16px" }, t("s_switch")));
 }
 
+// Shown after a record that could not be linked to an item (no match / no quantity). Never guesses.
+function askWhichItem(st, host) {
+  const sel = h("select", {}, h("option", { value: "" }, "Which item?"), (st.items || []).map(i => h("option", { value: i.id }, i.name)), h("option", { value: "new" }, "+ New item"));
+  const qty = st.quantity ? null : h("input", { type: "number", min: "0", step: "any", placeholder: "Qty", style: "width:80px" });
+  const done = () => host.replaceChildren();
+  const link = async id => { try { await api("/api/stock/link", { body: { transaction_id: st.transaction_id, item_id: Number(id), quantity: qty && qty.value ? Number(qty.value) : undefined } }); toast("Stock updated"); done(); } catch (e) { toast(e.message); } };
+  sel.addEventListener("change", async () => {
+    if (!sel.value) return;
+    if (sel.value !== "new") return link(sel.value);
+    const name = prompt("New item name", st.suggested_name || ""); if (!name) { sel.value = ""; return; }
+    try { const r = await api("/api/items", { body: { name } }); link(r.id); } catch (e) { toast(e.message); sel.value = ""; }
+  });
+  host.replaceChildren(h("span", { class: "small" }, "Stock: "), sel, qty, h("button", { class: "btn ghost sm", onclick: done }, "Skip"));
+}
+
 function quickEntryCard(onSaved) {
   const entry = h("input", { type: "text", class: "grow big-input", placeholder: t("s_add_ph"), disabled: !canWrite() });
   const preview = h("div", { class: "small muted", style: "min-height:20px;margin-top:6px" });
@@ -891,17 +936,33 @@ function quickEntryCard(onSaved) {
       preview.textContent = p.amount ? `→ ${p.direction === "in" ? "＋" : "−"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}` : "…";
     } catch { preview.textContent = ""; }
   }, 250); });
-  const save = async () => {
+  const save = async (confirmed = false) => {
     if (!entry.value.trim()) return;
     try {
-      const r = await api("/api/data/entry", { body: { text: entry.value } });
-      toast(r.data.recorded ? t("s_saved") : `Not saved: ${r.data.missing?.join(", ") || r.data.duplicate_warning}`);
-      if (r.data.recorded) { entry.value = ""; preview.textContent = ""; if (onSaved) onSaved(); }
+      const r = await api("/api/data/entry", { body: { text: entry.value, confirmed } });
+      const d = r.data;
+      if (d.needs_confirm) {  // uncertain reading: show the preview, do not save yet
+        preview.replaceChildren(d.preview + (d.reason ? ` (${d.reason}) ` : " "),
+          h("button", { class: "btn primary", onclick: () => save(true) }, t("s_save")),
+          h("button", { class: "btn", onclick: () => { preview.textContent = ""; entry.focus(); } }, "Edit"));
+        return;
+      }
+      if (d.manual_form) { toast(d.preview || "Could not read this, please use the form"); return; }
+      toast(d.recorded ? t("s_saved") : `Not saved: ${d.missing?.join(", ") || d.duplicate_warning}`);
+      if (d.recorded) {
+        const id = d.transaction_id;
+        entry.value = "";
+        const undo = h("button", { class: "btn", onclick: async () => { try { await api(`/api/data/transactions/${id}`, { method: "DELETE" }); preview.textContent = ""; if (onSaved) onSaved(); } catch (e) { toast(e.message); } } }, "Undo");
+        preview.replaceChildren(t("s_saved") + " ", undo);
+        if (d.stock && d.stock.ask_item) { const host = h("div", { class: "small", style: "margin-top:6px" }); preview.appendChild(host); askWhichItem(d.stock, host); }
+        setTimeout(() => { if (preview.contains(undo)) preview.textContent = ""; }, 6000);
+        if (onSaved) onSaved();
+      }
     } catch (e) { toast(e.message); }
   };
-  entry.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  entry.addEventListener("keydown", e => { if (e.key === "Enter") save(false); });
   return h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_add_title")),
-    h("div", { class: "row" }, entry, h("button", { class: "btn primary", disabled: !canWrite(), onclick: save }, t("s_save"))), preview);
+    h("div", { class: "row" }, entry, h("button", { class: "btn primary", disabled: !canWrite(), onclick: () => save(false) }, t("s_save"))), preview);
 }
 
 async function viewSimpleData(v) {

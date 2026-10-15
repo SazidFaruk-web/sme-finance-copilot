@@ -14,7 +14,9 @@ from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.ingestion import DOC_TYPES, import_file, refresh_anomalies, text_to_bytes
+from sme_copilot.tools import stock
 from sme_copilot.tools.nl_entry import parse_entry
+from sme_copilot.tools.record_resolver import fast_path, resolve_record
 
 from .deps import as_of_today, current_user, require_tier, tool_context
 from .schemas import EntryIn, PasteIn, TxnPatch
@@ -61,12 +63,18 @@ def paste(body: PasteIn, user: User = Depends(require_tier(1)), db: Session = De
 
 @router.post("/entry/preview")
 def entry_preview(body: EntryIn, user: User = Depends(current_user)) -> dict[str, Any]:
-    return parse_entry(body.text, as_of_today()).to_dict()
+    out = parse_entry(body.text, as_of_today()).to_dict()
+    ex = fast_path(body.text)  # no LLM call while typing
+    if ex:
+        r = resolve_record(ex)
+        out.update(amount=r["amount"], direction=r["direction"], category=r["category"], quantity=r["quantity"],
+                   item=r["item"], needs_confirm=r["needs_confirm"], preview=r["preview"], missing=[])
+    return out
 
 
 @router.post("/entry")
 def entry(body: EntryIn, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
-    out = execute(tool_context(db, user), "add_transaction", {"text": body.text})
+    out = execute(tool_context(db, user), "add_transaction", {"text": body.text, "confirmed": body.confirmed})
     if out.status in ("denied", "blocked"):
         raise HTTPException(403, out.message)
     return out.as_dict()
@@ -98,6 +106,24 @@ def transactions(limit: int = 100, offset: int = 0, category: str = "", flagged:
     return {"rows": [_txn_dict(t) for t in rows], "categories": all_category_names()}
 
 
+@router.delete("/transactions/{txn_id}")
+def undo_entry(txn_id: int, user: User = Depends(require_tier(1)), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Undo a just-added quick entry (typed records only, not imported rows)."""
+    t = db.get(Transaction, txn_id)
+    if t is None or t.business_id != user.business_id:
+        raise HTTPException(404, "transaction not found")
+    if t.source not in ("nl", "manual"):
+        raise HTTPException(409, "only quick entries can be undone")
+    snap = _txn_dict(t)
+    stock.reverse_for_transaction(db, t.id)
+    db.delete(t)
+    refresh_anomalies(db, user.business_id)
+    db.commit()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="undo_entry", tier=1, inputs={"id": txn_id}, result={"deleted": snap})
+    return {"deleted": txn_id}
+
+
 @router.patch("/transactions/{txn_id}")
 def patch_transaction(txn_id: int, body: TxnPatch, user: User = Depends(require_tier(1)),
                       db: Session = Depends(get_db)) -> dict[str, Any]:
@@ -109,6 +135,7 @@ def patch_transaction(txn_id: int, body: TxnPatch, user: User = Depends(require_
         if body.category not in all_category_names():
             raise HTTPException(422, "unknown category")
         t.category, t.categorized_by, t.category_confidence = body.category, "user", 1.0
+        stock.relink_after_edit(db, t)
     if body.is_duplicate is not None:
         t.is_duplicate = body.is_duplicate
         t.flags = [f for f in (t.flags or []) if f != "duplicate"] + (["duplicate"] if body.is_duplicate else [])

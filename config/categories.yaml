@@ -27,6 +27,14 @@ categories:
       en: [interest received, commission received, refund received, other income, cashback]
       bn: [সুদ পেলাম, কমিশন পেলাম, ফেরত পেলাম]
       banglish: [commission pelam, ferot pelam]
+  sales_returns:  # customer returned goods: refund paid out, reduces revenue (not an expense)
+    direction: out
+    behavior: contra_revenue
+    keywords: {en: [], bn: [], banglish: []}
+  purchase_returns:  # goods returned to a supplier: money back in, reduces COGS
+    direction: in
+    behavior: contra_cogs
+    keywords: {en: [], bn: [], banglish: []}
   loan_received:
     direction: in
     behavior: financing

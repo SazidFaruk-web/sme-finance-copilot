@@ -6,7 +6,8 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m \"not slow\""
+markers = ["slow: needs the real local model (run: pytest -m slow)"]
 filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx` with `starlette.testclient`"]
 
 [tool.coverage.run]

@@ -99,7 +99,7 @@ label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; 
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text-secondary); white-space: nowrap; }
 .chip.tier0 { border-color: #9ec5f4; } .chip.tier1 { border-color: #c3c2b7; } .chip.tier2 { border-color: var(--serious); }
 .chip.tier3 { border-color: var(--critical); }
-.chip.ok { color: var(--good-text); } .chip.bad { color: var(--critical); } .chip.pend { color: #a15c00; }
+.chip.ok { color: var(--good-text); } .chip.bad { color: var(--critical); } .chip.pend, .chip.warn { color: #a15c00; }
 .badge { background: var(--critical); color: #fff; border-radius: 999px; padding: 0 7px; font-size: 11px; }
 .illus { background: #fff4d6; color: #7a4f00; border: 1px solid #f1d38b; border-radius: 6px; padding: 1px 7px;
   font-size: 11px; font-weight: 600; }

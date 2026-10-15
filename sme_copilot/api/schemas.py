@@ -31,6 +31,7 @@ class PasteIn(BaseModel):
 
 class EntryIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=300)
+    confirmed: bool = False
 
 
 class TxnPatch(BaseModel):

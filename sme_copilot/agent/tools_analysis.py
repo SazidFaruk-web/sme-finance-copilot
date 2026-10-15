@@ -1,6 +1,7 @@
 """Tier-0 analysis tools and Tier-1 data-entry tools."""
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Literal
 
@@ -12,6 +13,9 @@ from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.finance_math import amortization, cost_of_credit
 from sme_copilot.tools.ingestion import store_parsed_entry
 from sme_copilot.tools.nl_entry import ParsedEntry, parse_entry
+from sme_copilot.tools.record_resolver import read_record, resolve_record
+from sme_copilot.tools.stock import link_transaction
+from sme_copilot.tools.textnorm import normalize
 from sme_copilot.tools.trace import Trace, fmt
 
 from .toolkit import PeriodArgs, ToolContext, tool
@@ -210,6 +214,7 @@ class AddTxnArgs(BaseModel):
     txn_date: date | None = None
     counterparty: str | None = Field(None, max_length=120)
     channel: Literal["cash", "bank", "bkash", "nagad", "rocket", "card"] | None = None
+    confirmed: bool = Field(False, description="True once the user accepted the preview of an uncertain reading")
 
     @field_validator("category")
     @classmethod
@@ -226,6 +231,11 @@ class AddTxnResult(BaseModel):
     duplicate_warning: str = ""
     anomaly_warning: str = ""
     missing: list[str] = []
+    needs_confirm: bool = False
+    preview: str = ""
+    reason: str = ""
+    manual_form: bool = False
+    stock: dict | None = None
 
 
 @tool("add_transaction", "Record a sale, expense or payment from a quick natural-language entry (English, "
@@ -234,6 +244,28 @@ class AddTxnResult(BaseModel):
 def add_transaction(ctx: ToolContext, a: AddTxnArgs):
     e: ParsedEntry = parse_entry(a.text, ctx.as_of) if a.text else ParsedEntry(
         amount=None, direction=None, category="uncategorized", channel="cash", txn_date=ctx.as_of.isoformat())
+    link = None
+    if a.text and a.amount is None and a.direction is None:
+        # Free text: extraction (regex fast path or LLM) + Python-computed amount and sign.
+        ex, _src = read_record(a.text)
+        if ex is None:
+            if len(re.findall(r"\d+", normalize(a.text))) != 1:  # legacy parser is only safe with a single number
+                return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), manual_form=True,
+                                    preview="Could not read this, please use the form")
+        else:
+            r = resolve_record(ex)
+            if r["needs_confirm"] and not a.confirmed:
+                return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True,
+                                    preview=r["preview"], reason=r["reason"])
+            if r["amount"] is None or r["amount"] <= 0:
+                return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), manual_form=True,
+                                    reason=r["reason"], preview="Could not read this, please use the form")
+            link = (r["type"], r["item"], r["quantity"])
+            e.amount, e.direction, e.category = r["amount"], r["direction"], r["category"]
+            e.quantity, e.item = r["quantity"], r["item"] or e.item
+            e.counterparty = r["counterparty"] or e.counterparty
+            if ex.get("payment_method") in ("cash", "bkash", "bank"):
+                e.channel = ex["payment_method"]
     if a.amount is not None:
         e.amount = a.amount
     if a.direction:
@@ -263,6 +295,7 @@ def add_transaction(ctx: ToolContext, a: AddTxnArgs):
     last = ctx.session.scalar(select(Transaction).where(Transaction.business_id == ctx.business.id)
                               .order_by(Transaction.id.desc()).limit(1))
     tid = last.id if last else None
-    return AddTxnResult(recorded=rep.imported == 1, transaction_id=tid, entry=e.to_dict(),
+    stock = link_transaction(ctx.session, ctx.business.id, tid, *link) if link and rep.imported == 1 and tid else None
+    return AddTxnResult(recorded=rep.imported == 1, transaction_id=tid, entry=e.to_dict(), stock=stock,
                         duplicate_warning=rep.duplicates[0]["reason"] if rep.duplicates else "",
                         anomaly_warning=rep.anomalies[0]["reason"] if rep.anomalies else "")
