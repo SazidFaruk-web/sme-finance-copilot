@@ -62,10 +62,8 @@ def test_followup_unknown_customer_errors_cleanly(seeded):
 
 
 def test_loan_report_pdf(seeded, client):
-    from sme_copilot.agent.executor import confirm_pending
-    pend = execute(make_ctx(seeded), "generate_loan_report", {"amount": 300_000, "purpose": "inventory"})
-    assert pend.status == "pending_confirmation" and "loan-readiness PDF" in pend.data["summary"]
-    out = confirm_pending(make_ctx(seeded), pend.pending_action_id, confirm_amount=None)
+    # The PDF stays on this computer, so it is made right away (no confirmation step).
+    out = execute(make_ctx(seeded), "generate_loan_report", {"amount": 300_000, "purpose": "inventory"})
     assert out.status == "ok", out.message
     rid = out.data["report_id"]
     r = client.get(f"/api/reports/{rid}/download", headers=login(client, "viewer", "viewer-pass-123"))

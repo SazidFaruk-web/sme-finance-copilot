@@ -44,12 +44,12 @@ def test_reminder_button_only_proposes_then_click_executes(client, seeded):
 
 def test_cancel_and_reject_are_audited(client):
     h = login(client)
-    out = client.post("/api/tools/generate_loan_report", json={"args": {}}, headers=h).json()
-    assert out["status"] == "pending_confirmation" and "loan-readiness PDF" in out["data"]["summary"]
+    out = client.post("/api/tools/create_payment_reminder", json={"args": {"counterparty": "Karim"}}, headers=h).json()
+    assert out["status"] == "pending_confirmation"
     assert client.post(f"/api/actions/{out['pending_action_id']}/reject", headers=h).status_code == 200
     client.post("/api/actions/cancelled", json={"action": "record_invoice_payment", "summary": "5000 from X"}, headers=h)
     acts = _audit_actions(client, h)
-    assert "generate_loan_report" in acts and "cancelled:record_invoice_payment" in acts
+    assert "create_payment_reminder" in acts and "cancelled:record_invoice_payment" in acts
 
 
 def test_money_confirmation_is_owner_only_and_needs_step_up(client):

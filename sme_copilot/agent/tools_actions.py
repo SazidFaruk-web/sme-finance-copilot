@@ -183,7 +183,7 @@ class ReportResult(BaseModel):
 
 @tool("generate_loan_report", "Generate a loan-readiness PDF report for a bank (KPIs, forecast, readiness score, "
       "financing options).", ReportArgs, 1,
-      category="action", result_model=ReportResult, advisory=True, always_confirm=True,
+      category="action", result_model=ReportResult, advisory=True,
       summarize=lambda a: "Create a loan-readiness PDF with your sales, costs, cash forecast and readiness score"
                           + (f" for a {format_bdt(a.amount)} loan" if a.amount else "")
                           + ". It stays on this computer until you download and share it.")
