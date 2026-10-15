@@ -850,6 +850,55 @@ function confirmCard(pa) {
 }
 function confirmModal(pa) { const m = modal("Confirm sandbox payment", confirmCard(pa)); return m; }
 
+// Recurring rent / salary / bills (become transactions) and recurring customer invoices (become drafts).
+function recurringPane(canWrite) {
+  const pane = h("div", {});
+  const OUT_CATS = ["rent", "salary", "utilities", "loan_repayment", "tax_vat", "maintenance", "transport", "marketing", "misc_expense"];
+  async function load() {
+    const d = await api("/api/books/recurring");
+    const post = h("button", { class: "btn primary", disabled: !canWrite || !d.due_count, onclick: async () => {
+      try { const r = await api("/api/books/recurring/post-due", { method: "POST" });
+        toast(`Posted ${r.transactions} record(s) and ${r.invoices} draft invoice(s)`, "ok"); load(); } catch (e) { toast(e.message, "bad"); } } },
+      d.due_count ? `Post ${d.due_count} due item(s)` : "Nothing due");
+    const list = d.rows.length ? h("div", { class: "scroll" }, h("table", { class: "t" },
+      h("tr", {}, ["What", "Type", "Amount", "Repeats", "Next date", ""].map((x, i) => h("th", { class: i === 2 ? "r" : "" }, x))),
+      d.rows.map(r => h("tr", { class: r.active ? "" : "muted" },
+        h("td", {}, r.name, r.description && r.description !== r.name ? h("div", { class: "small muted" }, r.description) : null),
+        h("td", {}, r.type === "invoice" ? h("span", { class: "chip info" }, "invoice") : h("span", { class: "chip cat cat-" + catTone(r.category) }, r.category.replace(/_/g, " "))),
+        h("td", { class: "r" }, money(r.amount)), h("td", {}, r.frequency),
+        h("td", { class: "num" }, r.active ? r.next_due : "stopped", r.due_now ? h("span", { class: "chip warn", style: "margin-left:6px" }, "due") : null),
+        h("td", {}, canWrite && r.active ? h("a", { href: "#", class: "link small", onclick: async e => { e.preventDefault();
+          await api(`/api/books/recurring/${r.type}/${r.id}/stop`, { method: "POST" }).catch(err => toast(err.message, "bad")); load(); } }, "Stop") : null)))))
+      : emptyState("No repeating items yet. Add rent, salary or a monthly customer bill.", canWrite ? "Add repeating item" : null, () => recurringForm(load));
+    pane.replaceChildren(h("div", { class: "card" },
+      h("div", { class: "row" }, h("h2", { class: "grow" }, "Repeating items"), canWrite && d.rows.length ? h("a", { href: "#", class: "link", onclick: e => { e.preventDefault(); recurringForm(load); } }, "+ Add repeating item") : null, post),
+      h("p", { class: "hint" }, "Expenses become records on their date. Customer invoices are created as drafts for you to check and send."), list));
+  }
+  function recurringForm(onDone) {
+    const type = h("select", {}, h("option", { value: "expense" }, "Expense I pay (rent, salary…)"), h("option", { value: "invoice" }, "Invoice I send to a customer"));
+    const name = h("input", { type: "text", placeholder: "e.g. Shop rent" });
+    const cat = h("select", {}, OUT_CATS.map(c => h("option", { value: c }, c.replace(/_/g, " "))));
+    const desc = h("input", { type: "text", placeholder: "Line on the invoice, e.g. Monthly service" });
+    const amount = h("input", { type: "number", min: 0, step: "any" });
+    const freq = h("select", {}, ["monthly", "quarterly", "yearly"].map(f => h("option", { value: f }, f)));
+    const next = h("input", { type: "date", value: today() });
+    const dueDays = h("input", { type: "number", value: 30, min: 0 });
+    const catF = h("label", { class: "field" }, "Category", cat), descF = h("label", { class: "field hidden" }, "Invoice line", desc), dueF = h("label", { class: "field hidden" }, "Customer pays within (days)", dueDays);
+    const nameF = h("label", { class: "field" }, "Name", name);
+    type.addEventListener("change", () => { const inv = type.value === "invoice"; catF.classList.toggle("hidden", inv); descF.classList.toggle("hidden", !inv); dueF.classList.toggle("hidden", !inv);
+      nameF.firstChild.textContent = inv ? "Customer" : "Name"; name.placeholder = inv ? "Customer name" : "e.g. Shop rent"; });
+    const err = h("div", { class: "small", style: "color:var(--critical)" });
+    const m = modal("Add repeating item", h("div", { class: "grid", style: "gap:10px" }, h("label", { class: "field" }, "Type", type), nameF, catF, descF,
+      h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Amount ৳", amount), h("label", { class: "field" }, "Repeats", freq)),
+      h("label", { class: "field" }, "First / next date", next, h("span", { class: "hint" }, "Items on or before today are posted when you press Post.")), dueF, err),
+      [h("button", { class: "btn primary", onclick: async () => {
+        try { await api("/api/books/recurring", { body: { type: type.value, name: name.value, category: cat.value, description: desc.value, amount: +amount.value, frequency: freq.value, next_due: next.value, due_days: +dueDays.value } });
+          m.remove(); toast("Saved", "ok"); onDone(); } catch (e) { err.textContent = e.message; } } }, "Save")]);
+    name.focus();
+  }
+  return { pane, load };
+}
+
 // ------------------------------------------------------------------ data
 // Tabs: Add (quick entry first, then file upload / paste) | Import history | Transactions (search, filters, edit, delete+undo).
 async function viewData(v) {
@@ -915,6 +964,7 @@ async function viewData(v) {
   let qt; qInput.addEventListener("input", () => { clearTimeout(qt); qt = setTimeout(loadTxns, 250); });
   [from, to, dir, cat, flaggedOnly].forEach(x => x.addEventListener("change", loadTxns));
 
+  const rec = recurringPane(canWrite);
   const imports = h("div", {});
   async function loadImports() {
     const im = await api("/api/data/imports");
@@ -934,11 +984,12 @@ async function viewData(v) {
     h("div", { class: "card" }, h("h2", {}, "Import history"), imports),
     h("div", { class: "card" }, h("div", { class: "row filters" }, qInput, from, to, dir, cat,
       h("label", { class: "row small" }, flaggedOnly, "Only flagged")), tableWrap),
+    rec.pane,
   ];
-  const loaders = [async () => {}, loadImports, loadTxns];
+  const loaders = [async () => {}, loadImports, loadTxns, rec.load];
   const body = h("div", {});
   const show = i => { tabBtns.forEach((b, j) => b.classList.toggle("active", i === j)); body.replaceChildren(panes[i]); loaders[i]().catch(e => toast(e.message, "bad")); };
-  const tabBtns = ["Add", "Import history", "Transactions"].map((n, i) => h("button", { onclick: () => show(i) }, n));
+  const tabBtns = ["Add", "Import history", "Transactions", "Repeating"].map((n, i) => h("button", { onclick: () => show(i) }, n));
   v.replaceChildren(...[
     h("h1", {}, t("data")),
     !canWrite ? h("div", { class: "notice" }, "Your role is read-only (Tier 0): uploads and entries are disabled.") : null,

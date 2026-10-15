@@ -1,7 +1,9 @@
 """Bookkeeping basics: customer/supplier balances (baki ledger), invoices with full/partial payments,
-P&L / cash-flow / aging reports with CSV and PDF export, transaction delete with undo."""
+P&L / cash-flow / aging reports with CSV and PDF export, transaction delete with undo,
+recurring expenses (rent, salary) and recurring invoices."""
 from __future__ import annotations
 
+import calendar
 import csv
 import io
 from datetime import date, datetime, timedelta
@@ -23,6 +25,8 @@ from sme_copilot.models import (
     InvoiceLine,
     InvoicePayment,
     Item,
+    Obligation,
+    RecurringInvoice,
     StockMovement,
     Transaction,
     User,
@@ -30,7 +34,7 @@ from sme_copilot.models import (
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools import repo, stock
-from sme_copilot.tools.analysis import aging, profitability, resolve_period
+from sme_copilot.tools.analysis import add_months, aging, profitability, resolve_period
 from sme_copilot.tools.books_pdf import invoice_pdf, pdf_money, table_pdf
 from sme_copilot.tools.categorize import categories
 from sme_copilot.tools.ingestion import refresh_anomalies
@@ -482,3 +486,127 @@ def restore_transaction(trash_id: int, user: User = Depends(require_tier(1)),
                  result={"original_id": tr.original_id, "new_id": t.id}, commit=False)
     db.commit()
     return {"restored": t.id, "original_id": tr.original_id}
+
+
+# ----------------------------------------------------------------------------- recurring items
+FREQ_MONTHS = {"monthly": 1, "quarterly": 3, "yearly": 12}
+MAX_CATCH_UP = 24  # never post more than two years of missed items in one go
+
+
+def advance(d: date, frequency: str, day: int) -> date | None:
+    """Next due date, keeping the chosen day of month (clipped to short months). None for one-off items."""
+    if frequency not in FREQ_MONTHS:
+        return None
+    n = add_months(d.replace(day=1), FREQ_MONTHS[frequency])
+    return n.replace(day=min(day, calendar.monthrange(n.year, n.month)[1]))
+
+
+class RecurringIn(BaseModel):
+    type: Literal["expense", "invoice"] = "expense"
+    name: str = Field(..., min_length=1, max_length=120)  # what it is (expense) or customer name (invoice)
+    category: str = Field("rent", max_length=40)  # expenses only
+    description: str = Field("", max_length=200)  # invoice line text
+    amount: float = Field(..., gt=0, le=1e9)
+    frequency: Literal["monthly", "quarterly", "yearly"] = "monthly"
+    next_due: date
+    due_days: int = Field(30, ge=0, le=365)  # invoices only
+
+
+def _rec_dict(o: Obligation | RecurringInvoice) -> dict[str, Any]:
+    if isinstance(o, Obligation):
+        return {"type": "expense", "id": o.id, "name": o.name, "category": o.category, "amount": float(o.amount),
+                "frequency": o.frequency, "next_due": o.next_due.isoformat(), "active": o.active}
+    return {"type": "invoice", "id": o.id, "name": o.counterparty, "description": o.description,
+            "amount": float(o.amount), "frequency": o.frequency, "next_due": o.next_issue.isoformat(),
+            "due_days": o.due_days, "active": o.active}
+
+
+@router.get("/recurring")
+def list_recurring(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
+    today = as_of_today()
+    obl = db.scalars(select(Obligation).where(Obligation.business_id == user.business_id)
+                     .order_by(Obligation.next_due)).all()
+    ri = db.scalars(select(RecurringInvoice).where(RecurringInvoice.business_id == user.business_id)
+                    .order_by(RecurringInvoice.next_issue)).all()
+    rows = [_rec_dict(o) for o in [*obl, *ri]]
+    for r in rows:
+        r["due_now"] = r["active"] and r["next_due"] <= today.isoformat()
+    return {"rows": rows, "due_count": sum(r["due_now"] for r in rows)}
+
+
+@router.post("/recurring")
+def create_recurring(body: RecurringIn, user: User = Depends(require_tier(1)),
+                     db: Session = Depends(get_db)) -> dict[str, Any]:
+    if body.type == "expense":
+        info = categories().get(body.category)
+        if not info or info.get("direction") != "out":
+            raise HTTPException(422, "category must be a money-out category")
+        o: Obligation | RecurringInvoice = Obligation(
+            business_id=user.business_id, name=body.name, category=body.category, amount=body.amount,
+            frequency=body.frequency, day_of_month=body.next_due.day, next_due=body.next_due, source="user")
+    else:
+        o = RecurringInvoice(business_id=user.business_id, counterparty=body.name,
+                             description=body.description or body.name, amount=body.amount, frequency=body.frequency,
+                             day_of_month=body.next_due.day, next_issue=body.next_due, due_days=body.due_days)
+    db.add(o)
+    db.flush()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="create_recurring", tier=1, inputs=body.model_dump(mode="json"), result={"id": o.id},
+                 commit=False)
+    db.commit()
+    return _rec_dict(o)
+
+
+@router.post("/recurring/{rtype}/{rec_id}/stop")
+def stop_recurring(rtype: Literal["expense", "invoice"], rec_id: int, user: User = Depends(require_tier(1)),
+                   db: Session = Depends(get_db)) -> dict[str, Any]:
+    o = db.get(Obligation if rtype == "expense" else RecurringInvoice, rec_id)
+    if o is None or o.business_id != user.business_id:
+        raise HTTPException(404, "recurring item not found")
+    o.active = False
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="stop_recurring", tier=1, inputs={"type": rtype, "id": rec_id}, commit=False)
+    db.commit()
+    return _rec_dict(o)
+
+
+@router.post("/recurring/post-due")
+def post_due(user: User = Depends(require_tier(1)), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Turn every recurring item that is due (on or before today) into a real record, then move it to its next
+    date: expenses become money-out transactions, recurring invoices become draft invoices to review and send."""
+    today = as_of_today()
+    txn_ids: list[int] = []
+    inv_ids: list[int] = []
+    for o in db.scalars(select(Obligation).where(Obligation.business_id == user.business_id,
+                                                 Obligation.active.is_(True), Obligation.next_due <= today)):
+        for _ in range(MAX_CATCH_UP):
+            t = Transaction(business_id=user.business_id, txn_date=o.next_due, amount=o.amount, direction="out",
+                            category=o.category if o.category in categories() else "misc_expense",
+                            description=o.name, reference=f"REC-{o.id}", source="recurring", categorized_by="user")
+            db.add(t)
+            db.flush()
+            txn_ids.append(t.id)
+            nxt = advance(o.next_due, o.frequency, o.day_of_month)
+            if nxt is None:
+                o.active = False
+                break
+            o.next_due = nxt
+            if nxt > today:
+                break
+    for r in db.scalars(select(RecurringInvoice).where(RecurringInvoice.business_id == user.business_id,
+                                                       RecurringInvoice.active.is_(True),
+                                                       RecurringInvoice.next_issue <= today)):
+        for _ in range(MAX_CATCH_UP):
+            body = InvoiceIn(counterparty=r.counterparty, issue_date=r.next_issue,
+                             due_date=r.next_issue + timedelta(days=r.due_days), notes=f"Recurring ({r.frequency})",
+                             lines=[LineIn(description=r.description, quantity=1, rate=float(r.amount))])
+            inv_ids.append(add_invoice(db, user, body, source="recurring").id)
+            r.next_issue = advance(r.next_issue, r.frequency, r.day_of_month)
+            if r.next_issue > today:
+                break
+    if txn_ids:
+        refresh_anomalies(db, user.business_id)
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="post_recurring", tier=1, result={"transactions": txn_ids, "invoices": inv_ids}, commit=False)
+    db.commit()
+    return {"transactions": len(txn_ids), "invoices": len(inv_ids), "transaction_ids": txn_ids, "invoice_ids": inv_ids}

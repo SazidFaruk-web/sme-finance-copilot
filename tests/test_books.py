@@ -217,3 +217,56 @@ def test_invoice_payment_rows_are_protected(client):
     assert client.patch(f"/api/data/transactions/{tid}", json={"description": "note"}, headers=h).status_code == 200
     hv = login(client, "viewer", "viewer-pass-123")
     assert client.delete(f"/api/books/transactions/{tid}", headers=hv).status_code == 403
+
+
+def test_recurring_expense_posts_and_advances(client):
+    h = login(client)
+    r = client.post("/api/books/recurring", json={"name": "Shop rent", "category": "rent", "amount": 30000,
+                                                  "next_due": "2026-09-01"}, headers=h).json()
+    assert r["type"] == "expense"
+    lst = client.get("/api/books/recurring", headers=h).json()
+    assert lst["due_count"] == 1
+    out = client.post("/api/books/recurring/post-due", headers=h).json()
+    assert out["transactions"] == 2  # September and October were both due
+    rows = client.get(f"/api/data/transactions?ids={','.join(map(str, out['transaction_ids']))}", headers=h).json()
+    assert sorted(x["date"] for x in rows["rows"]) == ["2026-09-01", "2026-10-01"]
+    assert all(x["category"] == "rent" and x["direction"] == "out" for x in rows["rows"])
+    nxt = next(x for x in client.get("/api/books/recurring", headers=h).json()["rows"] if x["id"] == r["id"])
+    assert nxt["next_due"] == "2026-11-01" and not nxt["due_now"]
+    assert client.post("/api/books/recurring/post-due", headers=h).json()["transactions"] == 0  # idempotent
+
+
+def test_recurring_invoice_creates_drafts(client):
+    h = login(client)
+    r = client.post("/api/books/recurring", json={"type": "invoice", "name": "Tenant Rahim", "description": "Room rent",
+                                                  "amount": 8000, "frequency": "monthly", "next_due": "2026-10-05",
+                                                  "due_days": 7}, headers=h).json()
+    out = client.post("/api/books/recurring/post-due", headers=h).json()
+    assert out["invoices"] == 1
+    inv = client.get(f"/api/books/invoices/{out['invoice_ids'][0]}", headers=h).json()
+    assert inv["status"] == "draft" and inv["amount"] == 8000 and inv["due_date"] == "2026-10-12"
+    assert inv["lines"][0]["description"] == "Room rent"
+    client.post(f"/api/books/recurring/invoice/{r['id']}/stop", headers=h)
+    assert not next(x for x in client.get("/api/books/recurring", headers=h).json()["rows"]
+                    if x["type"] == "invoice")["active"]
+
+
+def test_recurring_validation_and_audit(client):
+    h = login(client)
+    bad = {"name": "x", "category": "sales", "amount": 1, "next_due": "2026-10-01"}
+    assert client.post("/api/books/recurring", json=bad, headers=h).status_code == 422
+    assert client.post("/api/books/recurring/expense/9999/stop", headers=h).status_code == 404
+    hv = login(client, "viewer", "viewer-pass-123")
+    assert client.post("/api/books/recurring/post-due", headers=hv).status_code == 403
+    client.post("/api/books/recurring/post-due", headers=h)
+    assert "post_recurring" in [e["action"] for e in client.get("/api/audit?limit=5", headers=h).json()]
+
+
+def test_advance_keeps_day_of_month():
+    from datetime import date
+
+    from sme_copilot.api.routes_books import advance
+    assert advance(date(2026, 1, 31), "monthly", 31) == date(2026, 2, 28)
+    assert advance(date(2026, 2, 28), "monthly", 31) == date(2026, 3, 31)
+    assert advance(date(2026, 11, 15), "quarterly", 15) == date(2027, 2, 15)
+    assert advance(date(2026, 3, 1), "once", 1) is None

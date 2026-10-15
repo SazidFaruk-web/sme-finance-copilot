@@ -378,3 +378,19 @@ class DeletedTransaction(Base):
     item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # stock item it was linked to
     deleted_by: Mapped[str] = mapped_column(String(80), default="")
     deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class RecurringInvoice(Base):
+    """A customer invoice raised on a schedule (e.g. monthly rent from a tenant); posted as a draft invoice."""
+    __tablename__ = "recurring_invoices"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    counterparty: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(200), default="")
+    amount: Mapped[float] = mapped_column(Money)
+    frequency: Mapped[str] = mapped_column(String(12), default="monthly")  # monthly|quarterly|yearly
+    day_of_month: Mapped[int] = mapped_column(Integer, default=1)
+    next_issue: Mapped[date] = mapped_column(Date)
+    due_days: Mapped[int] = mapped_column(Integer, default=30)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
