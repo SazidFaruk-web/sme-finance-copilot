@@ -9,6 +9,7 @@
   bench              run the model benchmark (see sme_copilot/benchmarks)
   evidence           run the scripted end-to-end demo and export execution evidence
   export-finetune    export the interaction log as a fine-tuning dataset
+  warmup             prime the local model with the agent prompt so the first chat answer is fast
 """
 from __future__ import annotations
 
@@ -52,6 +53,36 @@ def cmd_seed(reset: bool, as_of: str | None) -> dict:
     return res
 
 
+def cmd_warmup(profile: str | None) -> int:
+    """Send the agent's real system prompt + tool list to a local model once. llama-server keeps that
+    prefix in its prompt cache, so the user's first question only processes its own few tokens."""
+    import time
+
+    from sme_copilot.agent.prompts import build_system_prompt
+    from sme_copilot.agent.toolkit import specs_for
+    from sme_copilot.llm_providers import get_registry, get_router
+    from sme_copilot.llm_providers.base import Message, ProviderError
+
+    reg = get_registry()
+    name = profile or reg.default_profile
+    info = reg.info(name)
+    if info.external:
+        print(f"{name} is a cloud model; nothing to warm up.")
+        return 0
+    if not info.available:
+        print(f"{name} is not available: {info.reason}")
+        return 1
+    messages = [Message("system", build_system_prompt()), Message("user", "hi")]
+    start = time.perf_counter()
+    try:
+        get_router().chat(messages, override=name, tools=specs_for(), max_tokens=8, fallback=False)
+    except ProviderError as e:
+        print(f"warm-up failed: {e}")
+        return 1
+    print(f"{name} warmed up in {time.perf_counter() - start:.1f} s")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252; we print ৳ and Bangla
         if hasattr(stream, "reconfigure"):
@@ -81,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     ft = sub.add_parser("export-finetune", help="export interaction log to a fine-tuning dataset")
     ft.add_argument("--out", default="data/finetune")
     ft.add_argument("--include-unrated", action="store_true")
+    wu = sub.add_parser("warmup", help="prime the local model so the first chat answer is fast")
+    wu.add_argument("--profile", default=None, help="provider profile (default: LLM_PROFILE / default_profile)")
 
     args = parser.parse_args(argv)
     if args.cmd == "serve":
@@ -129,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "export-finetune":
         from sme_copilot.telemetry.export import export_cli
         return export_cli(args.out, include_unrated=args.include_unrated)
+    elif args.cmd == "warmup":
+        return cmd_warmup(args.profile)
     return 0
 
 

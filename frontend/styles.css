@@ -186,9 +186,37 @@ table.t td.r, table.t th.r { text-align: right; font-variant-numeric: tabular-nu
 ul.plain { list-style: none; padding-left: 0; margin: 6px 0; }
 ul.plain li { margin: 2px 0; font-size: 13px; }
 
+/* ---------- settings menu + preferences */
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); width: 280px; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 12px; z-index: 30; }
+.menu select { width: 100%; }
+a.btn { text-decoration: none; color: inherit; text-align: center; }
+.prefs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 10px; }
+
+/* ---------- simple mode: bigger type, fewer elements */
+body.simple { font-size: 16px; }
+body.simple .nav a { padding: 11px 12px; font-size: 15.5px; }
+body.simple .kpi .label { font-size: 14px; }
+body.simple .kpi .value { font-size: 28px; }
+body.simple h1 { font-size: 24px; }
+body.simple h2 { font-size: 17px; }
+body.simple .btn { padding: 9px 14px; }
+body.simple .btn.sm { padding: 6px 11px; font-size: 14px; }
+body.simple .alert-item .msg { font-size: 14.5px; }
+body.simple .view { max-width: 1100px; }
+.status { margin-top: 12px; padding: 14px 16px; border-radius: var(--radius); font-size: 16px; border: 1px solid var(--border); }
+.status.good { background: color-mix(in srgb, var(--good) 12%, var(--surface-1)); color: var(--good-text); }
+.status.bad { background: color-mix(in srgb, var(--critical) 12%, var(--surface-1)); color: var(--critical); }
+.big-input { padding: 11px 13px !important; font-size: 16px; }
+.rec { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.rec:last-child { border-bottom: 0; }
+.chat.chat-simple { grid-template-columns: minmax(0, 1fr); max-width: 900px; }
+
 @media (max-width: 1050px) {
   .g-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .g-2, .g-2e { grid-template-columns: minmax(0, 1fr); }
+  .prefs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chat { grid-template-columns: minmax(0, 1fr); height: auto; }
   .chat .log { max-height: 60vh; }
 }
@@ -200,5 +228,7 @@ ul.plain li { margin: 2px 0; font-size: 13px; }
   .nav a { white-space: nowrap; }
   .view { padding: 12px 16px; }
   .g-kpi { grid-template-columns: minmax(0, 1fr); }
+  .prefs-grid { grid-template-columns: minmax(0, 1fr); }
+  .menu { position: fixed; left: 16px; right: 16px; top: 56px; width: auto; }
 }
 @media (forced-colors: active) { .chart path.band { fill: none; stroke: CanvasText; stroke-dasharray: 2 2; } }

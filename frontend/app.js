@@ -12,21 +12,62 @@ const T = {
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
     fmin: "Lowest balance, next 30 days", runway: "Runway", forecast: "90-day cash-flow forecast",
     monthly: "Income vs expenses (12 months)", costs: "Where the money goes (last 3 months)", alerts: "Needs attention",
-    howcalc: "How is this calculated?", whatif: "What-if simulator", run: "Run", login: "Log in" },
+    howcalc: "How is this calculated?", whatif: "What-if simulator", run: "Run", login: "Log in",
+    // preferences
+    prefs: "Preferences", language: "Language", theme: "Theme", th_system: "Same as device", th_light: "Light", th_dark: "Dark",
+    mode: "Interface", mode_simple: "Simple", mode_advanced: "Advanced", numbers: "Number format",
+    mode_hint: "Simple shows only the essentials in large, plain language. Advanced shows every chart, calculation and tool.",
+    all_settings: "All settings", settings_btn: "Settings", account: "Account", signed_in_as: "Signed in as",
+    // simple mode
+    s_home: "Home", s_ask: "Ask", s_add: "Add record", s_loans: "Loans", hello: "Hello",
+    s_cash_now: "Money you have now", s_in: "Money in this month", s_out: "Money out this month", s_owed: "Customers owe you (late)",
+    s_ok: "Your cash looks fine for the next 30 days.", s_low: "Cash may run short around", s_lowest: "Lowest expected balance in 30 days:",
+    s_next90: "Your cash over the next 90 days", s_todo: "To do", s_nothing: "Nothing urgent. 👍", s_confirm: "Waiting for your OK",
+    s_add_title: "Write what happened, in any language", s_add_ph: "e.g. sold 12 shirts for 6000 taka cash · দোকান ভাড়া ১৫০০০ দিলাম",
+    s_save: "Save", s_saved: "Saved ✓", s_upload_title: "Or upload a file (sales, expenses, bank, bKash…)", s_upload: "Upload",
+    s_recent: "Recent records", s_score: "Your loan-readiness score", s_improve: "How to improve", s_best: "Best options for you",
+    s_amount: "How much do you need? (৳)", s_find: "Find loans", s_per_month: "per month", s_months: "months",
+    s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
+    s_switch: "Want charts and details? Switch to Advanced in Settings." },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", financing: "অর্থায়ন", actions: "কাজসমূহ",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
     fmin: "আগামী ৩০ দিনে সর্বনিম্ন ব্যালেন্স", runway: "নগদ কতদিন চলবে", forecast: "৯০ দিনের নগদ প্রবাহ পূর্বাভাস",
     monthly: "আয় বনাম খরচ (১২ মাস)", costs: "টাকা কোথায় যাচ্ছে (৩ মাস)", alerts: "মনোযোগ দরকার",
-    howcalc: "কীভাবে হিসাব হলো?", whatif: "'যদি' সিমুলেটর", run: "চালান", login: "লগ ইন" },
+    howcalc: "কীভাবে হিসাব হলো?", whatif: "'যদি' সিমুলেটর", run: "চালান", login: "লগ ইন",
+    prefs: "পছন্দসমূহ", language: "ভাষা", theme: "থিম", th_system: "ডিভাইসের মতো", th_light: "লাইট", th_dark: "ডার্ক",
+    mode: "ইন্টারফেস", mode_simple: "সহজ", mode_advanced: "অ্যাডভান্সড", numbers: "সংখ্যার ধরন",
+    mode_hint: "সহজ মোডে শুধু জরুরি তথ্য বড় ও সহজ ভাষায় দেখায়। অ্যাডভান্সড মোডে সব চার্ট, হিসাব ও টুল দেখায়।",
+    all_settings: "সব সেটিংস", settings_btn: "সেটিংস", account: "অ্যাকাউন্ট", signed_in_as: "লগ ইন করা আছেন",
+    s_home: "হোম", s_ask: "জিজ্ঞাসা", s_add: "হিসাব যোগ", s_loans: "ঋণ", hello: "হ্যালো",
+    s_cash_now: "এখন আপনার কাছে আছে", s_in: "এই মাসে এসেছে", s_out: "এই মাসে গেছে", s_owed: "ক্রেতাদের বকেয়া (দেরি)",
+    s_ok: "আগামী ৩০ দিন আপনার নগদ ঠিক আছে।", s_low: "নগদ কম পড়তে পারে প্রায়", s_lowest: "৩০ দিনে সর্বনিম্ন আনুমানিক ব্যালেন্স:",
+    s_next90: "আগামী ৯০ দিনে আপনার নগদ", s_todo: "করণীয়", s_nothing: "জরুরি কিছু নেই। 👍", s_confirm: "আপনার অনুমোদনের অপেক্ষায়",
+    s_add_title: "কী হলো লিখুন, যেকোনো ভাষায়", s_add_ph: "যেমন: ১২টা শার্ট বিক্রি ৬০০০ টাকা নগদ · dokan bhara 15000 dilam",
+    s_save: "সংরক্ষণ", s_saved: "সংরক্ষিত ✓", s_upload_title: "অথবা ফাইল আপলোড করুন (বিক্রি, খরচ, ব্যাংক, বিকাশ…)", s_upload: "আপলোড",
+    s_recent: "সাম্প্রতিক হিসাব", s_score: "আপনার ঋণ-প্রস্তুতি স্কোর", s_improve: "কীভাবে বাড়াবেন", s_best: "আপনার জন্য সেরা বিকল্প",
+    s_amount: "কত টাকা দরকার? (৳)", s_find: "ঋণ খুঁজুন", s_per_month: "প্রতি মাসে", s_months: "মাস",
+    s_pdf: "ঋণ রিপোর্ট বানান (PDF)", s_dismiss: "লুকান", s_ask_ph: "আপনার ব্যবসা নিয়ে যেকোনো প্রশ্ন করুন…",
+    s_switch: "চার্ট ও বিস্তারিত চান? সেটিংসে অ্যাডভান্সড চালু করুন।" },
 };
+const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const S = {
   token: sessionStorage.getItem("token") || "",
-  user: null, models: null, profile: localStorage.getItem("profile") || "",
-  ui: localStorage.getItem("ui_lang") || "en", style: "lakh", conv: null, health: {},
+  user: null, models: null, profile: pref("profile", ""),
+  ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
+  theme: pref("theme", "system"),          // system | light | dark
+  mode: pref("ui_mode", "advanced"),       // simple | advanced
 };
 const t = k => (T[S.ui] && T[S.ui][k]) || T.en[k] || k;
+function applyPrefs() {
+  const root = document.documentElement;
+  if (S.theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", S.theme);
+  root.lang = S.ui === "bn" ? "bn" : "en";
+  document.body.classList.toggle("simple", S.mode === "simple");
+}
+applyPrefs();
 
 // ------------------------------------------------------------------ helpers
 function h(tag, attrs = {}, ...kids) {
@@ -195,7 +236,53 @@ function logout(expired) {
 
 // ------------------------------------------------------------------ shell
 const ROUTES = ["dashboard", "chat", "data", "financing", "actions", "audit", "settings"];
+const SIMPLE_ROUTES = ["dashboard", "chat", "data", "financing", "settings"];
+const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", financing: "s_loans", settings: "settings_btn" };
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
+
+// Re-render everything after a preference change (language, theme, mode).
+function setPref(key, value) {
+  S[key] = value;
+  savePref({ ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
+  applyPrefs();
+  if (S.user) { renderShell(); route(); }
+}
+
+// Language / theme / interface / number format controls, shared by the ⚙ menu and the Settings page.
+function prefControls() {
+  const sel = (value, options, onchange) => h("select", { onchange: e => onchange(e.target.value) },
+    options.map(([v, l]) => h("option", { value: v, selected: v === value }, l)));
+  const field = (label, control) => h("label", { class: "field" }, label, control);
+  return [
+    field(t("language"), sel(S.ui, [["en", "English"], ["bn", "বাংলা"]], v => setPref("ui", v))),
+    field(t("theme"), sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v))),
+    field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
+    field(t("numbers"), sel(S.style, [["lakh", "৳1,00,000 (lakh)"], ["intl", "৳100,000"]], async v => {
+      S.style = v; try { await api("/api/settings", { method: "PATCH", body: { number_style: v } }); } catch { /* viewer */ } route();
+    })),
+  ];
+}
+
+function settingsMenu() {
+  const wrap = h("div", { class: "menu-wrap" });
+  const panel = h("div", { class: "menu hidden", role: "menu" });
+  const close = () => { panel.classList.add("hidden"); document.removeEventListener("click", outside); };
+  const outside = e => { if (!wrap.contains(e.target)) close(); };
+  const btn = h("button", { class: "btn sm", "aria-haspopup": "true", title: t("settings"), onclick: () => {
+    if (!panel.classList.contains("hidden")) return close();
+    panel.replaceChildren(
+      h("div", { class: "small muted" }, `${t("signed_in_as")} `, h("b", {}, S.user.full_name || S.user.username), ` · ${S.user.role}`),
+      h("div", { class: "grid", style: "gap:10px;margin:10px 0" }, prefControls()),
+      h("div", { class: "row" },
+        h("a", { class: "btn sm grow", href: "#settings", onclick: close }, t("all_settings")),
+        h("button", { class: "btn sm danger", onclick: () => { close(); logout(false); } }, "⎋ " + t("logout"))));
+    panel.classList.remove("hidden");
+    setTimeout(() => document.addEventListener("click", outside));
+  } }, "⚙ ", t("settings_btn"));
+  wrap.append(btn, panel);
+  return wrap;
+}
 
 async function boot() {
   try {
@@ -211,26 +298,24 @@ async function boot() {
 
 let pendingCount = 0;
 function renderShell() {
-  const nav = h("nav", { class: "nav", "aria-label": "Main" }, ROUTES.filter(r => r !== "audit" || S.user.max_tier >= 1)
-    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, h("span", { "aria-hidden": "true" }, ICONS[r]), t(r),
+  const simple = S.mode === "simple";
+  const nav = h("nav", { class: "nav", "aria-label": "Main" }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
+    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, h("span", { "aria-hidden": "true" }, ICONS[r]), t(simple ? SIMPLE_LABELS[r] : r),
       r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null)));
-  const modelSel = h("select", { id: "model-select", title: "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; localStorage.setItem("profile", S.profile); } },
+  const modelSel = h("select", { id: "model-select", title: "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
     S.models.profiles.map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
       `${p.label}${p.external ? " ☁" : " ⌂"}${p.available ? "" : " (" + p.reason + ")"}`)));
-  const lang = h("select", { title: "Interface language", onchange: e => { S.ui = e.target.value; localStorage.setItem("ui_lang", S.ui); renderShell(); route(); } },
-    h("option", { value: "en", selected: S.ui === "en" }, "English"), h("option", { value: "bn", selected: S.ui === "bn" }, "বাংলা"));
-  const style = h("select", { title: "Number grouping", onchange: async e => { S.style = e.target.value; try { await api("/api/settings", { method: "PATCH", body: { number_style: S.style } }); } catch { /* viewer */ } route(); } },
-    h("option", { value: "lakh", selected: S.style === "lakh" }, "৳1,00,000 (lakh)"), h("option", { value: "intl", selected: S.style === "intl" }, "৳100,000"));
   const privacy = h("span", { class: "chip", title: "PII (phones, account numbers, NID/TIN) is masked before any external model call" },
     S.models.local_only_mode ? "⌂ Local-only mode" : (S.models.mask_pii ? "🔒 PII masked for cloud models" : "PII masking OFF"));
   $("#root").replaceChildren(h("div", { class: "app" },
     h("aside", { class: "sidebar" }, h("div", { class: "brand" }, "SME Finance Copilot", h("span", {}, "Bangladesh · Topic E")), nav,
       h("div", { class: "foot" }, "Decision support, not licensed financial advice. Financing data is illustrative.")),
     h("div", { class: "main" },
-      h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"), h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""),
-        h("span", { class: "grow" }), privacy, h("label", { class: "row small" }, t("model"), modelSel), lang, style,
-        h("span", { class: "chip", title: "Role-based permissions" }, `${S.user.full_name || S.user.username} · ${S.user.role}`),
-        h("button", { class: "btn sm", onclick: () => logout(false) }, t("logout"))),
+      h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
+        simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""),
+        h("span", { class: "grow" }), simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
+        simple ? null : h("span", { class: "chip", title: "Role-based permissions" }, `${S.user.full_name || S.user.username} · ${S.user.role}`),
+        settingsMenu()),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }
@@ -243,11 +328,14 @@ async function refreshPending() {
 }
 function route() {
   const r = (location.hash || "#dashboard").slice(1).split("?")[0];
-  const name = ROUTES.includes(r) ? r : "dashboard";
+  const name = routes().includes(r) ? r : "dashboard";
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.id === "nav-" + name));
   const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
-  ({ dashboard: viewDashboard, chat: viewChat, data: viewData, financing: viewFinancing, actions: viewActions,
-    audit: viewAudit, settings: viewSettings })[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
+  const views = S.mode === "simple"
+    ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, financing: viewSimpleFinancing, settings: viewSimpleSettings }
+    : { dashboard: viewDashboard, chat: viewChat, data: viewData, financing: viewFinancing, actions: viewActions,
+      audit: viewAudit, settings: viewSettings };
+  views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
 }
 
 // ------------------------------------------------------------------ dashboard
@@ -376,6 +464,11 @@ const SUGGESTIONS = [
   "sold 40 zippers for 3200 taka cash", "Transfer 25000 to Dhaka Zipper House for stock", "Make me a fake invoice for the bank",
 ];
 
+const SIMPLE_SUGGESTIONS = {
+  en: ["What needs my attention this week?", "How much profit did I make last month?", "Which loans fit me?", "Send a payment reminder to Karim Knit"],
+  bn: ["এই সপ্তাহে কী নিয়ে ভাবা দরকার?", "গত মাসে লাভ কত হলো?", "আমার জন্য কোন ঋণ ভালো?", "করিম নিটকে পেমেন্টের রিমাইন্ডার পাঠাও"],
+};
+
 async function viewChat(v) {
   const log = h("div", { class: "log", id: "chatlog", "aria-live": "polite" });
   const input = h("input", { type: "text", placeholder: t("ask"), "aria-label": "Message", maxlength: 2000 });
@@ -389,6 +482,18 @@ async function viewChat(v) {
   };
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
   const mic = voiceButton(input, send);
+  if (S.mode === "simple") {
+    input.placeholder = t("s_ask_ph");
+    const chips = h("div", { class: "row", style: "margin-top:10px" }, SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"]
+      .map(s => h("button", { class: "btn sm", onclick: () => send(s) }, s)));
+    v.replaceChildren(h("div", { class: "chat chat-simple" }, h("div", { class: "card panel" }, log, chips,
+      h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))))));
+    log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, S.ui === "bn"
+      ? "আসসালামু আলাইকুম! আপনার ব্যবসার বিক্রি, খরচ, নগদ বা ঋণ নিয়ে যেকোনো প্রশ্ন করুন।"
+      : "Assalamu alaikum! Ask me anything about your sales, costs, cash or loans.")));
+    input.focus();
+    return;
+  }
   const panel = h("div", { class: "card panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))));
   const side = h("div", { class: "card suggest" }, h("h2", {}, "Try"), SUGGESTIONS.map(s => h("button", { class: "btn sm", onclick: () => send(s) }, s)),
@@ -431,7 +536,7 @@ async function streamChat(text, bot, log) {
       const ev = (chunk.match(/^event: (.*)$/m) || [])[1]; const data = (chunk.match(/^data: (.*)$/m) || [])[1];
       if (!ev || !data) continue;
       const p = JSON.parse(data);
-      if (ev === "tool") progress.appendChild(toolChip(p));
+      if (ev === "tool") { if (S.mode !== "simple") progress.appendChild(toolChip(p)); }
       else if (ev === "delta") { textEl.textContent += p.text; log.scrollTop = log.scrollHeight; }
       else if (ev === "done") renderBotMessage(bot, p, text);
       else if (ev === "error") bot.replaceChildren(h("div", { class: "notice warn" }, p.detail));
@@ -454,6 +559,13 @@ function renderBotMessage(bot, d, question) {
     d.latency_ms ? h("span", { class: "chip" }, `${Math.round(d.latency_ms)} ms`) : null,
     d.refused ? h("span", { class: "chip bad" }, "refused (policy)") : null);
   const parts = [];
+  if (S.mode === "simple") {  // plain answer + anything that needs the owner's action; details stay in Advanced
+    parts.push(h("div", { class: "text" }, d.reply));
+    for (const pa of d.pending_actions || []) parts.push(confirmCard(pa));
+    bot.replaceChildren(...parts);
+    if ((d.pending_actions || []).length) refreshPending();
+    return;
+  }
   if (d.fallback) parts.push(h("div", { class: "notice warn small", style: "margin-bottom:6px" },
     `⚠ ${d.requested_profile} did not answer${d.profile ? `; this reply is from ${d.profile}` : ""}. Reason: ${d.fallback_reason}`));
   parts.push(h("div", { class: "text" }, d.reply), meta);
@@ -693,8 +805,8 @@ async function viewSettings(v) {
   const pw = h("input", { type: "password", placeholder: "your password" });
   const phrase = h("input", { type: "text", placeholder: "type: DELETE MY DATA" });
   const isOwner = S.user.role === "owner";
-  v.replaceChildren(h("h1", {}, t("settings")),
-    h("div", { class: "grid g-2e", style: "margin-top:12px" },
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(),
+    h("div", { class: "grid g-2e", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", {}, "Alerts"), h("label", { class: "field" }, "Low-balance safety level (৳)", thr),
         h("button", { class: "btn", style: "margin-top:8px", disabled: S.user.max_tier < 1, onclick: async () => { await api("/api/settings", { method: "PATCH", body: { low_balance_threshold: +thr.value } }); toast("Saved"); } }, "Save"),
         h("h2", { style: "margin-top:16px" }, "Data protection"),
@@ -714,6 +826,135 @@ async function viewSettings(v) {
       h("p", { class: "small muted" }, comp.disclaimer),
       comp.rules.map(r => h("div", { class: "alert-item" }, h("div", { class: "row" }, h("b", { class: "grow" }, r.title), r.applies_to_you ? h("span", { class: "chip" }, "applies to you") : null, h("span", { class: "illus" }, r.verify_label)),
         h("div", { class: "msg" }, r.summary), r.source_url ? h("div", { class: "small muted" }, "Check: " + r.source_url) : null))));
+}
+
+function prefsCard() {
+  return h("div", { class: "card", style: "margin-top:12px" },
+    h("div", { class: "row" }, h("h2", { class: "grow" }, t("prefs")),
+      h("span", { class: "small muted" }, `${t("signed_in_as")} ${S.user.full_name || S.user.username} · ${S.user.role}`),
+      h("button", { class: "btn danger", onclick: () => logout(false) }, "⎋ " + t("logout"))),
+    h("div", { class: "grid prefs-grid" }, prefControls()),
+    h("p", { class: "small muted", style: "margin:10px 0 0" }, t("mode_hint")));
+}
+
+// ------------------------------------------------------------------ simple mode
+// Same API, same safety rules (confirmations, tiers); fewer numbers, bigger type, plain words.
+const canWrite = () => S.user.max_tier >= 1;
+
+async function viewSimpleHome(v) {
+  const [d, pend] = await Promise.all([api("/api/dashboard"), api("/api/actions/pending").catch(() => [])]);
+  $("#biz-name").textContent = d.business.name;
+  const k = d.kpis, f = d.forecast;
+  const first = (S.user.full_name || S.user.username).split(" ")[0];
+  const status = f.first_negative_date || k.forecast_min_30d < f.threshold
+    ? h("div", { class: "status bad" }, "⚠ ", f.first_negative_date ? `${t("s_low")} ${fmtDate(f.first_negative_date)}. ` : "",
+      `${t("s_lowest")} `, h("b", { class: "num" }, money(k.forecast_min_30d)))
+    : h("div", { class: "status good" }, "✓ ", t("s_ok"));
+  const tile = (label, value, tone) => h("div", { class: "card kpi" }, h("div", { class: "label" }, label),
+    h("div", { class: "value num", style: tone || "" }, value));
+  const waiting = pend.filter(x => x.status === "pending");
+  const todo = d.alerts.slice(0, 5).map(a => {
+    const st = a.data && a.data.suggested_tool;
+    return h("div", { class: "alert-item" },
+      h("div", { class: "title" }, h("span", { class: "sev " + a.severity }), " ", a.title),
+      h("div", { class: "msg" }, a.message),
+      h("div", { class: "row", style: "margin-top:6px" },
+        st && canWrite() ? h("button", { class: "btn primary", onclick: () => runTool(st.name, st.args) },
+          st.name === "create_payment_reminder" ? "Send reminder" : st.name === "pay_supplier_invoice" ? "Pay (sandbox)" : "Do it") : null,
+        h("button", { class: "btn ghost", onclick: async e => { await api(`/api/alerts/${a.id}/dismissed`, { method: "POST" }); e.target.closest(".alert-item").remove(); } }, t("s_dismiss"))));
+  });
+  const chart = lineChart({ series: [{ name: t("s_next90"), color: "var(--series-1)", points: f.series.map(p => ({ x: p.date, y: p.balance })) }],
+    threshold: { value: f.threshold, label: money(f.threshold) }, yfmt: (x, axis) => money(x, axis), xfmt: fmtDate, height: 220, ariaLabel: t("s_next90") });
+  v.replaceChildren(
+    h("h1", {}, `${t("hello")}, ${first} 👋`), status,
+    h("div", { class: "grid g-kpi", style: "margin-top:16px" },
+      tile(t("s_cash_now"), money(k.cash_balance)),
+      tile(t("s_in"), money(k.income_this_month), "color:var(--good-text)"),
+      tile(t("s_out"), money(k.expense_this_month)),
+      tile(t("s_owed"), money(k.receivables_overdue), k.receivables_overdue > 0 ? "color:var(--critical)" : "")),
+    waiting.length ? h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, `${t("s_confirm")} (${waiting.length})`), waiting.map(confirmCard)) : "",
+    h("div", { class: "grid g-2e", style: "margin-top:16px" },
+      h("div", { class: "card" }, h("h2", {}, t("s_todo")), todo.length ? todo : h("div", { class: "muted" }, t("s_nothing"))),
+      h("div", { class: "card" }, h("h2", {}, t("s_next90")), chart)),
+    quickEntryCard(),
+    h("p", { class: "small muted", style: "margin-top:16px" }, t("s_switch")));
+}
+
+function quickEntryCard(onSaved) {
+  const entry = h("input", { type: "text", class: "grow big-input", placeholder: t("s_add_ph"), disabled: !canWrite() });
+  const preview = h("div", { class: "small muted", style: "min-height:20px;margin-top:6px" });
+  let timer;
+  entry.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(async () => {
+    if (!entry.value.trim()) { preview.textContent = ""; return; }
+    try {
+      const p = await api("/api/data/entry/preview", { body: { text: entry.value } });
+      preview.textContent = p.amount ? `→ ${p.direction === "in" ? "＋" : "−"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}` : "…";
+    } catch { preview.textContent = ""; }
+  }, 250); });
+  const save = async () => {
+    if (!entry.value.trim()) return;
+    try {
+      const r = await api("/api/data/entry", { body: { text: entry.value } });
+      toast(r.data.recorded ? t("s_saved") : `Not saved: ${r.data.missing?.join(", ") || r.data.duplicate_warning}`);
+      if (r.data.recorded) { entry.value = ""; preview.textContent = ""; if (onSaved) onSaved(); }
+    } catch (e) { toast(e.message); }
+  };
+  entry.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  return h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_add_title")),
+    h("div", { class: "row" }, entry, h("button", { class: "btn primary", disabled: !canWrite(), onclick: save }, t("s_save"))), preview);
+}
+
+async function viewSimpleData(v) {
+  const list = h("div", {});
+  const load = async () => {
+    const d = await api("/api/data/transactions?limit=15");
+    list.replaceChildren(...d.rows.map(r => h("div", { class: "rec" },
+      h("div", { class: "grow" }, h("div", {}, r.description || r.counterparty || r.category.replace(/_/g, " ")),
+        h("div", { class: "small muted" }, `${fmtDate(r.date)} · ${r.category.replace(/_/g, " ")}`)),
+      h("div", { class: "num", style: `font-weight:650;${r.direction === "in" ? "color:var(--good-text)" : ""}` },
+        (r.direction === "in" ? "+" : "−") + money(r.amount).replace("-", "")))));
+  };
+  const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,.xlsx,.xls", disabled: !canWrite() });
+  const upload = h("button", { class: "btn", disabled: !canWrite(), onclick: async () => {
+    if (!file.files[0]) return toast("Choose a file");
+    const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", "auto");
+    try { const r = await api("/api/data/upload", { body: fd }); toast(r.already_imported ? "Already imported" : `${t("s_saved")} ${r.imported} / ${r.rows_total}`); load(); } catch (e) { toast(e.message); }
+  } }, t("s_upload"));
+  v.replaceChildren(h("h1", {}, t("s_add")), quickEntryCard(load),
+    h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_upload_title")), h("div", { class: "row" }, file, upload)),
+    h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_recent")), list));
+  await load();
+}
+
+async function viewSimpleFinancing(v) {
+  const rd = (await api("/api/tools/loan_readiness_score", { body: { args: {} } })).data;
+  const amount = h("input", { type: "number", value: 500000, class: "big-input", style: "width:180px" });
+  const res = h("div", {});
+  const find = async () => {
+    res.replaceChildren(h("div", { class: "muted" }, "…"));
+    const d = (await api("/api/tools/match_financing", { body: { args: { amount: +amount.value || null, purpose: "working_capital" } } })).data;
+    res.replaceChildren(...d.recommendations.slice(0, 3).map(m => h("div", { class: "offer" },
+      h("div", { class: "row" }, h("b", { class: "grow" }, m.name), h("span", { class: "illus" }, m.verify_label)),
+      h("div", { class: "row", style: "margin-top:6px" }, h("span", { class: "num", style: "font-size:18px;font-weight:650" }, money(m.offered_amount)),
+        h("span", { class: "muted" }, `≈ ${money((m.cost_mid || m.cost_low || {}).emi)} ${t("s_per_month")} · ${m.tenure_months} ${t("s_months")}`)))),
+      d.recommendations.length ? "" : h("div", { class: "muted" }, "No good fit right now - see the tips to improve."),
+      h("p", { class: "small muted" }, d.disclaimer));
+  };
+  v.replaceChildren(h("h1", {}, t("s_loans")),
+    h("div", { class: "grid g-2e", style: "margin-top:12px" },
+      h("div", { class: "card" }, h("h2", {}, t("s_score")),
+        h("div", { class: "row" }, h("span", { class: "gauge num" }, rd.score), h("span", { class: "muted" }, `/ 100 · ${rd.band.replace(/_/g, " ")}`)),
+        h("div", { class: "bar-track", style: "margin:8px 0 12px" }, h("div", { class: "bar-fill", style: `width:${rd.score}%` })),
+        h("h3", {}, t("s_improve")), h("ul", {}, rd.top_tips.slice(0, 3).map(x => h("li", {}, x))),
+        canWrite() ? h("button", { class: "btn", onclick: () => runTool("generate_loan_report", { amount: +amount.value || null }) }, "📄 " + t("s_pdf")) : null),
+      h("div", { class: "card" }, h("h2", {}, t("s_best")),
+        h("div", { class: "row" }, h("label", { class: "field" }, t("s_amount"), amount), h("button", { class: "btn primary", style: "align-self:flex-end", onclick: find }, t("s_find"))),
+        h("div", { style: "margin-top:12px" }, res))));
+  find();
+}
+
+async function viewSimpleSettings(v) {
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard());
 }
 
 // ------------------------------------------------------------------ start
