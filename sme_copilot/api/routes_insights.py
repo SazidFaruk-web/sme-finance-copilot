@@ -48,6 +48,8 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
     fc = project(build_inputs(txns, inv, obl, b, as_of, 90))
     s, e, l_this = resolve_period("this_month", as_of)
     this_m = income_expense_summary(txns, s, e, l_this)
+    prof_m = profitability(txns, s, e, l_this)
+    costs_m = top_cost_drivers(txns, s, e, l_this, top_n=8)
     s, e, l_last = resolve_period("last_month", as_of)
     last_m = income_expense_summary(txns, s, e, l_last)
     s, e, l3 = resolve_period("last_3_months", as_of)
@@ -70,9 +72,11 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
             "gross_margin_3m": prof.gross_margin_pct, "net_margin_3m": prof.net_margin_pct,
             "receivables_outstanding": ar.total_outstanding if ar else 0, "receivables_overdue": ar.overdue_total if ar else 0,
             "forecast_min_30d": s30.min_balance, "runway_months": fc.runway_months,
+            "profit_this_month": prof_m.operating_profit,
         },
         "kpi_traces": {"cash_balance": fc.trace.model_dump(mode="json"), "margins": prof.trace.model_dump(mode="json"),
                        "income_this_month": this_m.trace.model_dump(mode="json"),
+                       "profit_this_month": prof_m.trace.model_dump(mode="json"),
                        "receivables": ar.trace.model_dump(mode="json") if ar else None},
         "forecast": {"series": [{"date": p.date.isoformat(), "balance": p.balance, "low": p.low, "high": p.high,
                                  "events": p.events} for p in fc.series],
@@ -82,8 +86,19 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
                      "scheduled_items": fc.scheduled_items[:20], "recurring": fc.recurring},
         "monthly": [m.model_dump() for m in monthly],
         "expense_breakdown": [d.model_dump() for d in costs.drivers],
+        "expense_this_month": [d.model_dump() for d in costs_m.drivers],
+        "receivables_aging": _aging_buckets(ar),
         "alerts": [alert_dict(a) for a in alerts[:12]],
     }
+
+
+def _aging_buckets(ar: Any) -> dict[str, float]:
+    """Receivables owed by days past due: not yet due / 0-30 / 31-60 / 61+."""
+    out = {"not_due": 0.0, "0-30": 0.0, "31-60": 0.0, "61+": 0.0}
+    for it in (ar.items if ar else []):
+        d = it.days_past_due
+        out["not_due" if d <= 0 else "0-30" if d <= 30 else "31-60" if d <= 60 else "61+"] += it.outstanding
+    return {k: round(v, 2) for k, v in out.items()}
 
 
 @router.get("/forecast")

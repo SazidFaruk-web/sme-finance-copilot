@@ -270,3 +270,17 @@ def test_advance_keeps_day_of_month():
     assert advance(date(2026, 2, 28), "monthly", 31) == date(2026, 3, 31)
     assert advance(date(2026, 11, 15), "quarterly", 15) == date(2027, 2, 15)
     assert advance(date(2026, 3, 1), "once", 1) is None
+
+
+def test_dashboard_additions(client):
+    h = login(client)
+    d = client.get("/api/dashboard", headers=h).json()
+    assert "profit_this_month" in d["kpis"] and d["kpi_traces"]["profit_this_month"]["steps"]
+    assert d["receivables_aging"] == {"not_due": 80_000, "0-30": 0, "31-60": 120_000, "61+": 0}
+    assert isinstance(d["expense_this_month"], list)
+    client.post("/api/books/recurring", json={"name": "Rent", "category": "rent", "amount": 30000,
+                                              "next_due": "2026-10-01"}, headers=h)
+    client.post("/api/books/recurring/post-due", headers=h)
+    d = client.get("/api/dashboard", headers=h).json()
+    assert d["kpis"]["profit_this_month"] == -30_000
+    assert d["expense_this_month"][0]["category"] == "rent" and d["expense_this_month"][0]["amount"] == 30_000

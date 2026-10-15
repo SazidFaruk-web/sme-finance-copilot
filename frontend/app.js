@@ -7,7 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js";
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
   en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
-    parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices", reports: "Reports",
+    parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices", reports: "Reports", profit_m: "Profit this month", costs_m: "Expenses by category (this month)", aging_t: "Customers owe you, by how late",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
@@ -31,7 +31,7 @@ const T = {
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings." },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
-    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট",
+    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট", profit_m: "এই মাসের লাভ", costs_m: "খরচ ক্যাটাগরি অনুযায়ী (এই মাস)", aging_t: "ক্রেতাদের বকেয়া, কত দেরি",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
@@ -591,7 +591,7 @@ async function viewDashboard(v) {
       h("div", { class: "sub" }, d.forecast.first_negative_date ? `⚠ below zero around ${d.forecast.first_negative_date}` : "estimate")),
     kpi(t("net_last"), money(k.net_last_month)),
     kpi(t("runway"), k.runway_months === null ? "not burning cash" : `${k.runway_months} months`, "at current average net cash flow"),
-    kpi(t("expense_m"), money(k.expense_this_month)));
+    kpi(t("profit_m"), money(k.profit_this_month), "sales - costs, before loans & owner drawings", "profit_this_month"));
 
   // forecast chart
   const series = d.forecast.series;
@@ -618,11 +618,18 @@ async function viewDashboard(v) {
   const costs = hbarChart(d.expense_breakdown.map(c => ({ label: c.category.replace(/_/g, " "), value: c.amount,
     sub: [["Share", c.share_pct + "%"], ["Previous period", money(c.previous_amount)]] })), { fmt: v => money(v) });
 
+  const ag = d.receivables_aging || {};
+  const agingChart = hbarChart([["Not yet due", "not_due"], ["0-30 days late", "0-30"], ["31-60 days late", "31-60"], ["61+ days late", "61+"]]
+    .map(([label, key]) => ({ label, value: ag[key] || 0 })), { fmt: x => money(x), color: "var(--serious)" });
+  const costsM = d.expense_this_month.length ? hbarChart(d.expense_this_month.map(c => ({ label: c.category.replace(/_/g, " "), value: c.amount,
+    sub: [["Share", c.share_pct + "%"]] })), { fmt: x => money(x) }) : h("div", { class: "muted" }, "No expenses recorded this month yet.");
   v.replaceChildren(kpis, kpis2,
     h("div", { class: "grid g-2", style: "margin-top:16px" }, fcCard, alertsCard),
     whatIfCard(series),
     h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("monthly")), mChart),
-      h("div", { class: "card" }, h("h2", {}, t("costs")), costs)));
+      h("div", { class: "card" }, h("h2", {}, t("costs")), costs)),
+    h("div", { class: "grid g-2e", style: "margin-top:16px" }, h("div", { class: "card" }, h("h2", {}, t("costs_m")), costsM),
+      h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, t("aging_t")), h("a", { href: "#reports", class: "link small" }, "Full report →")), agingChart)));
 }
 
 function alertItem(a) {
