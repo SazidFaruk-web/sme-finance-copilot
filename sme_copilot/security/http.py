@@ -25,6 +25,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         h.setdefault("Content-Security-Policy", CSP)
         if request.url.path.startswith("/api/"):
             h.setdefault("Cache-Control", "no-store")
+        else:  # UI files: revalidate every load (cheap 304 via ETag) so an updated app.js is never stale
+            h.setdefault("Cache-Control", "no-cache")
         if request.url.scheme == "https":
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return resp
