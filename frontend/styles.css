@@ -400,3 +400,98 @@ table.report td.pos { color: var(--in); }
   .nav a.active::before { display: none; }
   .filters input[type=search] { min-width: 0; width: 100%; }
 }
+
+/* =====================================================================================
+   Motion v2 + confirm popups. Animations use transform/opacity only (the check mark "draws"
+   with stroke-dashoffset); every animation lives inside prefers-reduced-motion: no-preference.
+   ===================================================================================== */
+#view { position: relative; }
+.tabs { position: relative; }
+.tabs.has-ink button.active { border-bottom-color: transparent; }
+.tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; background: var(--accent);
+  transform-origin: 0 50%; pointer-events: none; border-radius: 2px; }
+.panel-ghost { position: absolute; pointer-events: none; z-index: 1; margin: 0; }
+
+/* focus glow (no transition: instant, not animated) */
+input:focus, select:focus, textarea:focus { border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); outline: none; }
+
+/* skeletons: shimmer is a translated highlight, not a moving background */
+.skeleton-block { display: grid; gap: 10px; padding: 8px 0; }
+.skeleton-line { position: relative; overflow: hidden; background: var(--surface-2); animation: none !important; }
+.skeleton-line.short { width: min(240px, 50%); }
+.skeleton-line::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-1) 70%, transparent), transparent); }
+
+/* new / restored rows flash green: an overlay that fades (opacity only) */
+tr.flash td, .rec.flash, .alert-item.flash { animation: none !important; position: relative; }
+tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""; position: absolute; inset: 0; opacity: 0;
+  background: color-mix(in srgb, var(--in) 24%, transparent); pointer-events: none; border-radius: inherit; }
+.sent-chip { font-weight: 600; }
+
+/* ---------- confirm popup card */
+.pop-bg { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); background: rgba(0, 0, 0, .32); }
+.pop-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px;
+  width: min(440px, 100%); box-shadow: 0 18px 50px rgba(0, 0, 0, .28); }
+.pop-card h2 { font-size: 18px; margin-bottom: 12px; }
+.pop-rows { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 12px; font-size: 14px; }
+.pop-rows dt { color: var(--text-muted); }
+.pop-rows dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.pop-preview { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 8px 12px;
+  margin: 6px 0 10px; }
+.pop-preview p { margin: 2px 0 0; white-space: pre-wrap; font-size: 13.5px; }
+.pop-actions { justify-content: flex-end; margin-top: 14px; }
+.pop-card.done { text-align: center; }
+.pop-done { font-weight: 600; margin: 10px 0 0; }
+.check-wrap { width: 64px; height: 64px; margin: 4px auto 0; }
+.check-wrap.sm { width: 26px; height: 26px; margin: 0; }
+.check-svg { width: 100%; height: 100%; }
+.check-svg circle { fill: var(--in-soft); stroke: var(--in); stroke-width: 2.5; }
+.check-svg path { fill: none; stroke: var(--in); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 36; stroke-dashoffset: 0; }
+.confirm-card.proposal { border-color: var(--accent); }
+.privacy-card .see-list li { margin: 4px 0; font-size: 13.5px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes route-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes panel-in { 0% { opacity: 0; transform: translateY(-8px); } 70% { opacity: 1; transform: translateY(1.5px); }
+    100% { opacity: 1; transform: none; } }
+  @keyframes fade-out { to { opacity: 0; } }
+  @keyframes bg-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop-in { 0% { opacity: 0; transform: scale(.86); } 60% { opacity: 1; transform: scale(1.03); }
+    100% { transform: scale(1); } }
+  @keyframes modal-out { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+  @keyframes toast-out { to { opacity: 0; transform: translateY(10px); } }
+  @keyframes row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes row-out { to { opacity: 0; transform: translateX(24px); } }
+  @keyframes flash-o { 0% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes shimmer-x { to { transform: translateX(100%); } }
+  @keyframes draw { from { stroke-dashoffset: 36; } to { stroke-dashoffset: 0; } }
+  @keyframes check-pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); } }
+
+  #view.route-enter { animation: route-in .26s var(--ease) both; }
+  .tab-ink { transition: transform .3s cubic-bezier(.3, 1.35, .5, 1), opacity .15s; }
+  .panel-enter { animation: panel-in .3s cubic-bezier(.2, .9, .3, 1.1) both; }
+  .panel-ghost { animation: fade-out .18s ease-out both; }
+
+  .modal-bg { animation: bg-in .2s ease-out both; }
+  .modal-bg .modal { animation: pop-in .28s cubic-bezier(.2, .9, .3, 1.2) both; }
+  .modal-bg.closing { animation: fade-out .2s ease-in both; }
+  .modal-bg.closing .modal, .modal-bg.closing .pop-card { animation: modal-out .2s ease-in both; }
+  .pop-card { animation: pop-in .32s cubic-bezier(.2, .9, .3, 1.25) both; }
+  .pop-card.done .check-wrap { animation: check-pop .3s var(--ease) both; }
+  .check-svg path { stroke-dashoffset: 36; animation: draw .35s ease-out .15s forwards; }
+  .pop-card.to-toast { transition: transform .26s ease-in, opacity .26s ease-in;
+    transform: translate(32vw, 38vh) scale(.25); opacity: 0; }
+
+  .toast.closing { animation: toast-out .2s ease-in both; }
+  table.t tbody tr { animation: row-in .22s var(--ease) both; }
+  table.t tbody tr:nth-child(2) { animation-delay: 20ms; } table.t tbody tr:nth-child(3) { animation-delay: 40ms; }
+  table.t tbody tr:nth-child(4) { animation-delay: 60ms; } table.t tbody tr:nth-child(n+5) { animation-delay: 80ms; }
+  .rec { animation: row-in .22s var(--ease) both; }
+  tr.leaving { animation: row-out .22s ease-in forwards; }
+  tr.flash td::before, .rec.flash::before, .alert-item.flash::before { animation: flash-o 1.4s ease-out both; }
+  .skeleton-line::after { animation: shimmer-x 1.1s linear infinite; }
+  input, select, textarea { transition: none; }
+}

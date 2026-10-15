@@ -1,6 +1,7 @@
 // SME Finance Copilot - single-page UI. Plain ES modules, no build step, works offline.
 // Security: every piece of data is inserted with textContent (never innerHTML), so text from
-// uploaded files or model output cannot inject markup. The session token lives in sessionStorage
+// uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
+// cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js";
 
@@ -56,7 +57,6 @@ const T = {
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const S = {
-  token: sessionStorage.getItem("token") || "",
   user: null, models: null, profile: pref("profile", ""),
   ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
   theme: pref("theme", "system"),          // system | light | dark
@@ -125,10 +125,22 @@ const fmtDate = s => { const d = new Date(s + "T00:00:00"); return d.toLocaleDat
 function toast(msg, tone = "", ms = 3500) {
   if (typeof tone === "number") { ms = tone; tone = ""; }
   const el = h("div", { class: "toast" + (tone ? " " + tone : ""), role: "status" }, msg);
+  animatedRemove(el);
   document.body.appendChild(el); setTimeout(() => el.remove(), ms);
 }
+// el.remove() plays the element's leave animation first (class "closing"), then removes it.
+function animatedRemove(el, ms = 200) {
+  el.remove = () => {
+    if (el.classList.contains("closing")) return;
+    el.classList.add("closing");
+    setTimeout(() => Element.prototype.remove.call(el), motionOK() ? ms : 0);
+  };
+  return el;
+}
+function restartAnim(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
 function modal(title, body, actions = []) {
-  const bg = h("div", { class: "modal-bg", onclick: e => { if (e.target === bg) bg.remove(); } });
+  const bg = animatedRemove(h("div", { class: "modal-bg", onclick: e => { if (e.target === bg) bg.remove(); } }));
   const close = h("button", { class: "btn ghost", onclick: () => bg.remove(), "aria-label": "Close" }, "✕");
   bg.appendChild(h("div", { class: "modal", role: "dialog", "aria-modal": "true" },
     h("div", { class: "row" }, h("h2", { class: "grow", style: "margin:0" }, title), close), body,
@@ -137,17 +149,70 @@ function modal(title, body, actions = []) {
   return bg;
 }
 
+const csrf = () => decodeURIComponent((document.cookie.match(/(?:^|; )smec_csrf=([^;]*)/) || [])[1] || "");
+const motionOK = () => window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+// Confirm popup for every high-risk action: shows exactly what will happen. Resolves {password, card, bg}
+// on Confirm (caller closes it or plays successPop), or null on Cancel (logged to the audit trail when
+// `action` is given; proposals use /reject instead).
+function confirmDialog({ title, rows = [], preview, note, confirmLabel = "Confirm", danger = false, action, password = false }) {
+  return new Promise(resolve => {
+    const pw = password ? h("input", { type: "password", placeholder: "Your password", autocomplete: "current-password" }) : null;
+    let settled = false;
+    const finish = val => {
+      if (settled) return; settled = true;
+      if (val === null && action) api("/api/actions/cancelled", { body: { action, summary: rows.map(r => r.join(": ")).join(" · ").slice(0, 300) } }).catch(() => {});
+      resolve(val);
+    };
+    const cancel = () => { bg.remove(); finish(null); };
+    const ok = h("button", { class: "btn " + (danger ? "danger" : "primary"), onclick: () => {
+      if (pw && !pw.value) { pw.focus(); return; }
+      finish({ password: pw ? pw.value : undefined, card, bg });
+    } }, confirmLabel);
+    const card = h("div", { class: "pop-card", role: "dialog", "aria-modal": "true", "aria-label": title },
+      h("h2", {}, title),
+      rows.length ? h("dl", { class: "pop-rows" }, rows.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)])) : null,
+      preview ? h("div", { class: "pop-preview" }, h("div", { class: "small muted" }, "Message preview"), h("p", {}, preview)) : null,
+      note ? h("p", { class: "hint" }, note) : null,
+      pw ? h("label", { class: "field" }, "Re-enter your password (large amount)", pw) : null,
+      h("div", { class: "row pop-actions" }, h("button", { class: "btn ghost", onclick: cancel }, "Cancel"), ok));
+    const bg = animatedRemove(h("div", { class: "modal-bg pop-bg", onclick: e => { if (e.target === bg) cancel(); } }, card), 220);
+    bg.addEventListener("keydown", e => { if (e.key === "Escape") cancel(); });
+    document.body.appendChild(bg); (pw || ok).focus();
+  });
+}
+function checkMark() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg"); svg.setAttribute("viewBox", "0 0 52 52"); svg.setAttribute("class", "check-svg");
+  const c = document.createElementNS(ns, "circle"); c.setAttribute("cx", "26"); c.setAttribute("cy", "26"); c.setAttribute("r", "24");
+  const p = document.createElementNS(ns, "path"); p.setAttribute("d", "M15 27 l7 7 l15 -16");
+  svg.append(c, p); return svg;
+}
+// Success: a check draws inside the card, then the card shrinks away into a toast.
+function successPop(card, bg, msg) {
+  card.replaceChildren(h("div", { class: "check-wrap" }, checkMark()), h("p", { class: "pop-done" }, msg));
+  card.classList.add("done");
+  const m = motionOK();
+  setTimeout(() => { card.classList.add("to-toast"); setTimeout(() => { Element.prototype.remove.call(bg); toast(msg, "ok"); }, m ? 260 : 0); }, m ? 750 : 0);
+}
+function markRow(host, text) {
+  if (!host) return;
+  const row = host.querySelector(".row:last-child") || host;
+  row.replaceChildren(h("span", { class: "chip ok sent-chip" }, text));
+  restartAnim(host, "flash");
+}
+
 async function api(path, opts = {}) {
   const headers = { ...(opts.headers || {}) };
-  if (S.token) headers.Authorization = `Bearer ${S.token}`;
+  const method = opts.method || (opts.body ? "POST" : "GET");
+  if (method !== "GET") headers["X-CSRF-Token"] = csrf();
   let body = opts.body;
   if (body && !(body instanceof FormData) && typeof body !== "string") { headers["Content-Type"] = "application/json"; body = JSON.stringify(body); }
-  const r = await fetch(path, { method: opts.method || (body ? "POST" : "GET"), headers, body });
+  const r = await fetch(path, { method, headers, body, credentials: "same-origin" });
   if (r.status === 401 && path !== "/api/auth/login") { logout(true); throw new Error("Session expired"); }
   if (!r.ok) {
-    let msg = r.statusText;
-    try { const j = await r.json(); msg = typeof j.detail === "string" ? j.detail : (j.detail && j.detail.message) || JSON.stringify(j.detail); } catch { /* ignore */ }
-    throw new Error(msg);
+    let msg = r.statusText, code = "";
+    try { const j = await r.json(); msg = typeof j.detail === "string" ? j.detail : (j.detail && j.detail.message) || JSON.stringify(j.detail); code = (j.detail && j.detail.code) || ""; } catch { /* ignore */ }
+    const err = new Error(msg); err.code = code; throw err;
   }
   const ct = r.headers.get("content-type") || "";
   return ct.includes("application/json") ? r.json() : r;
@@ -217,7 +282,7 @@ function txnTable(rows, editable, categories = [], onChange) {
       h("td", { class: "small muted" }, `${r.source}${r.source_row ? " #" + r.source_row : ""}`),
       actions ? h("td", { class: "row-actions" },
         h("button", { class: "btn ghost sm", title: "Edit", "aria-label": "Edit", onclick: () => editTxn(r, onChange) }, "✎"),
-        h("button", { class: "btn ghost sm danger-text", title: "Delete", "aria-label": "Delete", onclick: () => deleteTxn(r, onChange) }, "🗑")) : null);
+        h("button", { class: "btn ghost sm danger-text", title: "Delete", "aria-label": "Delete", onclick: e => deleteTxn(r, onChange, e.target.closest("tr")) }, "🗑")) : null);
     body.appendChild(tr);
   }
   if (rows.some(r => r.id === S.flashId)) S.flashId = null;
@@ -252,9 +317,15 @@ function editTxn(r, onDone) {
       try { await api(`/api/data/transactions/${r.id}`, { method: "PATCH", body }); m.remove(); S.flashId = r.id; toast("Saved (change is in the audit log)", "ok"); onDone(); } catch (e) { err.textContent = e.message; }
     } }, "Save changes")]);
 }
-async function deleteTxn(r, onDone) {
+async function deleteTxn(r, onDone, tr) {
+  const ok = await confirmDialog({ title: "Delete this record?", action: "delete_transaction", danger: true, confirmLabel: "Delete",
+    rows: [["Date", r.date], ["What", r.description || r.category], ["Amount", (r.direction === "in" ? "+" : "−") + money(r.amount).replace("-", "")]],
+    note: "You can undo this right after.", password: S.stepUp && r.amount >= S.stepUp });
+  if (!ok) return;
+  ok.bg.remove();
   try {
-    const d = await api(`/api/books/transactions/${r.id}`, { method: "DELETE" });
+    const d = await api(`/api/books/transactions/${r.id}`, { method: "DELETE", body: { password: ok.password } });
+    if (tr && motionOK()) { tr.classList.add("leaving"); await new Promise(res => setTimeout(res, 220)); }
     onDone();
     toast(h("span", {}, `Deleted ${money(r.amount)} · ${r.description || r.category}. `,
       h("button", { class: "btn sm", onclick: async e => { e.target.closest(".toast").remove();
@@ -272,7 +343,7 @@ async function renderLogin(err) {
     e.preventDefault();
     try {
       const r = await api("/api/auth/login", { body: { username: u.value, password: p.value } });
-      S.token = r.token; sessionStorage.setItem("token", r.token); S.user = r.user; boot();
+      sessionStorage.removeItem("token"); S.user = r.user; boot();
     } catch (ex) { msg.textContent = ex.message; }
   };
   const demo = S.health.demo_users ? h("div", { class: "notice", style: "margin-top:12px" },
@@ -290,8 +361,8 @@ async function renderLogin(err) {
   p.focus();
 }
 function logout(expired) {
-  if (!expired && S.token) fetch("/api/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${S.token}` } });
-  S.token = ""; sessionStorage.removeItem("token"); renderLogin(expired ? "Please log in again." : "");
+  if (!expired) fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": csrf() }, credentials: "same-origin" });
+  sessionStorage.removeItem("token"); renderLogin(expired ? "Please log in again." : "");
 }
 
 // ------------------------------------------------------------------ shell
@@ -346,9 +417,11 @@ function settingsMenu() {
 
 async function boot() {
   try {
-    S.user = await api("/api/auth/me");
+    const me = await fetch("/api/auth/me", { credentials: "same-origin" });  // cookie session, if any
+    if (!me.ok) return renderLogin();
+    S.user = await me.json();
     S.models = await api("/api/models");
-    const st = await api("/api/settings"); S.style = st.number_style;
+    const st = await api("/api/settings"); S.style = st.number_style; S.stepUp = st.step_up_amount;
   } catch { return; }
   if (!S.profile || !S.models.profiles.some(p => p.name === S.profile)) S.profile = S.models.default;
   renderShell();
@@ -390,7 +463,8 @@ function route() {
   const r = (location.hash || "#dashboard").slice(1).split("?")[0];
   const name = routes().includes(r) ? r : "dashboard";
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.id === "nav-" + name));
-  const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
+  const v = $("#view"); v.replaceChildren(h("div", { class: "skeleton-block" }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
+  restartAnim(v, "route-enter");
   const views = S.mode === "simple"
     ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings }
     : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewFinancing, actions: viewActions,
@@ -419,7 +493,12 @@ async function viewInvoices(v) {
         h("td", {}, i.counterparty), h("td", { class: "num" }, i.issue_date), h("td", { class: "num" }, i.due_date, i.days_overdue ? h("div", { class: "small", style: "color:var(--critical)" }, `${i.days_overdue} days late`) : null),
         h("td", { class: "r" }, money(i.amount)), h("td", { class: "r", style: "font-weight:600" }, money(i.outstanding)), h("td", {}, statusBadge(i.status)),
         h("td", { class: "row-actions" },
-          canW && i.status === "draft" ? h("button", { class: "btn sm primary", onclick: async () => { try { await api(`/api/books/invoices/${i.id}/send`, { method: "POST" }); toast("Marked as sent", "ok"); load(); } catch (e) { toast(e.message, "bad"); } } }, "Mark sent") : null,
+          canW && i.status === "draft" ? h("button", { class: "btn sm primary", onclick: async () => {
+            const ok = await confirmDialog({ title: "Mark as sent?", action: "send_invoice", confirmLabel: "Mark sent",
+              rows: [["Invoice", i.invoice_no], ["Customer", i.counterparty], ["Amount", money(i.amount)], ["Due", i.due_date]],
+              note: "This only changes the status. Nothing is emailed or texted - share the PDF yourself." });
+            if (!ok) return;
+            try { await api(`/api/books/invoices/${i.id}/send`, { method: "POST" }); successPop(ok.card, ok.bg, "Marked as sent"); load(); } catch (e) { ok.bg.remove(); toast(e.message, "bad"); } } }, "Mark sent") : null,
           canW && i.outstanding > 0 && i.status !== "draft" ? h("button", { class: "btn sm primary", onclick: () => paymentForm(i, load) }, "Record payment") : null,
           h("button", { class: "btn ghost sm", onclick: () => download(`/api/books/invoices/${i.id}/pdf`, `invoice_${i.invoice_no || i.id}.pdf`).catch(e => toast(e.message, "bad")) }, "PDF"))))))));
   }
@@ -471,8 +550,12 @@ function paymentForm(inv, onDone) {
     h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Amount ৳", amt), h("label", { class: "field" }, "Date", date)),
     h("label", { class: "field" }, "Paid by", ch), err),
     [h("button", { class: "btn primary", onclick: async () => {
-      try { const r = await api(`/api/books/invoices/${inv.id}/payments`, { body: { amount: +amt.value, paid_on: date.value || null, channel: ch.value } });
-        m.remove(); toast(r.status === "paid" ? "Paid in full ✓" : `Partial payment saved · ${money(r.outstanding)} still due`, "ok"); onDone && onDone(); } catch (e) { err.textContent = e.message; }
+      const ok = await confirmDialog({ title: "Record this payment?", action: "record_invoice_payment", confirmLabel: "Record payment",
+        rows: [[inv.kind === "payable" ? "Paid to" : "Received from", inv.counterparty], ["Invoice", inv.invoice_no], ["Amount", money(+amt.value)], ["Paid by", ch.value], ["Date", date.value]],
+        note: "This only records a payment that already happened. No money is moved.", password: S.stepUp && +amt.value >= S.stepUp });
+      if (!ok) return;
+      try { const r = await api(`/api/books/invoices/${inv.id}/payments`, { body: { amount: +amt.value, paid_on: date.value || null, channel: ch.value, password: ok.password } });
+        m.remove(); successPop(ok.card, ok.bg, r.status === "paid" ? "Paid in full ✓" : `Partial payment saved · ${money(r.outstanding)} still due`); onDone && onDone(); } catch (e) { ok.bg.remove(); err.textContent = e.message; }
     } }, "Save payment")]);
   amt.focus();
 }
@@ -649,15 +732,18 @@ function alertItem(a) {
     h("div", { class: "row" }, h("span", { class: "sev " + a.severity }, a.severity), a.due_date ? h("span", { class: "small muted" }, a.due_date) : null),
     h("div", { class: "title" }, a.title), h("div", { class: "msg" }, a.message),
     h("div", { class: "row", style: "margin-top:4px" },
-      st ? h("button", { class: "btn sm primary", onclick: () => runTool(st.name, st.args) }, st.name === "create_payment_reminder" ? "Send reminder" : st.name === "pay_supplier_invoice" ? "Pay (sandbox)" : "Do it") : null,
+      st ? h("button", { class: "btn sm primary", onclick: e => runTool(st.name, st.args, e.target.closest(".alert-item")) }, st.name === "create_payment_reminder" ? "Send reminder" : st.name === "pay_supplier_invoice" ? "Pay (sandbox)" : "Do it") : null,
       a.kind === "overdue_invoice" ? h("button", { class: "btn ghost sm", onclick: () => runTool("draft_invoice_followup", { invoice_id: a.data.invoice_id }) }, "Draft follow-up") : null,
       h("button", { class: "btn ghost sm", onclick: async e => { await api(`/api/alerts/${a.id}/dismissed`, { method: "POST" }); e.target.closest(".alert-item").remove(); } }, "Dismiss")));
 }
 
-async function runTool(name, args) {
+async function runTool(name, args, host) {
   try {
     const out = await api(`/api/tools/${name}`, { body: { args } });
-    if (out.status === "pending_confirmation") { confirmModal({ id: out.pending_action_id, ...out.data, tool: name }); return; }
+    if (out.status === "pending_confirmation") {
+      if (out.tier >= 2) { confirmModal({ id: out.pending_action_id, ...out.data, tool: name }); return; }
+      await proposeAndConfirm({ id: out.pending_action_id, tool: name, ...out.data }, host); return;
+    }
     const d = out.data || {};
     const body = h("div", {}, d.message ? h("pre", { style: "white-space:pre-wrap" }, d.message) : null,
       d.body ? h("div", {}, h("div", { style: "font-weight:600" }, d.subject), h("pre", { style: "white-space:pre-wrap" }, d.body)) : null,
@@ -770,7 +856,7 @@ function voiceButton(input, send) {
 }
 
 async function streamChat(text, bot, log) {
-  const r = await fetch("/api/chat/stream", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${S.token}` },
+  const r = await fetch("/api/chat/stream", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf() },
     body: JSON.stringify({ message: text, conversation_id: S.conv, profile: S.profile || null }) });
   if (r.status === 401) { logout(true); return; }
   if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
@@ -845,17 +931,50 @@ function feedbackRow(id) {
 }
 
 // ------------------------------------------------------------------ human-in-the-loop confirmation
+// Reminders and loan reports are only PROPOSED by the copilot or a button; nothing happens until this click.
+async function proposeAndConfirm(pa, host) {
+  const reminder = pa.tool === "create_payment_reminder";
+  const ok = await confirmDialog({ title: reminder ? "Send this reminder?" : "Create the loan report?",
+    rows: reminder ? [["To", pa.recipient], ["Amount due", money(pa.amount)]] : [], preview: pa.preview || null,
+    note: pa.summary, confirmLabel: reminder ? "Send reminder" : "Create report" });
+  if (!ok) { api(`/api/actions/${pa.id}/reject`, { method: "POST" }).catch(() => {}); refreshPending(); return null; }
+  try {
+    const r = await api(`/api/actions/${pa.id}/confirm`, { body: {} });
+    if (r.status !== "ok") throw new Error(r.message || r.status);
+    successPop(ok.card, ok.bg, reminder ? `Reminder sent to ${pa.recipient} (sandbox outbox)` : "Loan report ready ✓");
+    if (reminder) markRow(host, "✓ Reminder sent");
+    else if (r.data && r.data.download_url) setTimeout(() => toast(h("span", {}, "Loan report ready. ",
+      h("button", { class: "btn sm", onclick: () => download(r.data.download_url, r.data.filename) }, "Download PDF")), "ok", 9000), 1100);
+    refreshPending(); return r;
+  } catch (e) { ok.bg.remove(); toast(e.message, "bad"); return null; }
+}
+function proposalCard(pa) {
+  const card = h("div", { class: "confirm-card proposal" },
+    h("div", { class: "small", style: "font-weight:600" }, "Waiting for your OK - nothing happens until you confirm"),
+    h("div", {}, pa.summary || ""), pa.preview ? h("div", { class: "pop-preview" }, h("p", {}, pa.preview)) : null,
+    h("div", { class: "row", style: "margin-top:8px" },
+      h("button", { class: "btn primary", onclick: async () => {
+        try { const r = await api(`/api/actions/${pa.id}/confirm`, { body: {} }); if (r.status !== "ok") throw new Error(r.message || r.status);
+          card.replaceChildren(h("div", { class: "row" }, h("div", { class: "check-wrap sm" }, checkMark()), h("b", {}, pa.tool === "create_payment_reminder" ? "Reminder sent (sandbox outbox)" : "Done")),
+            r.data && r.data.download_url ? h("button", { class: "btn sm", onclick: () => download(r.data.download_url, r.data.filename) }, "Download PDF") : null);
+          refreshPending(); } catch (e) { toast(e.message, "bad"); }
+      } }, pa.tool === "create_payment_reminder" ? "Send reminder" : "Confirm"),
+      h("button", { class: "btn ghost", onclick: async () => { try { await api(`/api/actions/${pa.id}/reject`, { method: "POST" }); card.replaceChildren(h("div", { class: "muted" }, "Cancelled - nothing was done.")); refreshPending(); } catch (e) { toast(e.message, "bad"); } } }, "Cancel")));
+  return card;
+}
 function confirmCard(pa) {
+  if ((pa.tier ?? 2) < 2) return proposalCard(pa);
+  const pw = S.stepUp && pa.amount >= S.stepUp ? h("input", { type: "password", placeholder: "Your password (large amount)", style: "width:200px" }) : null;
   const amt = h("input", { type: "number", placeholder: "Re-type the amount", style: "width:170px" });
   const status = h("div", { class: "small" });
   const card = h("div", { class: "confirm-card" },
     h("div", { class: "small", style: "font-weight:600;color:var(--serious)" }, "SANDBOX payment - needs your confirmation"),
     h("div", { class: "amt num" }, money(pa.amount)), h("div", {}, pa.summary || ""),
     h("div", { class: "small muted" }, `Recipient: ${pa.recipient || "–"} · expires ${pa.expires_at ? new Date(pa.expires_at + "Z").toLocaleTimeString() : ""}`),
-    h("div", { class: "row", style: "margin-top:8px" }, amt,
+    h("div", { class: "row", style: "margin-top:8px" }, amt, pw,
       h("button", { class: "btn primary", onclick: async () => {
         try {
-          const r = await api(`/api/actions/${pa.id}/confirm`, { body: { confirm_amount: +amt.value } });
+          const r = await api(`/api/actions/${pa.id}/confirm`, { body: { confirm_amount: +amt.value, password: pw ? pw.value : undefined } });
           const d = r.data; card.replaceChildren(h("div", { style: "color:var(--good-text);font-weight:600" }, `✓ Executed in sandbox: ${money(d.amount)} to ${d.recipient_name}`),
             h("div", { class: "small muted" }, `Sandbox balance ${money(d.balance_before)} → ${money(d.balance_after)} · logged with confirmation status "confirmed"`));
           refreshPending();
@@ -875,6 +994,11 @@ function recurringPane(canWrite) {
   async function load() {
     const d = await api("/api/books/recurring");
     const post = h("button", { class: "btn primary", disabled: !canWrite || !d.due_count, onclick: async () => {
+      const due = d.rows.filter(r => r.due_now);
+      const ok = await confirmDialog({ title: `Post ${due.length} due item(s)?`, action: "post_recurring", confirmLabel: "Post now",
+        rows: due.slice(0, 6).map(r => [r.name, `${money(r.amount)} · ${r.type === "invoice" ? "draft invoice" : "expense"} · ${r.next_due}`]),
+        note: "Missed dates are caught up too. Expenses become records; invoices become drafts." });
+      if (!ok) return; ok.bg.remove();
       try { const r = await api("/api/books/recurring/post-due", { method: "POST" });
         toast(`Posted ${r.transactions} record(s) and ${r.invoices} draft invoice(s)`, "ok"); load(); } catch (e) { toast(e.message, "bad"); } } },
       d.due_count ? `Post ${d.due_count} due item(s)` : "Nothing due");
@@ -930,13 +1054,19 @@ async function viewData(v) {
     r.errors.length ? h("ul", { class: "small" }, r.errors.slice(0, 8).map(e => h("li", {}, `row ${e.row}: ${e.reason}`))) : null,
     r.injection_flags.length ? h("ul", { class: "small", style: "color:var(--critical)" }, r.injection_flags.map(e => h("li", {}, `row ${e.row}: “${e.text}” - treated as data, never as instructions`))) : null));
   const showError = e => { result.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message, "bad"); };
+  const confirmImport = (what, rows) => confirmDialog({ title: `Import ${what}?`, action: "import_file", confirmLabel: "Import",
+    rows, note: "Rows are added to your records. Duplicates and suspicious text are flagged, never run as instructions." });
   const upload = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
     if (!file.files[0]) return toast("Choose a file first", "warn");
+    const ok = await confirmImport("this file", [["File", file.files[0].name], ["Type", dtype.value], ["Size", `${Math.ceil(file.files[0].size / 1024)} KB`]]);
+    if (!ok) return; ok.bg.remove();
     const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", dtype.value);
     try { showReport(await api("/api/data/upload", { body: fd })); toast("File imported", "ok"); } catch (e) { showError(e); }
   } }, "Upload");
   const paste = h("textarea", { placeholder: "Paste CSV text here (Date, Description, Amount, …)" });
-  const pasteBtn = h("a", { href: "#", class: "link", onclick: async e => { e.preventDefault(); if (!canWrite) return;
+  const pasteBtn = h("a", { href: "#", class: "link", onclick: async e => { e.preventDefault(); if (!canWrite || !paste.value.trim()) return;
+    const ok = await confirmImport("pasted text", [["Lines", String(paste.value.trim().split("\n").length)], ["Type", dtype.value]]);
+    if (!ok) return; ok.bg.remove();
     try { showReport(await api("/api/data/paste", { body: { text: paste.value, doc_type: dtype.value } })); toast("Pasted rows imported", "ok"); } catch (err) { showError(err); } } }, "Import pasted text");
 
   const entry = h("input", { type: "text", placeholder: "e.g. sold 12 shirts for 6000 taka cash · dokan bhara 15000 dilam · ১২টা শার্ট বিক্রি ৬০০০ টাকা", class: "grow big-input", disabled: !canWrite });
@@ -1147,7 +1277,7 @@ async function viewSettings(v) {
   const pw = h("input", { type: "password", placeholder: "your password" });
   const phrase = h("input", { type: "text", placeholder: "type: DELETE MY DATA" });
   const isOwner = S.user.role === "owner";
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(),
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), await privacyCard(),
     h("div", { class: "grid g-2e", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", {}, "Alerts"), h("label", { class: "field" }, "Low-balance safety level (৳)", thr,
           h("span", { class: "hint" }, "We warn you when cash is expected to drop below this amount.")),
@@ -1169,6 +1299,28 @@ async function viewSettings(v) {
       h("p", { class: "small muted" }, comp.disclaimer),
       comp.rules.map(r => h("div", { class: "alert-item" }, h("div", { class: "row" }, h("b", { class: "grow" }, r.title), r.applies_to_you ? h("span", { class: "chip" }, "applies to you") : null, h("span", { class: "illus" }, r.verify_label)),
         h("div", { class: "msg" }, r.summary), r.source_url ? h("div", { class: "small muted" }, "Check: " + r.source_url) : null))));
+}
+
+async function privacyCard() {
+  const recent = await api("/api/privacy/recent").catch(() => []);
+  const m = S.models || { profiles: [] };
+  const prof = m.profiles.find(p => p.name === S.profile) || {};
+  const local = m.local_only_mode || !prof.external;
+  return h("div", { class: "card privacy-card", style: "margin-top:16px" }, h("h2", {}, "What this app can see"),
+    h("ul", { class: "plain see-list" },
+      h("li", { class: "ok-li" }, "Only what you type or upload here: records, files and invoices."),
+      h("li", { class: "no-li" }, "No access to your contacts, email, SMS, camera, other files or other apps."),
+      h("li", { class: "ok-li" }, "Reminders and payments are drafts or sandbox only. Nothing is sent to real phones, email or banks."),
+      h("li", { class: local ? "ok-li" : "warn-li" }, local
+        ? `AI model "${prof.label || S.profile}" runs on this computer, so your data stays here.`
+        : `AI model "${prof.label || S.profile}" is a cloud model: questions go to it with phone and account numbers masked.`)),
+    h("div", { class: "row small" }, h("span", { class: "chip " + (local ? "ok" : "warn") }, local ? "⌂ Local model" : "☁ Cloud model"),
+      m.local_only_mode ? h("span", { class: "chip ok" }, "Local-only mode ON") : null,
+      h("span", { class: "chip " + (m.mask_pii ? "ok" : "warn") }, m.mask_pii ? "PII masking ON" : "PII masking OFF")),
+    h("h3", {}, "Last 5 things that happened"),
+    recent.length ? h("ul", { class: "plain small" }, recent.map(e => h("li", {}, h("span", { class: "num muted" }, e.ts.replace("T", " ") + "  "),
+      `${e.actor} · ${e.action.replace(/_/g, " ")}`, e.confirmation !== "not_required" ? h("span", { class: "chip", style: "margin-left:6px" }, e.confirmation) : null)))
+      : h("p", { class: "muted small" }, "Nothing yet."));
 }
 
 function prefsCard() {
@@ -1202,7 +1354,7 @@ async function viewSimpleHome(v) {
       h("div", { class: "title" }, h("span", { class: "sev " + a.severity }), " ", a.title),
       h("div", { class: "msg" }, a.message),
       h("div", { class: "row", style: "margin-top:6px" },
-        st && canWrite() ? h("button", { class: "btn primary", onclick: () => runTool(st.name, st.args) },
+        st && canWrite() ? h("button", { class: "btn primary", onclick: e => runTool(st.name, st.args, e.target.closest(".alert-item")) },
           st.name === "create_payment_reminder" ? "Send reminder" : st.name === "pay_supplier_invoice" ? "Pay (sandbox)" : "Do it") : null,
         h("button", { class: "btn ghost", onclick: async e => { await api(`/api/alerts/${a.id}/dismissed`, { method: "POST" }); e.target.closest(".alert-item").remove(); } }, t("s_dismiss"))));
   });
@@ -1299,6 +1451,9 @@ async function viewSimpleData(v) {
   const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,.xlsx,.xls", disabled: !canWrite() });
   const upload = h("button", { class: "btn", disabled: !canWrite(), onclick: async () => {
     if (!file.files[0]) return toast("Choose a file");
+    const ok = await confirmDialog({ title: "Import this file?", action: "import_file", confirmLabel: t("s_upload"),
+      rows: [["File", file.files[0].name], ["Size", `${Math.ceil(file.files[0].size / 1024)} KB`]], note: "Rows are added to your records." });
+    if (!ok) return; ok.bg.remove();
     const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", "auto");
     try { const r = await api("/api/data/upload", { body: fd }); toast(r.already_imported ? "Already imported" : `${t("s_saved")} ${r.imported} / ${r.rows_total}`); load(); } catch (e) { toast(e.message, "bad"); }
   } }, t("s_upload"));
@@ -1336,8 +1491,33 @@ async function viewSimpleFinancing(v) {
 }
 
 async function viewSimpleSettings(v) {
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard());
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), await privacyCard());
 }
 
+// ------------------------------------------------------------------ tab bars (every page): sliding ink + panel cross-fade
+function placeInk(bar) {
+  let ink = bar.querySelector(".tab-ink");
+  if (!ink) { ink = h("span", { class: "tab-ink", "aria-hidden": "true" }); bar.appendChild(ink); bar.classList.add("has-ink"); }
+  const a = bar.querySelector("button.active");
+  ink.style.opacity = a ? "1" : "0";
+  if (a) ink.style.transform = `translateX(${a.offsetLeft}px) scaleX(${a.offsetWidth})`;
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".tabs button");
+  if (!btn || btn.classList.contains("active")) return;
+  const bar = btn.closest(".tabs"), panel = bar.parentElement.lastElementChild;
+  if (motionOK() && panel && panel !== bar && panel.offsetHeight) {  // old panel fades out as a ghost copy
+    const ghost = panel.cloneNode(true);
+    ghost.removeAttribute("id"); ghost.classList.add("panel-ghost"); ghost.setAttribute("aria-hidden", "true");
+    ghost.style.top = panel.offsetTop + "px"; ghost.style.left = panel.offsetLeft + "px"; ghost.style.width = panel.offsetWidth + "px";
+    panel.before(ghost); setTimeout(() => ghost.remove(), 260);
+  }
+  setTimeout(() => { placeInk(bar); restartAnim(panel, "panel-enter"); });
+}, true);
+let inkRaf = 0;
+new MutationObserver(() => { cancelAnimationFrame(inkRaf); inkRaf = requestAnimationFrame(() =>
+  document.querySelectorAll(".tabs:not(.has-ink)").forEach(placeInk)); }).observe(document.body, { childList: true, subtree: true });
+window.addEventListener("resize", () => document.querySelectorAll(".tabs.has-ink").forEach(placeInk));
+
 // ------------------------------------------------------------------ start
-if (S.token) boot().catch(() => renderLogin()); else renderLogin();
+boot().catch(() => renderLogin());

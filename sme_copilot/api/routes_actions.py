@@ -57,7 +57,7 @@ def _pending_dict(p: PendingAction) -> dict[str, Any]:
     return {"id": p.id, "tool": p.tool, "tier": p.tier, "summary": p.summary, "amount": float(p.amount),
             "recipient": p.recipient, "status": p.status, "origin": p.origin, "created_at": p.created_at.isoformat(),
             "expires_at": p.expires_at.isoformat(), "decided_at": p.decided_at.isoformat() if p.decided_at else None,
-            "decided_by": p.decided_by, "result": p.result or {}}
+            "decided_by": p.decided_by, "result": p.result or {}, "preview": (p.args or {}).get("preview", "")}
 
 
 @router.get("/actions/pending")
