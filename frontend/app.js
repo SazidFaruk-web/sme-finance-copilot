@@ -3,7 +3,7 @@
 // uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
-import { barChart, hbarChart, lineChart } from "./charts.js?v=7";
+import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -35,7 +35,7 @@ const T = {
     style: "Style", st_general: "General", st_green: "Green", st_blue: "Blue", theme_note: "Light/Dark applies to the General style.",
     search_ph: "Search records…", range: "Date range", welcome: "Welcome back", sec_work: "What's working", sec_alerts: "Alerts",
     sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip",
-    home_layout: "Business & home layout", change_layout: "Change layout" },
+    home_layout: "Business & home layout", change_layout: "Change layout", account: "Account", show_me: "Show me", got_it: "Got it" },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
     parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট", profit_m: "এই মাসের লাভ", costs_m: "খরচ ক্যাটাগরি অনুযায়ী (এই মাস)", aging_t: "ক্রেতাদের বকেয়া, কত দেরি",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
@@ -61,7 +61,7 @@ const T = {
     style: "স্টাইল", st_general: "সাধারণ", st_green: "সবুজ", st_blue: "নীল", theme_note: "লাইট/ডার্ক শুধু সাধারণ স্টাইলে কাজ করে।",
     search_ph: "হিসাব খুঁজুন…", range: "সময়সীমা", welcome: "আবার স্বাগতম", sec_work: "যা ভালো চলছে", sec_alerts: "সতর্কতা",
     sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস",
-    home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান" },
+    home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান", account: "অ্যাকাউন্ট", show_me: "দেখান", got_it: "বুঝেছি" },
 };
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -349,31 +349,50 @@ async function deleteTxn(r, onDone, tr) {
 }
 
 // ------------------------------------------------------------------ login
-async function renderLogin(err) {
+async function renderLogin(err, startTab = "login") {
   try { S.health = await (await fetch("/api/health")).json(); } catch { S.health = {}; }
-  const u = h("input", { type: "text", placeholder: "username", autocomplete: "username", value: "nusrat" });
-  const p = h("input", { type: "password", placeholder: "password", autocomplete: "current-password" });
+  const canSignup = S.health.allow_signup !== false;
   const msg = h("div", { class: "small", style: "color:var(--critical);min-height:18px" }, err || "");
-  const submit = async e => {
+  const field = (label, input, hint) => h("label", { class: "field" }, label, input, hint ? h("span", { class: "hint" }, hint) : null);
+  // Log in
+  const u = h("input", { type: "text", placeholder: "username", autocomplete: "username", value: S.health.demo_users ? "nusrat" : "" });
+  const p = h("input", { type: "password", placeholder: "password", autocomplete: "current-password" });
+  const loginForm = h("form", { class: "grid", style: "gap:10px", onsubmit: async e => {
     e.preventDefault();
-    try {
-      const r = await api("/api/auth/login", { body: { username: u.value, password: p.value } });
-      sessionStorage.removeItem("token"); boot();
-    } catch (ex) { msg.textContent = ex.message; }
+    try { await api("/api/auth/login", { body: { username: u.value, password: p.value } }); sessionStorage.removeItem("token"); boot(); }
+    catch (ex) { msg.textContent = ex.message; }
+  } }, field("Username", u), field("Password", p), h("button", { class: "btn primary", type: "submit" }, t("login")));
+  // Create account: a new business with you as the owner; the setup wizard follows.
+  const biz = h("input", { type: "text", placeholder: "e.g. Rina Beauty Salon", maxlength: 120, autocomplete: "organization" });
+  const name = h("input", { type: "text", placeholder: "Your name", maxlength: 120, autocomplete: "name" });
+  const nu = h("input", { type: "text", placeholder: "letters, numbers, . _ -", maxlength: 40, autocomplete: "username" });
+  const np = h("input", { type: "password", minlength: 8, autocomplete: "new-password" });
+  const np2 = h("input", { type: "password", minlength: 8, autocomplete: "new-password" });
+  const signupForm = h("form", { class: "grid", style: "gap:10px", onsubmit: async e => {
+    e.preventDefault();
+    if (np.value !== np2.value) { msg.textContent = "The two passwords are different."; return; }
+    try { await api("/api/auth/signup", { body: { business_name: biz.value, full_name: name.value, username: nu.value, password: np.value } }); boot(); }
+    catch (ex) { msg.textContent = ex.message; }
+  } }, field("Business name", biz), field("Your name", name), field("Username", nu, "You will use this to log in."),
+    field("Password", np, "At least 8 characters."), field("Password again", np2), h("button", { class: "btn primary", type: "submit" }, "Create account"));
+  const body = h("div", {});
+  const tabs = h("div", { class: "tabs", role: "tablist" }, [["login", t("login")], ["signup", "Create account"]].map(([k, l]) =>
+    h("button", { type: "button", role: "tab", class: k === startTab ? "active" : "", onclick: e => show(k, e.currentTarget) }, l)));
+  const show = (k, btn) => {
+    tabs.querySelectorAll("button").forEach(x => { x.classList.toggle("active", x === btn); x.setAttribute("aria-selected", String(x === btn)); });
+    msg.textContent = ""; body.replaceChildren(k === "login" ? loginForm : signupForm, msg);
+    (k === "login" ? (u.value ? p : u) : biz).focus();
   };
   const demo = S.health.demo_users ? h("div", { class: "notice", style: "margin-top:12px" },
     h("div", { style: "font-weight:600" }, "Demo logins (demo deployment only)"),
     S.health.demo_users.map(d => h("div", { class: "row small" }, h("span", { class: "chip" }, d.role),
-      h("button", { class: "btn ghost sm", type: "button", onclick: () => { u.value = d.username; p.value = d.password; } }, `${d.username} / ${d.password}`)))) : null;
+      h("button", { class: "btn ghost sm", type: "button", onclick: () => { show("login", tabs.firstChild); u.value = d.username; p.value = d.password; } }, `${d.username} / ${d.password}`)))) : null;
   $("#root").replaceChildren(h("div", { class: "login" }, h("div", { class: "card" },
     h("h1", {}, "SME Finance Copilot"),
     h("p", { class: "muted" }, "Cash flow, analysis and financing for Bangladesh small businesses. ব্যবসার হিসাব, নগদ প্রবাহ ও ঋণ সহায়ক।"),
-    h("form", { onsubmit: submit, class: "grid", style: "gap:10px" },
-      h("label", { class: "field" }, "Username", u), h("label", { class: "field" }, "Password", p), msg,
-      h("button", { class: "btn primary", type: "submit" }, t("login"))),
-    demo,
+    canSignup ? tabs : null, body, demo,
     h("p", { class: "small muted", style: "margin-top:12px" }, "Decision support only - not licensed financial advice."))));
-  p.focus();
+  show(canSignup ? startTab : "login", [...tabs.children].find(x => x.classList.contains("active")) || tabs.firstChild);
 }
 function logout(expired) {
   if (!expired) fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": csrf() }, credentials: "same-origin" });
@@ -436,6 +455,26 @@ function settingsMenu() {
   return wrap;
 }
 
+// Avatar button: who is signed in, a link to settings, and log out.
+function accountMenu(name) {
+  const wrap = h("div", { class: "menu-wrap" });
+  const panel = h("div", { class: "menu account-menu hidden", role: "menu" });
+  const close = () => { panel.classList.add("hidden"); document.removeEventListener("click", outside); };
+  const outside = e => { if (!wrap.contains(e.target)) close(); };
+  const btn = h("button", { class: "avatar", "aria-haspopup": "true", title: `${name} · ${S.user.role}`, "aria-label": `${t("account")}: ${name}`, onclick: () => {
+    if (!panel.classList.contains("hidden")) return close();
+    panel.replaceChildren(h("div", { class: "row" }, h("span", { class: "avatar", "aria-hidden": "true" }, btn.textContent),
+        h("div", {}, h("b", {}, name), h("div", { class: "small muted" }, `${S.user.username} · ${S.user.role} · ${S.user.business_name || ""}`))),
+      h("div", { class: "grid", style: "gap:6px;margin-top:12px" },
+        h("a", { class: "btn sm", href: "#settings", onclick: close }, "⚙ " + t("all_settings")),
+        h("button", { class: "btn sm danger", onclick: () => { close(); logout(false); } }, "⎋ " + t("logout"))));
+    panel.classList.remove("hidden");
+    setTimeout(() => document.addEventListener("click", outside));
+  } }, name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase());
+  wrap.append(btn, panel);
+  return wrap;
+}
+
 async function boot() {
   try {
     const me = await fetch("/api/auth/me", { credentials: "same-origin" });  // cookie session, if any
@@ -452,6 +491,7 @@ async function boot() {
   window.onhashchange = route;
   route();
   if (!S.home.exists) openWizard(true);
+  else maybeShowTip();
 }
 
 let pendingCount = 0;
@@ -466,8 +506,7 @@ function renderShell() {
     onkeydown: e => { if (e.key === "Enter" && e.target.value.trim()) location.hash = "#data?q=" + encodeURIComponent(e.target.value.trim()); } });
   const range = simple ? null : h("select", { "aria-label": t("range"), onchange: e => { const p = e.target.value; e.target.selectedIndex = 0; if (p) location.hash = "#reports?period=" + p; } },
     [["", "▦ " + t("range")], ["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"]].map(([v, l]) => h("option", { value: v }, l)));
-  const avatar = h("a", { class: "avatar", href: "#settings", title: `${name} · ${S.user.role}`, "aria-label": `${name} · ${S.user.role}` },
-    name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase());
+  const avatar = accountMenu(name);
   const modelSel = h("select", { id: "model-select", title: "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
     S.models.profiles.map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
       `${p.label}${p.external ? " ☁" : " ⌂"}${p.available ? "" : " (" + p.reason + ")"}`)));
@@ -761,7 +800,7 @@ function pendingActions(c) {
 }
 // What's working (positive signals from the KPIs), Needs attention (critical alerts), Alerts (the rest),
 // Recommendations (the digest's suggested actions).
-function insightSections(d, recs) {
+function insightSections(d, recsP) {
   const k = d.kpis, f = d.forecast, { frac, last } = monthPace(d);
   const good = [];
   if (last && last.income && k.income_this_month / frac > last.income) good.push(["Sales are ahead of last month's pace", `${money(k.income_this_month)} so far this month`]);
@@ -773,14 +812,18 @@ function insightSections(d, recs) {
   const crit = d.alerts.filter(a => a.severity === "critical"), rest = d.alerts.filter(a => a.severity !== "critical");
   const sec = (cls, title, items, empty) => h("div", { class: "card sec-card " + cls }, h("h2", {}, title),
     items.length ? items : h("p", { class: "muted small" }, empty));
-  return h("div", { class: "grid g-4s", style: "margin-top:16px" },
+  const recCard = h("div", { class: "card sec-card s-rec" }, h("h2", {}, t("sec_recs")),
+    h("div", { class: "skeleton-block" }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
+  const out = h("div", { class: "grid g-4s", style: "margin-top:16px" },
     sec("s-good", t("sec_work"), good.map(([a, b]) => h("div", { class: "sec-item" }, h("b", {}, "✓ " + a), h("span", { class: "muted" }, b))),
       "Keep recording sales and costs to see what is going well."),
     sec("s-attn", t("alerts"), crit.map(alertItem), "Nothing urgent. 👍"),
     sec("s-alert", t("sec_alerts"), rest.map(alertItem), "No alerts."),
-    sec("s-rec", t("sec_recs"), recs.map(r => h("div", { class: "sec-item" }, h("b", {}, r.title), h("span", { class: "muted" }, r.reason),
-      h("div", { style: "margin-top:4px" }, h("button", { class: "btn sm primary", onclick: () => runTool(r.tool, r.args) }, "Do it")))),
-      "No recommendations right now."));
+    recCard);
+  recsP.then(recs => recCard.replaceWith(sec("s-rec", t("sec_recs"), recs.map(r => h("div", { class: "sec-item" }, h("b", {}, r.title),
+    h("span", { class: "muted" }, r.reason), h("div", { style: "margin-top:4px" }, h("button", { class: "btn sm primary", onclick: () => runTool(r.tool, r.args) }, "Do it")))),
+    "No recommendations right now.")));
+  return out;
 }
 function tipCard() {
   return h("div", { class: "card tip-card" }, h("h2", {}, "💡 " + t("tip")),
@@ -789,7 +832,9 @@ function tipCard() {
 }
 
 async function viewDashboard(v) {
-  const [d, dg] = await Promise.all([api("/api/dashboard"), api("/api/digest?period=weekly").catch(() => ({ actions: [] }))]);
+  const d = await api("/api/dashboard");
+  // After the dashboard, not alongside it: both refresh the alert table, and running them together races.
+  const recs = showWidget("todo_actions") ? api("/api/digest?period=weekly").then(x => x.actions || []).catch(() => []) : null;
   $("#biz-name").textContent = d.business.name;
   $("#asof").textContent = "as of " + d.as_of;
   const k = d.kpis, { frac, last } = monthPace(d);
@@ -852,7 +897,7 @@ async function viewDashboard(v) {
   const KPI = { cash_now: [ck], money_in_out: [ik, ek], receivables_aging: [ok], profit_month: [pk, gk], cash_forecast: [fk, rk] };
   const half = el => ({ half: el }), card = (title, body) => h("div", { class: "card" }, h("h2", {}, title), body);
   const BLOCKS = {
-    todo_actions: () => [quickActions(d), pending, insightSections(d, dg.actions || [])],
+    todo_actions: () => [quickActions(d), pending, insightSections(d, recs)],
     cash_forecast: () => [h("div", { style: "margin-top:16px" }, fcCard), whatIfCard(series)],
     money_in_out: () => [half(card(t("monthly"), mChart))],
     expenses_by_category: () => [half(card(t("costs_m"), costsM)), half(card(t("costs"), costs))],
@@ -1693,6 +1738,40 @@ async function viewSimpleSettings(v) {
   v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), homeLayoutCard(), await privacyCard());
 }
 
+// ------------------------------------------------------------------ first-days tips
+const TIPS = {
+  dashboard: ["shows your cash, money in and out, and what needs attention today.", "আপনার নগদ, আয়-ব্যয় আর আজ কী দেখা দরকার তা দেখায়।"],
+  chat: ["answers any question about your business, in English, বাংলা or Banglish. Try “How much profit last month?”", "ব্যবসা নিয়ে যেকোনো প্রশ্নের উত্তর দেয়, বাংলা বা ইংরেজিতে। যেমন: “গত মাসে লাভ কত?”"],
+  data: ["is where you add records: write “sold 12 shirts 6000 cash”, or upload a bank or bKash file.", "এখানে হিসাব যোগ করুন: “১২টা শার্ট বিক্রি ৬০০০ নগদ” লিখুন, বা ব্যাংক/বিকাশ ফাইল আপলোড করুন।"],
+  invoices: ["lets you bill a customer and record payments when they pay.", "ক্রেতাকে বিল দিন আর টাকা পেলে পেমেন্ট লিখে রাখুন।"],
+  parties: ["shows who owes you and whom you owe, with every payment.", "কে আপনার কাছে বাকি আর আপনি কার কাছে বাকি, সব পেমেন্টসহ দেখায়।"],
+  reports: ["gives profit & loss and cash flow for any period, as PDF or CSV.", "যেকোনো সময়ের লাভ-ক্ষতি ও নগদ প্রবাহ, PDF বা CSV হিসেবে।"],
+  stock: ["tracks your products so you know what is running low.", "পণ্যের হিসাব রাখে, কোনটা কমে যাচ্ছে জানায়।"],
+  financing: ["shows your loan-readiness score and loans that fit your numbers.", "আপনার ঋণ-প্রস্তুতি স্কোর আর আপনার জন্য মানানসই ঋণ দেখায়।"],
+  actions: ["is where you approve payments and reminders the copilot prepared.", "কোপাইলটের তৈরি পেমেন্ট ও রিমাইন্ডার এখানে অনুমোদন করুন।"],
+  settings: ["lets you change style, language and your home layout any time.", "স্টাইল, ভাষা আর হোম লেআউট যেকোনো সময় বদলান।"],
+};
+const TIP_DAYS = 3, TIP_CHANCE = 1 / 3;
+function maybeShowTip() {
+  const created = Date.parse((S.user.created_at || "") + "Z");
+  if (!isFinite(created) || Date.now() - created > TIP_DAYS * 864e5 || Math.random() >= TIP_CHANCE) return;
+  const key = "tips_seen:" + S.user.username;
+  let seen = []; try { seen = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* private mode */ }
+  const pool = routes().filter(r => TIPS[r]);
+  const fresh = pool.filter(r => !seen.includes(r));
+  const r = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))];
+  if (!r) return;
+  savePref(key, JSON.stringify([...seen.filter(x => x !== r), r]));
+  const label = t(S.mode === "simple" ? SIMPLE_LABELS[r] : r);
+  const tip = animatedRemove(h("div", { class: "tip-pop", role: "status" },
+    h("div", { class: "row" }, h("b", { class: "grow" }, "💡 " + t("tip")), h("button", { class: "btn ghost sm", "aria-label": t("got_it"), onclick: () => tip.remove() }, "✕")),
+    h("p", {}, h("span", { class: "tip-route" }, `${ICONS[r]} ${label}`), " ", TIPS[r][S.ui === "bn" ? 1 : 0]),
+    h("div", { class: "row", style: "justify-content:flex-end" },
+      h("button", { class: "btn ghost sm", onclick: () => tip.remove() }, t("got_it")),
+      h("button", { class: "btn primary sm", onclick: () => { tip.remove(); location.hash = "#" + r; } }, t("show_me")))), 240);
+  setTimeout(() => { document.body.appendChild(tip); setTimeout(() => tip.remove(), 20000); }, 1200);
+}
+
 // ------------------------------------------------------------------ onboarding wizard + home layout settings
 function homeLayoutCard() {
   const hp = S.home || { widgets: [] }, bt = hp.business_type || "";
@@ -1721,7 +1800,9 @@ function openWizard(first) {
       h("div", { class: "row" }, h("h1", { class: "grow" }, first ? `${t("hello")}, ${(S.user.full_name || S.user.username).split(" ")[0]} 👋` : t("home_layout")),
         first ? null : h("button", { class: "btn ghost", onclick: close, "aria-label": "Close" }, "✕")),
       h("p", { class: "muted", style: "margin-top:0" }, "Let's set up your home screen. You can change this any time in Settings."),
-      h("ol", { class: "wiz-steps" }, dots), stage)), 260);
+      h("ol", { class: "wiz-steps" }, dots), stage,
+      h("p", { class: "small muted wiz-foot" }, `${t("signed_in_as")} ${S.user.full_name || S.user.username} (${S.user.username}) · `,
+        h("button", { class: "link", onclick: () => { close(); logout(false); } }, t("logout"))))), 260);
   document.addEventListener("keydown", onKey);
   document.body.appendChild(wiz);
 

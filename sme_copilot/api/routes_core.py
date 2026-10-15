@@ -18,14 +18,14 @@ from sme_copilot.agent.toolkit import REGISTRY, load_all_tools
 from sme_copilot.config import get_settings
 from sme_copilot.db import SessionLocal, get_db
 from sme_copilot.llm_providers import Message, get_registry
-from sme_copilot.models import AuditEvent, ChatMessage, Conversation, User
+from sme_copilot.models import AuditEvent, Business, ChatMessage, Conversation, SandboxAccount, User
 from sme_copilot.security import audit
-from sme_copilot.security.auth import AuthError, authenticate, create_session, revoke_token
+from sme_copilot.security.auth import AuthError, authenticate, create_session, create_user, revoke_token
 from sme_copilot.security.permissions import TIER_NAMES
 from sme_copilot.telemetry.interactions import log_feedback, log_interaction
 
 from .deps import CSRF_COOKIE, SESSION_COOKIE, bearer_token, current_user, require_tier, tool_context
-from .schemas import ChatIn, FeedbackIn, LoginIn, ToolCallIn
+from .schemas import ChatIn, FeedbackIn, LoginIn, SignupIn, ToolCallIn
 
 router = APIRouter(prefix="/api")
 
@@ -40,9 +40,32 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         audit.record(db, actor=body.username[:80], event_type="auth", action="login_failed",
                      inputs={"ip": ip}, result={"reason": str(e)})
         raise HTTPException(401, str(e)) from e
-    token = create_session(db, user)
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="auth",
                  action="login", inputs={"ip": ip})
+    return _start_session(db, user, request, response)
+
+
+@router.post("/auth/signup")
+def signup(body: SignupIn, request: Request, response: Response, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """New business + its owner account, then signed in. The onboarding wizard runs on first open."""
+    if not get_settings().allow_signup:
+        raise HTTPException(403, "sign-up is turned off on this server")
+    username = body.username.strip().lower()
+    if db.scalar(select(User.id).where(User.username == username)):
+        raise HTTPException(409, "that username is taken")
+    b = Business(name=body.business_name.strip(), owner_name=body.full_name.strip())
+    db.add(b)
+    db.flush()
+    user = create_user(db, b.id, username, body.password, "owner", body.full_name.strip())
+    db.add(SandboxAccount(business_id=b.id, name="Sandbox Operating Account", account_no=f"SBX-{b.id:010d}", balance=0))
+    db.commit()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=b.id, event_type="auth", action="signup",
+                 inputs={"ip": request.client.host if request.client else ""})
+    return _start_session(db, user, request, response)
+
+
+def _start_session(db: Session, user: User, request: Request, response: Response) -> dict[str, Any]:
+    token = create_session(db, user)
     st = get_settings()
     secure = st.cookie_secure or request.url.scheme == "https"
     csrf = secrets.token_urlsafe(24)
@@ -66,8 +89,6 @@ def logout(response: Response, token: str = Depends(bearer_token), user: User = 
 
 @router.get("/auth/me")
 def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
-    from sme_copilot.models import Business
-
     from .deps import as_of_today
     b = db.get(Business, user.business_id)
     return {**_user_dict(user), "business_name": b.name if b else "", "as_of": as_of_today().isoformat()}
@@ -76,7 +97,8 @@ def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dic
 def _user_dict(u: User) -> dict[str, Any]:
     from sme_copilot.security.permissions import ROLE_MAX_TIER
     return {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role,
-            "business_id": u.business_id, "max_tier": ROLE_MAX_TIER.get(u.role, 0)}
+            "business_id": u.business_id, "max_tier": ROLE_MAX_TIER.get(u.role, 0),
+            "created_at": u.created_at.isoformat() if u.created_at else None}
 
 
 # ----------------------------------------------------------------------------- models

@@ -12,6 +12,13 @@ class LoginIn(BaseModel):
     password: str = Field(..., min_length=1, max_length=200)
 
 
+class SignupIn(BaseModel):
+    business_name: str = Field(..., min_length=2, max_length=120)
+    full_name: str = Field(..., min_length=1, max_length=120)
+    username: str = Field(..., min_length=3, max_length=40, pattern=r"^[A-Za-z0-9._-]+$")
+    password: str = Field(..., min_length=8, max_length=200)
+
+
 class ChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     conversation_id: int | None = None

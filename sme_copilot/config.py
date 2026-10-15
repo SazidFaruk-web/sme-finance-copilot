@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     step_up_amount: float = 50_000  # payments/deletes at or above this need the password again
     reminder_daily_limit: int = 20  # reminders queued per business per day
     cookie_secure: bool = False  # set COOKIE_SECURE=true behind HTTPS
+    allow_signup: bool = True  # ALLOW_SIGNUP=false: only existing accounts can log in
     confirmation_ttl_minutes: int = 10
 
     # --- LLM ------------------------------------------------------------------------

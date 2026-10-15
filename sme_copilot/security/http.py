@@ -68,7 +68,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path.startswith("/api/"):
             general, login = self.get_limits()
             client = request.client.host if request.client else "unknown"
-            bucket, limit = ("login", login) if path == "/api/auth/login" else ("api", general)
+            bucket, limit = ("login", login) if path in ("/api/auth/login", "/api/auth/signup") else ("api", general)
             ok, retry = limiter.allow((client, bucket), limit)
             if not ok:
                 return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,

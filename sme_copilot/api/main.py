@@ -75,7 +75,8 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict:
         st = get_settings()
-        out = {"status": "ok", "version": __version__, "env": st.app_env, "local_only_mode": st.local_only_mode}
+        out = {"status": "ok", "version": __version__, "env": st.app_env, "local_only_mode": st.local_only_mode,
+               "allow_signup": st.allow_signup}
         if st.app_env == "demo":  # demo deployments only: show the seeded demo logins on the login screen
             import os
             out["demo_users"] = [

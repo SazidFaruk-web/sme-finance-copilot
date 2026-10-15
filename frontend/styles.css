@@ -735,3 +735,28 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
   :is(#view.route-enter, .panel-enter, .modal-bg, .modal, .pop-card, .toast, .wizard, .wiz-step, .view .card) { animation: rm-in .15s ease-out both; }
   :is(.modal-bg.closing, .toast.closing, .wizard.closing) { animation: rm-out .12s ease-in both; }
 }
+
+/* ---------- account menu, wizard footer, first-days tip */
+button.avatar { border: 0; cursor: pointer; padding: 0; }
+button.avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.account-menu { width: 260px; }
+.account-menu .avatar { width: 36px; height: 36px; }
+.wiz-foot { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--grid); }
+.tip-pop { position: fixed; left: 18px; bottom: 18px; z-index: 55; width: min(360px, calc(100vw - 32px)); padding: 12px 14px;
+  background: var(--surface-1); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .18); }
+.tip-pop p { margin: 6px 0 10px; font-size: 13.5px; }
+.tip-route { font-weight: 650; color: var(--accent-ink); }
+:root[data-style="green"] .tip-pop { background: #14432f; color: #e6f2eb; border-color: #14432f; border-left-color: #5fb98a; }
+:root[data-style="green"] .tip-pop .tip-route { color: #9fdcbc; }
+:root[data-style="green"] .tip-pop .btn.ghost { color: #e6f2eb; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes tip-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+  .tip-pop { animation: tip-in .28s cubic-bezier(.2, .9, .3, 1.15) both; }
+  .tip-pop.closing { animation: toast-out .2s ease-in both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip-pop { animation: rm-in .15s ease-out both; }
+  .tip-pop.closing { animation: rm-out .12s ease-in both; }
+}
+:root[data-style="green"] .tip-pop .btn.primary { background: #5fb98a; border-color: #5fb98a; color: #0d2e20; }

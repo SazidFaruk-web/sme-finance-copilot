@@ -135,3 +135,26 @@ def test_prefs_are_per_user_and_cross_business_denied(client, seeded):
     assert client.get("/api/home/prefs", headers=login(client, "viewer", "viewer-pass-123")).json()["exists"] is False
     client.cookies.clear()
     assert client.get("/api/home/prefs").status_code == 401
+
+
+def test_signup_creates_business_owner_then_onboarding(client, monkeypatch):
+    body = {"business_name": "Rina Salon", "full_name": "Rina Akter", "username": "Rina.A", "password": "salon-pass-99"}
+    r = client.post("/api/auth/signup", json=body)
+    assert r.status_code == 200, r.text
+    u = r.json()["user"]
+    assert u["role"] == "owner" and u["username"] == "rina.a" and u["created_at"]
+    h = {"Authorization": f"Bearer {r.json()['token']}"}
+    me = client.get("/api/auth/me", headers=h).json()
+    assert me["business_name"] == "Rina Salon"
+    assert client.get("/api/home/prefs", headers=h).json()["exists"] is False  # wizard shows on first open
+    client.post("/api/home/prefs", json={"business_type": "service_salon", "mode": "general"}, headers=h)
+    assert client.get("/api/home/prefs", headers=h).json()["exists"] is True  # ... and never again
+    assert client.get("/api/data/transactions", headers=h).json()["rows"] == []  # sees none of the seeded data
+    assert client.post("/api/auth/signup", json=body).status_code == 409
+    assert client.post("/api/auth/signup", json={**body, "username": "x2", "password": "short"}).status_code == 422
+    assert client.post("/api/auth/signup", json={**body, "username": "bad name!"}).status_code == 422
+    from sme_copilot.config import reset_settings_cache
+    monkeypatch.setenv("ALLOW_SIGNUP", "false")
+    reset_settings_cache()
+    assert client.post("/api/auth/signup", json={**body, "username": "rina2"}).status_code == 403
+    assert client.get("/api/health").json()["allow_signup"] is False
