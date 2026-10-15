@@ -3,7 +3,7 @@
 // uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
-import { barChart, hbarChart, lineChart } from "./charts.js?v=6";
+import { barChart, hbarChart, lineChart } from "./charts.js?v=7";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -148,7 +148,7 @@ function animatedRemove(el, ms = 200) {
   el.remove = () => {
     if (el.classList.contains("closing")) return;
     el.classList.add("closing");
-    setTimeout(() => Element.prototype.remove.call(el), motionOK() ? ms : 0);
+    setTimeout(() => Element.prototype.remove.call(el), motionOK() ? ms : 120);  // reduced motion: short fade only
   };
   return el;
 }
@@ -1834,6 +1834,39 @@ let inkRaf = 0;
 new MutationObserver(() => { cancelAnimationFrame(inkRaf); inkRaf = requestAnimationFrame(() =>
   document.querySelectorAll(".tabs:not(.has-ink)").forEach(placeInk)); }).observe(document.body, { childList: true, subtree: true });
 window.addEventListener("resize", () => document.querySelectorAll(".tabs.has-ink").forEach(placeInk));
+
+// ------------------------------------------------------------------ sliding hover highlight
+// One pill per container (sidebar, tab bar, menu, table, list) glides to the hovered item: translate + size,
+// ease-out. Event delegation, so new pages/rows need no setup.
+const GLIDE_ITEMS = ".nav a, .tabs > button, .menu label.field, table.t tr, .rec, .sec-item";
+let glideCur = null;
+const glideHost = it => it.tagName === "TR" ? (it.closest(".scroll") || it.closest("table").parentElement) : it.parentElement;
+function glideOff() {
+  const p = glideCur && glideCur.querySelector(":scope > .glide");
+  if (p) p.style.opacity = "0";
+  glideCur = null;
+}
+function glideTo(host, it) {
+  let pill = host.querySelector(":scope > .glide");
+  if (!pill) { pill = h("span", { class: "glide", "aria-hidden": "true" }); host.classList.add("glide-host"); host.prepend(pill); }
+  const fresh = glideCur !== host || pill.style.opacity !== "1";  // first hover: appear in place, then glide
+  const hr = host.getBoundingClientRect(), ir = it.getBoundingClientRect();
+  pill.classList.toggle("jump", fresh);
+  pill.style.width = ir.width + "px"; pill.style.height = ir.height + "px";
+  pill.style.transform = `translate(${ir.left - hr.left + host.scrollLeft - host.clientLeft}px, ${ir.top - hr.top + host.scrollTop - host.clientTop}px)`;
+  pill.style.opacity = "1";
+  if (fresh) { void pill.offsetWidth; pill.classList.remove("jump"); }
+  glideCur = host;
+}
+document.addEventListener("pointerover", e => {
+  if (e.pointerType === "touch") return;
+  const it = e.target.closest && e.target.closest(GLIDE_ITEMS);
+  if (!it || (it.tagName === "TR" && it.querySelector("th"))) { if (!(glideCur && glideCur.contains(e.target))) glideOff(); return; }
+  const host = glideHost(it);
+  if (glideCur && glideCur !== host) glideOff();
+  glideTo(host, it);
+});
+document.addEventListener("pointerleave", glideOff);
 
 // ------------------------------------------------------------------ start
 boot().catch(() => renderLogin());
