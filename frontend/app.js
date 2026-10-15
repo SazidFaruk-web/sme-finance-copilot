@@ -7,7 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js";
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
   en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
-    parties: "Customers & suppliers", s_parties: "Baki khata",
+    parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
@@ -31,7 +31,7 @@ const T = {
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings." },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
-    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা",
+    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
@@ -111,8 +111,9 @@ function money(v, short = false) {
 const pct = v => (v === null || v === undefined) ? "–" : `${v}%`;
 const fmtDate = s => { const d = new Date(s + "T00:00:00"); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
 
-function toast(msg, ms = 3500) {
-  const el = h("div", { class: "toast", role: "status" }, msg);
+function toast(msg, tone = "", ms = 3500) {
+  if (typeof tone === "number") { ms = tone; tone = ""; }
+  const el = h("div", { class: "toast" + (tone ? " " + tone : ""), role: "status" }, msg);
   document.body.appendChild(el); setTimeout(() => el.remove(), ms);
 }
 function modal(title, body, actions = []) {
@@ -237,10 +238,10 @@ function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "chat", "data", "parties", "stock", "financing", "actions", "audit", "settings"];
+const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "stock", "financing", "actions", "audit", "settings"];
 const SIMPLE_ROUTES = ["dashboard", "chat", "data", "parties", "financing", "settings"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties", financing: "s_loans", settings: "settings_btn" };
-const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", parties: "☺", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -335,9 +336,88 @@ function route() {
   const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
   const views = S.mode === "simple"
     ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings }
-    : { dashboard: viewDashboard, chat: viewChat, data: viewData, parties: viewParties, stock: viewStock, financing: viewFinancing, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, stock: viewStock, financing: viewFinancing, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
+}
+
+// ------------------------------------------------------------------ invoices
+const STATUS_TONE = { draft: "", sent: "info", partial: "warn", paid: "ok", overdue: "bad", written_off: "" };
+const statusBadge = s => h("span", { class: "chip status-" + s + " " + (STATUS_TONE[s] || "") }, s.replace("_", " "));
+const today = () => new Date().toISOString().slice(0, 10);
+
+async function viewInvoices(v) {
+  let status = "";
+  const canW = S.user.max_tier >= 1;
+  const body = h("div", {});
+  const filters = h("div", { class: "tabs" }, [["", "All"], ["draft", "Draft"], ["sent", "Sent"], ["partial", "Partly paid"], ["overdue", "Overdue"], ["paid", "Paid"]]
+    .map(([k, l], i) => h("button", { class: i ? "" : "active", onclick: e => { filters.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); status = k; load(); } }, l)));
+  async function load() {
+    const rows = await api(`/api/books/invoices${status ? "?status=" + status : ""}`);
+    if (!rows.length) { body.replaceChildren(emptyState("No invoices here yet.", canW ? "New invoice" : null, () => invoiceForm(load))); return; }
+    body.replaceChildren(h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t" },
+      h("tr", {}, ["No.", "Type", "Customer / supplier", "Date", "Due", "Total", "Balance", "Status", ""].map((x, i) => h("th", { class: i === 5 || i === 6 ? "r" : "" }, x))),
+      rows.map(i => h("tr", {},
+        h("td", {}, i.invoice_no || "#" + i.id), h("td", { class: "small muted" }, i.kind === "receivable" ? "sale" : "bill"),
+        h("td", {}, i.counterparty), h("td", { class: "num" }, i.issue_date), h("td", { class: "num" }, i.due_date, i.days_overdue ? h("div", { class: "small", style: "color:var(--critical)" }, `${i.days_overdue} days late`) : null),
+        h("td", { class: "r" }, money(i.amount)), h("td", { class: "r", style: "font-weight:600" }, money(i.outstanding)), h("td", {}, statusBadge(i.status)),
+        h("td", { class: "row-actions" },
+          canW && i.status === "draft" ? h("button", { class: "btn sm primary", onclick: async () => { try { await api(`/api/books/invoices/${i.id}/send`, { method: "POST" }); toast("Marked as sent", "ok"); load(); } catch (e) { toast(e.message, "bad"); } } }, "Mark sent") : null,
+          canW && i.outstanding > 0 && i.status !== "draft" ? h("button", { class: "btn sm primary", onclick: () => paymentForm(i, load) }, "Record payment") : null,
+          h("button", { class: "btn ghost sm", onclick: () => download(`/api/books/invoices/${i.id}/pdf`, `invoice_${i.invoice_no || i.id}.pdf`).catch(e => toast(e.message, "bad")) }, "PDF"))))))));
+  }
+  v.replaceChildren(h("div", { class: "row" }, h("h1", { class: "grow" }, t("invoices")),
+    canW ? h("button", { class: "btn primary", onclick: () => invoiceForm(load) }, "+ New invoice") : null), filters, body);
+  await load();
+}
+
+function invoiceForm(onDone) {
+  const kind = h("select", {}, h("option", { value: "receivable" }, "Sale to a customer"), h("option", { value: "payable" }, "Bill from a supplier"));
+  const party = h("input", { type: "text", placeholder: "Name" });
+  const issue = h("input", { type: "date", value: today() });
+  const due = h("input", { type: "date" });
+  const notes = h("input", { type: "text", placeholder: "Optional note printed on the invoice" });
+  const send = h("input", { type: "checkbox" });
+  const lines = h("div", { class: "grid", style: "gap:6px" });
+  const total = h("b", { class: "num" }, money(0));
+  const recalc = () => { let s = 0; lines.querySelectorAll(".inv-line").forEach(r => { const [, q, rt] = r.querySelectorAll("input"); s += (+q.value || 0) * (+rt.value || 0); }); total.textContent = money(s); };
+  const addLine = () => lines.appendChild(h("div", { class: "row inv-line" },
+    h("input", { type: "text", placeholder: "Item or service", class: "grow" }),
+    h("input", { type: "number", value: 1, min: 0, step: "any", style: "width:80px", oninput: recalc, "aria-label": "Quantity" }),
+    h("input", { type: "number", placeholder: "Rate ৳", min: 0, step: "any", style: "width:120px", oninput: recalc, "aria-label": "Rate" })));
+  addLine();
+  const err = h("div", { class: "small", style: "color:var(--critical)" });
+  const m = modal("New invoice", h("div", { class: "grid", style: "gap:10px" },
+    h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Type", kind), h("label", { class: "field" }, "Customer / supplier", party)),
+    h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Invoice date", issue), h("label", { class: "field" }, "Due date", due, h("span", { class: "hint" }, "Leave empty for 30 days"))),
+    h("div", {}, h("div", { class: "small muted" }, "Items (quantity × rate)"), lines, h("button", { class: "btn ghost sm", onclick: addLine }, "+ Add item")),
+    h("label", { class: "field" }, "Note", notes),
+    h("label", { class: "row small" }, send, "Mark as sent now (otherwise saved as a draft)"),
+    h("div", { class: "row" }, h("span", { class: "grow" }, "Total ", total), err)),
+    [h("button", { class: "btn primary", onclick: async () => {
+      const ls = [...lines.querySelectorAll(".inv-line")].map(r => { const [d, q, rt] = r.querySelectorAll("input"); return { description: d.value.trim(), quantity: +q.value || 1, rate: +rt.value || 0 }; }).filter(l => l.description);
+      try {
+        await api("/api/books/invoices", { body: { kind: kind.value, counterparty: party.value, issue_date: issue.value || null, due_date: due.value || null, notes: notes.value, send: send.checked, lines: ls } });
+        m.remove(); toast("Invoice saved", "ok"); onDone && onDone();
+      } catch (e) { err.textContent = e.message; }
+    } }, "Save invoice")]);
+  party.focus();
+}
+
+function paymentForm(inv, onDone) {
+  const amt = h("input", { type: "number", value: inv.outstanding, min: 0, step: "any" });
+  const date = h("input", { type: "date", value: today() });
+  const ch = h("select", {}, ["cash", "bank", "bkash", "nagad", "rocket", "card"].map(c => h("option", { value: c }, c)));
+  const err = h("div", { class: "small", style: "color:var(--critical)" });
+  const m = modal(`Record payment · ${inv.invoice_no}`, h("div", { class: "grid", style: "gap:10px" },
+    h("p", { class: "small muted", style: "margin:0" }, `${inv.counterparty} · balance due ${money(inv.outstanding)}. Enter less for a partial payment. This only records a payment that already happened.`),
+    h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Amount ৳", amt), h("label", { class: "field" }, "Date", date)),
+    h("label", { class: "field" }, "Paid by", ch), err),
+    [h("button", { class: "btn primary", onclick: async () => {
+      try { const r = await api(`/api/books/invoices/${inv.id}/payments`, { body: { amount: +amt.value, paid_on: date.value || null, channel: ch.value } });
+        m.remove(); toast(r.status === "paid" ? "Paid in full ✓" : `Partial payment saved · ${money(r.outstanding)} still due`, "ok"); onDone && onDone(); } catch (e) { err.textContent = e.message; }
+    } }, "Save payment")]);
+  amt.focus();
 }
 
 // ------------------------------------------------------------------ customers & suppliers (baki ledger)

@@ -342,3 +342,26 @@ class StockMovement(Base):
     reason: Mapped[str] = mapped_column(String(40))  # sale|sale_return|purchase|purchase_return|adjust|reversal:<reason>
     transaction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # no FK: survives txn deletion
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class InvoiceLine(Base):
+    __tablename__ = "invoice_lines"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), index=True)
+    description: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[float] = mapped_column(Float, default=1)
+    rate: Mapped[float] = mapped_column(Money)
+
+
+class InvoicePayment(Base):
+    """One full or partial payment against an invoice; ``transaction_id`` is the cash row it created."""
+    __tablename__ = "invoice_payments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[float] = mapped_column(Money)
+    paid_on: Mapped[date] = mapped_column(Date)
+    channel: Mapped[str] = mapped_column(String(20), default="cash")
+    transaction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # no FK: survives txn deletion
+    created_by: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

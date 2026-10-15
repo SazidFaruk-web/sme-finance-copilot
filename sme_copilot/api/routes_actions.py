@@ -25,6 +25,7 @@ from sme_copilot.models import (
     Draft,
     ImportBatch,
     Invoice,
+    InvoicePayment,
     Obligation,
     PendingAction,
     Reminder,
@@ -223,7 +224,7 @@ def compliance(user: User = Depends(current_user), db: Session = Depends(get_db)
 
 # ----------------------------------------------------------------------------- privacy
 BUSINESS_TABLES = [ChatMessage, Conversation, PendingAction, SandboxTransfer, SandboxAccount, Reminder, Draft, Report,
-                   Alert, Obligation, Transaction, Invoice, ImportBatch]
+                   InvoicePayment, Alert, Obligation, Transaction, Invoice, ImportBatch]
 
 
 @router.post("/privacy/delete")
