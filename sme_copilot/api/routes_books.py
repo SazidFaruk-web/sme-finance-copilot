@@ -1,9 +1,13 @@
-"""Bookkeeping basics: customer/supplier balances (baki ledger), invoices with full/partial payments."""
+"""Bookkeeping basics: customer/supplier balances (baki ledger), invoices with full/partial payments,
+P&L / cash-flow / aging reports with CSV and PDF export."""
 from __future__ import annotations
 
+import csv
+import io
 from datetime import date, timedelta
 from typing import Any, Literal
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -14,7 +18,10 @@ from sme_copilot.db import get_db
 from sme_copilot.models import Business, Invoice, InvoiceLine, InvoicePayment, Transaction, User
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
-from sme_copilot.tools.books_pdf import invoice_pdf
+from sme_copilot.tools import repo
+from sme_copilot.tools.analysis import aging, profitability, resolve_period
+from sme_copilot.tools.books_pdf import invoice_pdf, pdf_money, table_pdf
+from sme_copilot.tools.categorize import categories
 from sme_copilot.tools.ingestion import refresh_anomalies
 
 from .deps import as_of_today, current_user, require_tier
@@ -284,3 +291,118 @@ def record_payment(invoice_id: int, body: PaymentIn, user: User = Depends(requir
                          "outstanding": _outstanding(i)}, commit=False)
     db.commit()
     return {**_inv_dict(i, as_of_today()), "payment_id": p.id, "transaction_id": t.id}
+
+
+# ----------------------------------------------------------------------------- reports
+def report_period(period: str, start: date | None, end: date | None, today: date) -> tuple[date, date, str]:
+    """month | quarter | year (to date) | custom (start+end) | any named period the analysis tools accept."""
+    if period == "custom":
+        if not (start and end) or end < start:
+            raise HTTPException(422, "custom period needs a start and end date (start before end)")
+        return start, end, f"{start.isoformat()} to {end.isoformat()}"
+    if period == "quarter":
+        s = date(today.year, 3 * ((today.month - 1) // 3) + 1, 1)
+        return s, today, f"Q{(today.month - 1) // 3 + 1} {today.year} (to date)"
+    if period == "year":
+        return date(today.year, 1, 1), today, f"{today.year} (to date)"
+    try:
+        return resolve_period("this_month" if period == "month" else period, today)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+def _behavior(cat: str) -> str:
+    return (categories().get(cat) or {}).get("behavior", "variable")
+
+
+def _cat_totals(df, direction: str) -> dict[str, float]:
+    if df.empty:
+        return {}
+    g = df[df["direction"] == direction].groupby("category")["amount"].sum()
+    return {k: round(float(v), 2) for k, v in sorted(g.items(), key=lambda kv: -kv[1])}
+
+
+def build_report(db: Session, b: Business, kind: str, start: date, end: date, label: str, today: date,
+                 party_kind: str = "receivable") -> dict[str, Any]:
+    nice = lambda c: c.replace("_", " ").capitalize()  # noqa: E731
+    if kind == "aging":
+        inv = repo.load_invoices(db, b.id)
+        ag = aging(inv, today, party_kind) if not inv.empty else None
+        cols = ["Not yet due", "0-30 days", "31-60 days", "61+ days"]
+        per: dict[str, list[float]] = {}
+        for it in (ag.items if ag else []):
+            d = it.days_past_due
+            idx = 0 if d <= 0 else 1 if d <= 30 else 2 if d <= 60 else 3
+            per.setdefault(it.counterparty, [0.0] * 4)[idx] += it.outstanding
+        rows = [[name, *[round(x, 2) for x in v], round(sum(v), 2)] for name, v in
+                sorted(per.items(), key=lambda kv: -sum(kv[1]))]
+        tot = [round(sum(r[i] for r in rows), 2) for i in range(1, 6)]
+        who = "Customers" if party_kind == "receivable" else "Suppliers"
+        return {"kind": kind, "title": f"{'Receivables' if party_kind == 'receivable' else 'Payables'} aging",
+                "period": f"as of {today.isoformat()}", "header": [who, *cols, "Total"],
+                "rows": [*rows, ["Total", *tot]], "money_cols": [1, 2, 3, 4, 5], "bold_rows": [len(rows)],
+                "chart": dict(zip(cols, tot[:4])), "notes": ["Days are counted past the due date."]}
+    txns = repo.load_transactions(db, b.id, end=end)
+    df = txns[(txns["date"] >= pd.Timestamp(start)) & (txns["date"] <= pd.Timestamp(end))] if not txns.empty else txns
+    if kind == "pnl":
+        p = profitability(txns, start, end, label)
+        outs = _cat_totals(df, "out")
+        opex = [[f"  {nice(c)}", -v] for c, v in outs.items() if _behavior(c) in ("variable", "fixed")]
+        rows = [["Sales (revenue)", p.revenue], ["Cost of goods (stock purchases)", -p.cogs],
+                ["Gross profit", p.gross_profit], ["Operating expenses", -(p.variable_opex + p.fixed_opex)], *opex,
+                ["Other income", p.other_income], ["Operating profit", p.operating_profit]]
+        bold = [2, len(rows) - 1]
+        notes = [f"Gross margin {p.gross_margin_pct}% · operating margin {p.net_margin_pct}%"
+                 if p.gross_margin_pct is not None else "No sales in this period.",
+                 "Cash basis. Not counted in profit: " + (", ".join(
+                     f"{k.replace('_', ' ')} {v:,.0f}" for k, v in p.excluded.items() if v) or "none")]
+        return {"kind": kind, "title": "Profit & loss", "period": label, "header": ["Line", "Amount"], "rows": rows,
+                "money_cols": [1], "bold_rows": bold, "notes": notes}
+    if kind == "cashflow":
+        opening, _ = repo.cash_position(b, txns, start - timedelta(days=1))
+        closing, _ = repo.cash_position(b, txns, end)
+        ins, outs = _cat_totals(df, "in"), _cat_totals(df, "out")
+        rows = [["Opening cash", opening], ["Money in", sum(ins.values())],
+                *[[f"  {nice(c)}", v] for c, v in ins.items()], ["Money out", -sum(outs.values())],
+                *[[f"  {nice(c)}", -v] for c, v in outs.items()],
+                ["Net cash flow", round(sum(ins.values()) - sum(outs.values()), 2)], ["Closing cash", closing]]
+        bold = [0, 1, 2 + len(ins), len(rows) - 2, len(rows) - 1]
+        return {"kind": kind, "title": "Cash flow", "period": label, "header": ["Line", "Amount"],
+                "rows": [[r[0], round(float(r[1]), 2)] for r in rows], "money_cols": [1], "bold_rows": bold,
+                "notes": ["Opening and closing cash = opening balance + all recorded money in - money out."]}
+    raise HTTPException(404, "unknown report")
+
+
+@router.get("/reports/{kind}")
+def report(kind: Literal["pnl", "cashflow", "aging"], period: str = "month", start: date | None = None,
+           end: date | None = None, party: Literal["receivable", "payable"] = "receivable",
+           fmt: Literal["json", "csv", "pdf"] = "json", user: User = Depends(current_user),
+           db: Session = Depends(get_db)):
+    today = as_of_today()
+    s, e, label = report_period(period, start, end, today)
+    b = db.get(Business, user.business_id)
+    r = build_report(db, b, kind, s, e, label, today, party)
+    r.update(start=s.isoformat(), end=e.isoformat())
+    if fmt == "json":
+        return r
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="data",
+                 action="export_report", inputs={"kind": kind, "period": label, "fmt": fmt})
+    fname = f"{kind}_{s.isoformat()}_{e.isoformat()}.{fmt}"
+    disp = {"Content-Disposition": f'attachment; filename="{fname}"'}
+    if fmt == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow([r["title"], r["period"]])
+        w.writerow(r["header"])
+        w.writerows([[_csv_safe(c) for c in row] for row in r["rows"]])
+        return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8", headers=disp)
+    style = (b.prefs or {}).get("number_style", "lakh")
+    rows = [[pdf_money(c, style) if i in r["money_cols"] else c for i, c in enumerate(row)] for row in r["rows"]]
+    pdf = table_pdf(f"{r['title']} - {b.name}", r["period"], r["header"], rows,
+                    right_cols=tuple(r["money_cols"]), notes=r["notes"])
+    return Response(pdf, media_type="application/pdf", headers=disp)
+
+
+def _csv_safe(v: Any) -> Any:
+    """Stop spreadsheet formula injection from names in imported files."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v

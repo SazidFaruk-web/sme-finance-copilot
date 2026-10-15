@@ -7,7 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js";
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
   en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
-    parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices",
+    parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices", reports: "Reports",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
@@ -31,7 +31,7 @@ const T = {
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings." },
   bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
-    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস",
+    parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
     net_last: "গত মাসের নিট নগদ প্রবাহ", gm: "গ্রস মার্জিন (৩ মাস)", ar_over: "ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা",
@@ -238,10 +238,10 @@ function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "stock", "financing", "actions", "audit", "settings"];
+const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
 const SIMPLE_ROUTES = ["dashboard", "chat", "data", "parties", "financing", "settings"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties", financing: "s_loans", settings: "settings_btn" };
-const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES;
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -336,7 +336,7 @@ function route() {
   const v = $("#view"); v.replaceChildren(h("div", { class: "muted" }, "Loading…"));
   const views = S.mode === "simple"
     ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings }
-    : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, stock: viewStock, financing: viewFinancing, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewFinancing, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
 }
@@ -418,6 +418,41 @@ function paymentForm(inv, onDone) {
         m.remove(); toast(r.status === "paid" ? "Paid in full ✓" : `Partial payment saved · ${money(r.outstanding)} still due`, "ok"); onDone && onDone(); } catch (e) { err.textContent = e.message; }
     } }, "Save payment")]);
   amt.focus();
+}
+
+// ------------------------------------------------------------------ reports
+async function viewReports(v) {
+  let kind = "pnl";
+  const period = h("select", {}, [["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"], ["custom", "Custom dates"]]
+    .map(([k, l]) => h("option", { value: k }, l)));
+  const start = h("input", { type: "date", class: "hidden", "aria-label": "Start date" });
+  const end = h("input", { type: "date", class: "hidden", "aria-label": "End date", value: today() });
+  const party = h("select", { class: "hidden" }, h("option", { value: "receivable" }, "Customers owe me"), h("option", { value: "payable" }, "I owe suppliers"));
+  const out = h("div", {});
+  const qs = fmt => `/api/books/reports/${kind}?period=${period.value}${period.value === "custom" ? `&start=${start.value}&end=${end.value}` : ""}&party=${party.value}&fmt=${fmt}`;
+  const sync = () => { const c = period.value === "custom" && kind !== "aging"; start.classList.toggle("hidden", !c); end.classList.toggle("hidden", !c);
+    period.classList.toggle("hidden", kind === "aging"); party.classList.toggle("hidden", kind !== "aging"); };
+  async function load() {
+    sync();
+    if (period.value === "custom" && kind !== "aging" && !(start.value && end.value)) { out.replaceChildren(h("div", { class: "muted" }, "Pick a start and end date.")); return; }
+    let r;
+    try { r = await api(qs("json")); } catch (e) { out.replaceChildren(h("div", { class: "notice warn" }, e.message)); return; }
+    const bold = new Set(r.bold_rows);
+    const table = h("table", { class: "t report" }, h("tr", {}, r.header.map((x, i) => h("th", { class: r.money_cols.includes(i) ? "r" : "" }, x))),
+      r.rows.map((row, ri) => h("tr", { class: bold.has(ri) ? "total" : "" }, row.map((c, i) => r.money_cols.includes(i)
+        ? h("td", { class: "r " + (c < 0 ? "neg" : c > 0 && bold.has(ri) && kind !== "aging" ? "pos" : "") }, money(c)) : h("td", {}, c)))));
+    const chart = r.chart ? hbarChart(Object.entries(r.chart).map(([label, value]) => ({ label, value })), { fmt: x => money(x) }) : null;
+    out.replaceChildren(h("div", { class: "card" },
+      h("div", { class: "row" }, h("h2", { class: "grow" }, `${r.title} · ${r.period}`),
+        h("button", { class: "btn ghost sm", onclick: () => download(qs("csv"), `${kind}.csv`).catch(e => toast(e.message, "bad")) }, "⇩ CSV"),
+        h("button", { class: "btn primary sm", onclick: () => download(qs("pdf"), `${kind}.pdf`).catch(e => toast(e.message, "bad")) }, "⇩ PDF")),
+      chart, h("div", { class: "scroll" }, table), r.notes.map(n => h("div", { class: "small muted" }, n))));
+  }
+  const bar = h("div", { class: "tabs" }, [["pnl", "Profit & loss"], ["cashflow", "Cash flow"], ["aging", "Who owes, how late"]].map(([k, l], i) =>
+    h("button", { class: i ? "" : "active", onclick: e => { bar.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); kind = k; load(); } }, l)));
+  [period, start, end, party].forEach(x => x.addEventListener("change", load));
+  v.replaceChildren(h("h1", {}, t("reports")), bar, h("div", { class: "row", style: "margin-bottom:12px" }, period, start, end, party), out);
+  await load();
 }
 
 // ------------------------------------------------------------------ customers & suppliers (baki ledger)

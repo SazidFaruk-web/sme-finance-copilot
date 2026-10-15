@@ -104,3 +104,52 @@ def test_invoice_pdf_and_permissions(client):
                        headers=hv).status_code == 403
     assert client.post(f"/api/books/invoices/{inv['id']}/payments", json={"amount": 1}, headers=hv).status_code == 403
     assert client.get("/api/books/invoices/999999", headers=h).status_code == 404
+
+
+Q3 = "period=custom&start=2026-07-01&end=2026-09-30"
+
+
+def test_profit_and_loss_report(client):
+    h = login(client)
+    r = client.get(f"/api/books/reports/pnl?{Q3}", headers=h).json()
+    lines = dict(r["rows"])
+    assert lines["Sales (revenue)"] == 900_000 and lines["Gross profit"] == 450_000
+    assert lines["  Salary"] == -135_000 and lines["Operating profit"] == 180_000
+    assert "50.0%" in r["notes"][0]
+
+
+def test_cash_flow_report_ties_out(client):
+    h = login(client)
+    rows = dict(client.get(f"/api/books/reports/cashflow?{Q3}", headers=h).json()["rows"])
+    assert rows["Opening cash"] + rows["Net cash flow"] == rows["Closing cash"] == 380_000
+    assert rows["Money in"] == 900_000 and rows["Money out"] == -720_000
+
+
+def test_aging_report_buckets(client):
+    h = login(client)
+    r = client.get("/api/books/reports/aging", headers=h).json()
+    assert r["header"][1:5] == ["Not yet due", "0-30 days", "31-60 days", "61+ days"]
+    assert r["rows"][0] == ["Karim Knit Composite", 80_000, 0, 120_000, 0, 200_000]
+    assert client.get("/api/books/reports/aging?party=payable", headers=h).json()["rows"] == [["Total", 0, 0, 0, 0, 0]]
+
+
+def test_report_periods_and_validation(client):
+    h = login(client)
+    assert client.get("/api/books/reports/pnl?period=month", headers=h).json()["start"] == "2026-10-01"
+    assert client.get("/api/books/reports/pnl?period=quarter", headers=h).json()["start"] == "2026-10-01"
+    assert client.get("/api/books/reports/pnl?period=year", headers=h).json()["start"] == "2026-01-01"
+    assert client.get("/api/books/reports/pnl?period=last_month", headers=h).json()["end"] == "2026-09-30"
+    assert client.get("/api/books/reports/pnl?period=custom", headers=h).status_code == 422
+    assert client.get("/api/books/reports/pnl?period=bogus", headers=h).status_code == 422
+    assert client.get("/api/books/reports/balance", headers=h).status_code == 422
+
+
+def test_report_exports(client):
+    h = login(client)
+    r = client.get(f"/api/books/reports/pnl?{Q3}&fmt=csv", headers=h)
+    assert r.status_code == 200 and "text/csv" in r.headers["content-type"]
+    assert "Operating profit,180000.0" in r.text and "attachment" in r.headers["content-disposition"]
+    r = client.get(f"/api/books/reports/cashflow?{Q3}&fmt=pdf", headers=h)
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    actions = [e["action"] for e in client.get("/api/audit?limit=10", headers=h).json()]
+    assert actions.count("export_report") == 2
