@@ -49,7 +49,8 @@ def to_anthropic(messages: list[Message]) -> tuple[str, list[dict[str, Any]]]:
                 blocks.append({"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.arguments})
             push("assistant", blocks or [{"type": "text", "text": ""}])
         else:
-            push("user", [{"type": "text", "text": m.content}])
+            push("user", [{"type": "image", "source": {"type": "base64", "media_type": img.media_type, "data": img.data}}
+                          for img in m.images] + [{"type": "text", "text": m.content}])
     return "\n\n".join(system_parts), out
 
 

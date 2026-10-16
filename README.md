@@ -149,6 +149,10 @@ Before this tuning, the local Qwen3.8 27B ran at ~9 tok/s, spilled out of VRAM, 
 2. Start the server: `scripts\start_local_llm.bat` (Gemma) or `scripts\start_local_llm.bat qwen14b`. Set
    `LLAMA_DIR` / `MODELS_DIR` if they are not in `D:\llama-vulkan`. On Linux/macOS: `make local-llm`.
 3. Pick the profile in the **Model** menu, or set `LLM_PROFILE=local-llamacpp` (and `LOCAL_ONLY_MODE=true`) in `.env`.
+4. Optional, for **Data → Add → Photo of your khata**: put Gemma 4's vision projector (the `mmproj-*.gguf` file from the
+   model's Hugging Face repo) in the models folder as `mmproj-gemma-4-12b-it-f16.gguf` (or set `LLM_MMPROJ`). The start
+   script then adds `--mmproj`, and the app sees `vision: true` on the server's `/props`. Without it, photos need a cloud
+   model with vision; a local default never sends a photo to the cloud on its own. Details: `scripts\start_local_llm.bat`.
 
 Hardware needed: a GPU with at least 10 GB of VRAM for Gemma (14 GB for the Qwen backup), and 16 GB of system RAM.
 Answers stream token by token. Tune a weaker machine with `TOOL_RESULT_BUDGET_CHARS` (smaller tool results = faster).

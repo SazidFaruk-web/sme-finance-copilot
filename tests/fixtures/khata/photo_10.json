@@ -1,0 +1,132 @@
+{
+ "sections": [
+  {
+   "date": null,
+   "date_unclear": false,
+   "written_total": "4.000",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "৮",
+     "item": "iP cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৯",
+     "item": "C. glass + glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  },
+  {
+   "date": "০৪/১০/২৫",
+   "date_unclear": false,
+   "written_total": "4.050",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "১",
+     "item": "UV poli",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "২",
+     "item": "Poli + sticker",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৩",
+     "item": "iP cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৪",
+     "item": "iP cover 2P",
+     "amount": "400",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৫",
+     "item": "iP cable top",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৬",
+     "item": "Hoco Earbuds eq34",
+     "amount": "800",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৭",
+     "item": "glass + poli",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৮",
+     "item": "iP cable",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৯",
+     "item": "iP cover 2P",
+     "amount": "400",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১০",
+     "item": "iP cover top",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১১",
+     "item": "glass 70 + poli",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১২",
+     "item": "glass + glass",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১৩",
+     "item": "Pic sticker",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১৪",
+     "item": "C. glass",
+     "amount": "150",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  }
+ ]
+}

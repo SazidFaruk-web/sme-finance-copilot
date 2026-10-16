@@ -1,6 +1,7 @@
 """Provider-neutral LLM layer. See base.LLMProvider for the interface."""
 from .base import (
     ChatResponse,
+    Image,
     LLMProvider,
     Message,
     ProviderBlockedError,
@@ -13,7 +14,7 @@ from .base import (
 from .registry import ModelRouter, ProviderRegistry, get_registry, get_router, reset_registry
 
 __all__ = [
-    "ChatResponse", "LLMProvider", "Message", "ProviderBlockedError", "ProviderError", "StreamChunk",
+    "ChatResponse", "Image", "LLMProvider", "Message", "ProviderBlockedError", "ProviderError", "StreamChunk",
     "ToolCall", "ToolSpec", "Usage", "ModelRouter", "ProviderRegistry", "get_registry", "get_router",
     "reset_registry",
 ]

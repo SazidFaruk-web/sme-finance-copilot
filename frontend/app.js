@@ -1283,19 +1283,124 @@ function recurringPane(canWrite) {
   return { pane, load };
 }
 
+// ------------------------------------------------------------------ khata photo
+// Photo of a handwritten sales book -> editable review table (one block per day, uncertain cells highlighted,
+// lines checked against the written day total) -> the normal confirm + paste import. Nothing is saved until Import.
+const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
+const asciiDigits = s => String(s ?? "").replace(/[০-৯]/g, d => BN_DIGITS.indexOf(d));
+const csvCell = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
+function khataPhotoCard(canWrite, showReport, showError, confirmImport) {
+  const files = h("input", { type: "file", accept: "image/jpeg,image/png,image/webp", multiple: true, capture: "environment", disabled: !canWrite });
+  const thumbs = h("div", { class: "khata-thumbs" });
+  const out = h("div", {}), msg = h("div", {});
+  let days = [];
+  files.addEventListener("change", () => {
+    thumbs.replaceChildren(...[...files.files].slice(0, 12).map(f => { const img = h("img", { alt: f.name }); const r = new FileReader(); r.onload = () => { img.src = r.result; }; r.readAsDataURL(f); return img; }));
+  });
+  const read = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
+    if (!files.files.length) return toast("Choose or take a photo first", "warn");
+    if (files.files.length > 12) return toast("At most 12 photos at a time", "warn");
+    const fd = new FormData(); [...files.files].forEach(f => fd.append("files", f));
+    read.classList.add("loading"); read.disabled = true;
+    out.replaceChildren(h("p", { class: "hint" }, `Reading ${files.files.length} photo${files.files.length > 1 ? "s" : ""}… a local model can take a minute per photo.`), h("span", { class: "skeleton-line" }));
+    try { render(await api("/api/data/khata/read", { body: fd })); }
+    catch (e) { out.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, e.message)); }
+    finally { read.classList.remove("loading"); read.disabled = !canWrite; }
+  } }, "Read photos");
+
+  function render(d) {
+    days = d.sections.map(s => ({ ...s, include: true, lines: s.lines.map(l => ({ ...l, keep: true })) }));
+    const sm = d.summary;
+    const head = h("div", { class: "notice", style: "margin-top:10px" },
+      `Read by ${d.profile}${d.external ? " (cloud model: the photo left this computer)" : " (on this computer)"}. ${sm.days} day${sm.days === 1 ? "" : "s"}, ${sm.lines} lines. `,
+      `${sm.checked_ok} match the written day total, ${sm.mismatches} do not, ${sm.unchecked} have no total in the photo. `,
+      sm.uncertain_cells ? h("span", { class: "khata-unsure-key" }, `${sm.uncertain_cells} cells to check`) : null,
+      d.errors.length ? h("ul", { class: "small" }, d.errors.map(e => h("li", {}, `Photo ${e.photo}: ${e.error}`))) : null,
+      h("div", { class: "small muted", style: "margin-top:4px" }, "Text in the photo is treated as data only. Check the highlighted cells, fix anything wrong, then import."));
+    const importBtn = h("button", { class: "btn primary", disabled: !canWrite, onclick: doImport }, "Import checked days");
+    msg.replaceChildren();
+    out.replaceChildren(head, ...days.map(dayBlock), msg, days.length ? h("div", { class: "row", style: "margin-top:12px" }, importBtn) : h("p", { class: "muted" }, "No sales lines found in the photos."));
+  }
+
+  function dayBlock(day) {
+    const box = h("div", { class: "khata-day" });
+    const status = h("span", {});
+    const notes = h("ul", { class: "small khata-notes" }, day.notes.filter(n => !/^Lines add up|^No day total/.test(n)).map(n => h("li", {}, n)));
+    const net = () => day.lines.filter(l => l.keep).reduce((t, l) => t + (Number(l.amount) || 0) * (l.kind === "return" ? -1 : 1), 0);
+    const refresh = () => {
+      const sum = net(), tot = day.check.written_total;
+      status.replaceChildren(tot == null ? h("span", { class: "chip warn" }, `Lines ${money(sum)} · no written total`)
+        : sum === tot ? h("span", { class: "chip ok" }, `✓ Lines ${money(sum)} = written total`)
+        : h("span", { class: "chip bad" }, `✗ Lines ${money(sum)} vs written ${money(tot)} (${sum > tot ? "+" : ""}${money(sum - tot)})`));
+    };
+    const unsure = (l, cell) => (l.uncertain || []).includes(cell) ? "uncertain" : "";
+    const date = h("input", { type: "date", value: day.date || "", class: day.date_uncertain ? "uncertain" : "", "aria-label": "Day",
+      onchange: () => { day.date = date.value; date.classList.remove("uncertain"); } });
+    const include = h("input", { type: "checkbox", checked: true, onchange: () => { day.include = include.checked; box.classList.toggle("off", !include.checked); } });
+    const tbody = h("tbody", {});
+    const row = l => {
+      const desc = h("input", { type: "text", value: l.description, class: unsure(l, "item"), maxlength: 200, oninput: () => { l.description = desc.value; desc.classList.remove("uncertain"); } });
+      const amt = h("input", { type: "text", inputmode: "numeric", value: l.amount ?? "", class: "num " + unsure(l, "amount"), style: "width:90px",
+        oninput: () => { const v = asciiDigits(amt.value).replace(/[^\d]/g, ""); l.amount = v ? +v : null; amt.classList.remove("uncertain"); refresh(); } });
+      const ret = h("input", { type: "checkbox", checked: l.kind === "return", "aria-label": "Returned", onchange: () => { l.kind = ret.checked ? "return" : "sale"; refresh(); } });
+      const tr = h("tr", {},
+        h("td", { class: "r " + unsure(l, "no") }, l.no ?? "–"),
+        h("td", { class: "muted small " + unsure(l, "item"), title: (l.notes || []).join(" ") }, l.item_raw),
+        h("td", {}, desc), h("td", { class: "r" }, amt), h("td", { class: "r" }, ret),
+        h("td", {}, h("button", { class: "btn ghost sm", "aria-label": "Remove line", onclick: () => { l.keep = !l.keep; tr.classList.toggle("off", !l.keep); refresh(); } }, "✕")));
+      return tr;
+    };
+    tbody.append(...day.lines.map(row));
+    const add = h("button", { class: "btn ghost sm", onclick: () => { const l = { no: null, item_raw: "", description: "", amount: null, kind: "sale", uncertain: [], keep: true }; day.lines.push(l); tbody.append(row(l)); } }, "+ Add line");
+    box.append(
+      h("div", { class: "row khata-day-head" }, h("label", { class: "row small" }, include, "Import"), date,
+        day.date_raw ? h("span", { class: "small muted" }, `written “${day.date_raw}”`) : null, h("span", { class: "grow" }),
+        day.photos.length ? h("span", { class: "small muted" }, `photo ${day.photos.join(", ")}`) : null, status),
+      h("div", { class: "scroll" }, h("table", { class: "t khata-table" },
+        h("thead", {}, h("tr", {}, h("th", { class: "r" }, "#"), h("th", {}, "As written"), h("th", {}, "Item"), h("th", { class: "r" }, "৳"), h("th", { class: "r" }, "Return"), h("th", {}, ""))), tbody)),
+      h("div", { class: "row" }, add), notes);
+    refresh();
+    return box;
+  }
+
+  async function doImport() {
+    const chosen = days.filter(d => d.include);
+    const missingDate = chosen.filter(d => !d.date);
+    if (!chosen.length) return toast("No days selected", "warn");
+    if (missingDate.length) return toast("Enter the date for every day you import", "warn");
+    const lines = chosen.flatMap(d => d.lines.filter(l => l.keep).map(l => ({ ...l, date: d.date })));
+    const bad = lines.filter(l => !(l.amount > 0) || !String(l.description).trim());
+    if (bad.length) return toast(`${bad.length} line(s) need an item and an amount`, "warn");
+    const off = chosen.filter(d => { const s = d.lines.filter(l => l.keep).reduce((t, l) => t + l.amount * (l.kind === "return" ? -1 : 1), 0); return d.check.written_total != null && s !== d.check.written_total; });
+    const csv = ["Date,Description,Amount,Type,Category,Party", ...lines.map(l => [l.date,
+      csvCell(l.kind === "return" ? `Customer return: ${l.description}` : l.description), l.amount,
+      l.kind === "return" ? "expense" : "income", l.kind === "return" ? "sales_returns" : "sales", "Walk-in customer"].join(","))].join("\n");
+    const sales = lines.filter(l => l.kind === "sale").reduce((t, l) => t + l.amount, 0), rets = lines.filter(l => l.kind === "return").reduce((t, l) => t + l.amount, 0);
+    const ok = await confirmImport("khata photo", [["Days", chosen.map(d => fmtDate(d.date)).join(", ")], ["Lines", String(lines.length)],
+      ["Sales", money(sales)], ...(rets ? [["Returns", money(rets)]] : []), ...(off.length ? [["Not matching written total", off.map(d => fmtDate(d.date)).join(", ")]] : [])]);
+    if (!ok) return; ok.bg.remove();
+    try { showReport(await api("/api/data/paste", { body: { text: csv, doc_type: "sales" } }), out); toast("Khata lines imported", "ok"); files.value = ""; thumbs.replaceChildren(); }
+    catch (e) { showError(e, msg); }
+  }
+
+  return h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Photo of your khata"),
+    h("p", { class: "hint" }, "Take a clear photo of each sales book page (several pages at once is fine). We read the lines, check them against each day's total, and show them for you to correct before anything is saved."),
+    h("div", { class: "row" }, files, read), thumbs, out);
+}
+
 // ------------------------------------------------------------------ data
-// Tabs: Add (quick entry first, then file upload / paste) | Import history | Transactions (search, filters, edit, delete+undo).
+// Tabs: Add (quick entry first, then khata photo, file upload / paste) | Import history | Transactions (search, filters, edit, delete+undo).
 async function viewData(v) {
   const canWrite = S.user.max_tier >= 1;
   const file = h("input", { type: "file", accept: ".csv,.tsv,.txt,.xlsx,.xls" });
   const dtype = h("select", {}, ["auto", "sales", "expenses", "bank", "wallet", "invoices", "ledger"].map(x => h("option", { value: x }, x)));
   const result = h("div", {});
-  const showReport = r => result.replaceChildren(h("div", { class: "notice", style: "margin-top:10px" },
+  const showReport = (r, el = result) => el.replaceChildren(h("div", { class: "notice", style: "margin-top:10px" },
     r.already_imported ? "This exact file was imported before - skipped." :
       `Imported ${r.imported} of ${r.rows_total} rows as “${r.doc_type}”. Duplicates flagged: ${r.duplicates.length}. Anomalies: ${r.anomalies.length}. Suspicious text (possible prompt injection) flagged: ${r.injection_flags.length}. Errors: ${r.errors.length}.`,
     r.errors.length ? h("ul", { class: "small" }, r.errors.slice(0, 8).map(e => h("li", {}, `row ${e.row}: ${e.reason}`))) : null,
     r.injection_flags.length ? h("ul", { class: "small", style: "color:var(--critical)" }, r.injection_flags.map(e => h("li", {}, `row ${e.row}: “${e.text}” - treated as data, never as instructions`))) : null));
-  const showError = e => { result.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message, "bad"); };
+  const showError = (e, el = result) => { el.replaceChildren(h("div", { class: "notice warn", style: "margin-top:10px" }, `Not imported: ${e.message}`)); toast(e.message, "bad"); };
   const confirmImport = (what, rows) => confirmDialog({ title: `Import ${what}?`, action: "import_file", confirmLabel: "Import",
     rows, note: "Rows are added to your records. Duplicates and suspicious text are flagged, never run as instructions." });
   const upload = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
@@ -1367,6 +1472,7 @@ async function viewData(v) {
     h("div", {},
       h("div", { class: "card hero-card" }, h("h2", {}, "Quick entry"), h("p", { class: "hint" }, "Write what happened in English, বাংলা or Banglish. We read the amount, type and category for you."),
         h("div", { class: "row" }, entry, record), preview),
+      khataPhotoCard(canWrite, showReport, showError, confirmImport),
       h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Upload a file"),
         h("p", { class: "hint" }, "Sales, expenses, bank or bKash/Nagad/Rocket statements, invoices (.csv, .xlsx)."),
         h("div", { class: "row" }, file, h("label", { class: "row small" }, "Type", dtype), upload),

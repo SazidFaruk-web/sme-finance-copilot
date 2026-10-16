@@ -1,0 +1,103 @@
+{
+ "sections": [
+  {
+   "date": "০৮/১০/২৫",
+   "date_unclear": true,
+   "written_total": "4.600",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "১",
+     "item": "C. glass + glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "২",
+     "item": "iP cover Anti",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৩",
+     "item": "UV poli 2P",
+     "amount": "500",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৪",
+     "item": "Poli + sticker",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৫",
+     "item": "600H onemax Neckband",
+     "amount": "800",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৬",
+     "item": "M10",
+     "amount": "350",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৭",
+     "item": "AirPods cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৮",
+     "item": "Mosely C. glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৯",
+     "item": "poli 3P",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১০",
+     "item": "glass + poli",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১১",
+     "item": "iP cover + C. glass",
+     "amount": "350",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১২",
+     "item": "iP cable top",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১৩",
+     "item": "Power bank 10000mah",
+     "amount": "700",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  }
+ ]
+}

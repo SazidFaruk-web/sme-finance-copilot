@@ -5,17 +5,19 @@ from datetime import date
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from sme_copilot.agent.executor import execute
 from sme_copilot.db import get_db
+from sme_copilot.llm_providers import LLMProvider, ProviderError, get_registry
 from sme_copilot.models import ImportBatch, Invoice, InvoicePayment, Transaction, User
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.ingestion import DOC_TYPES, import_file, refresh_anomalies, text_to_bytes
-from sme_copilot.tools import stock
+from sme_copilot.tools import khata_photo, stock
 from sme_copilot.tools.nl_entry import parse_entry
 from sme_copilot.tools.record_resolver import fast_path, resolve_record
 
@@ -60,6 +62,43 @@ async def upload(file: UploadFile = File(...), doc_type: str = Form("auto"), use
 @router.post("/paste")
 def paste(body: PasteIn, user: User = Depends(require_tier(1)), db: Session = Depends(get_db)) -> dict[str, Any]:
     return _import(db, user, text_to_bytes(body.text), "pasted.csv", body.doc_type)
+
+
+def vision_provider(profile: str | None) -> LLMProvider:
+    reg = get_registry()
+    try:
+        return reg.get(khata_photo.pick_vision_profile(reg, profile))
+    except khata_photo.VisionUnavailable as e:
+        raise HTTPException(409, str(e)) from e
+    except ProviderError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@router.post("/khata/read")
+async def khata_read(files: list[UploadFile] = File(...), profile: str = Form(""),
+                     user: User = Depends(require_tier(1)), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Read photos of handwritten khata pages into a review table. Nothing is stored: the owner checks the
+    table and imports it through /api/data/paste."""
+    if len(files) > khata_photo.MAX_PHOTOS:
+        raise HTTPException(413, f"at most {khata_photo.MAX_PHOTOS} photos at a time")
+    photos: list[tuple[bytes, str]] = []
+    for f in files:
+        content = await f.read(khata_photo.MAX_IMAGE_BYTES + 1)
+        if len(content) > khata_photo.MAX_IMAGE_BYTES:
+            raise HTTPException(413, f"{f.filename}: photo too large (max 8 MB)")
+        mime = khata_photo.sniff_image(content)  # trust the bytes, not the file name or browser's type
+        if mime is None:
+            raise HTTPException(415, f"{f.filename}: not a JPEG, PNG or WebP photo")
+        photos.append((content, mime))
+    provider = vision_provider(profile.strip() or None)
+    out = await run_in_threadpool(khata_photo.read_khata_photos, photos, provider, as_of_today())
+    if out["errors"] and len(out["errors"]) == len(photos):
+        raise HTTPException(502, "Could not read the photos: " + out["errors"][0]["error"])
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="read_khata_photo", tier=1,
+                 inputs={"photos": len(photos), "profile": provider.profile, "external": provider.external},
+                 result=out["summary"])
+    return out
 
 
 @router.post("/entry/preview")

@@ -4,6 +4,18 @@ rem   scripts\start_local_llm.bat            Gemma 4 12B  (default; profile loca
 rem   scripts\start_local_llm.bat qwen14b    Qwen3-14B    (backup;  profile local-qwen14b)
 rem Settings were benchmarked on an AMD RX 9060 XT 16 GB: see benchmarks/results/local_models.md.
 rem Override paths without editing this file, e.g.  set LLAMA_DIR=C:\tools\llama-vulkan
+rem
+rem Reading khata photos (vision) with Gemma 4:
+rem   llama.cpp only sees images when it is given the model's vision projector with --mmproj. Download the
+rem   projector GGUF that matches gemma-4-12b-it (the file whose name starts with "mmproj", from the same
+rem   Hugging Face repo as the model; see README "Local model") and save it as
+rem   %MODELS_DIR%\mmproj-gemma-4-12b-it-f16.gguf, or point LLM_MMPROJ at it:
+rem       set LLM_MMPROJ=D:\llama-vulkan\models\mmproj-<name>.gguf
+rem   When the file exists this script adds  --mmproj "<file>"  and the server's /props reports
+rem   "modalities": {"vision": true}; the app's local-llamacpp profile (vision: auto) then accepts photos.
+rem   The projector needs roughly 1 GB more VRAM (f16). The MTP draft model is left out while vision is on:
+rem   llama-server builds have refused speculative decoding together with image input (not verified here).
+rem   set LLM_MMPROJ=none  starts text-only even if the file exists.
 setlocal
 if not defined LLAMA_DIR set "LLAMA_DIR=D:\llama-vulkan"
 if not defined MODELS_DIR set "MODELS_DIR=%LLAMA_DIR%\models"
@@ -23,6 +35,7 @@ if /i "%CHOICE%"=="gemma" (
     rem the MTP draft head (speculative decoding) gives ~1.5-1.8x generation speed.
     set "FLAGS=-fa on -ctk q8_0 -ctv q8_0 --spec-type draft-mtp -ngld 99"
     set "PROFILE=local-llamacpp"
+    if not defined LLM_MMPROJ set "LLM_MMPROJ=%MODELS_DIR%\mmproj-gemma-4-12b-it-f16.gguf"
 ) else if /i "%CHOICE%"=="qwen14b" (
     set "LLM_MODEL=%MODELS_DIR%\Qwen3-14B-Q4_K_M.gguf"
     set "DRAFT="
@@ -45,6 +58,13 @@ if not exist "%LLM_MODEL%" (
     pause
     exit /b 1
 )
+set "MMPROJ_ARG="
+if /i "%CHOICE%"=="gemma" if /i not "%LLM_MMPROJ%"=="none" if exist "%LLM_MMPROJ%" (
+    set "MMPROJ_ARG=--mmproj "%LLM_MMPROJ%""
+    set "DRAFT="
+    set "FLAGS=-fa on -ctk q8_0 -ctv q8_0"
+    echo Vision on: %LLM_MMPROJ%  ^(khata photos can be read; speculative decoding off^)
+)
 set "DRAFT_ARG="
 if defined DRAFT (
     if not exist "%DRAFT%" (
@@ -58,7 +78,7 @@ if defined DRAFT (
 rem Only one model fits on the GPU at a time: stop any llama-server that is already running.
 taskkill /F /IM llama-server.exe >nul 2>&1
 
-start "Local LLM (llama-server)" /min "%LLAMA_DIR%\llama-server.exe" -m "%LLM_MODEL%" %COMMON% %FLAGS% %DRAFT_ARG%
+start "Local LLM (llama-server)" /min "%LLAMA_DIR%\llama-server.exe" -m "%LLM_MODEL%" %COMMON% %FLAGS% %DRAFT_ARG% %MMPROJ_ARG%
 
 echo Loading %CHOICE%, this takes 10-30 seconds...
 for /l %%i in (1,1,90) do (

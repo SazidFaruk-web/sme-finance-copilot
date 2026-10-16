@@ -1,0 +1,118 @@
+{
+ "sections": [
+  {
+   "date": "২৭/০৯/২৫",
+   "date_unclear": false,
+   "written_total": "4.550",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "১",
+     "item": "Button Mobile 7001",
+     "amount": "1000",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "২",
+     "item": "iP cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৩",
+     "item": "Anker C to C cable",
+     "amount": "700",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৪",
+     "item": "Poli + glass",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৫",
+     "item": "Cable iP 60",
+     "amount": "150",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৬",
+     "item": "iP cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৭",
+     "item": "iP cover",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৮",
+     "item": "Anker Zolo 20W",
+     "amount": "1000",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৯",
+     "item": "Poli 2P + sticker",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১০",
+     "item": "Poli 2P + glass",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১১",
+     "item": "15W charger",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  },
+  {
+   "date": "২৮/০৯/২৫",
+   "date_unclear": false,
+   "written_total": null,
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "১",
+     "item": "glass 60 + glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "২",
+     "item": "iP cable 60",
+     "amount": "150",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৩",
+     "item": "Mosely C. glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  }
+ ]
+}

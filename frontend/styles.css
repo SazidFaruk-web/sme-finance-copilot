@@ -760,3 +760,18 @@ button.avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 
   .tip-pop.closing { animation: rm-out .12s ease-in both; }
 }
 :root[data-style="green"] .tip-pop .btn.primary { background: #5fb98a; border-color: #5fb98a; color: #0d2e20; }
+
+/* Khata photo review: uncertain cells (amber), skipped days/lines dimmed. */
+.khata-thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.khata-thumbs img { width: 64px; height: 84px; object-fit: cover; border-radius: 6px; border: 1px solid var(--grid); }
+.khata-day { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--grid); }
+.khata-day.off, .khata-table tr.off { opacity: .45; }
+.khata-day-head { flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.khata-table input[type="text"] { width: 100%; min-width: 140px; }
+.khata-table input.num { text-align: right; font-variant-numeric: tabular-nums; }
+.khata-table td.uncertain, .khata-day input.uncertain, .khata-unsure-key {
+  background: var(--warn-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 55%, transparent); border-radius: 4px; }
+.khata-unsure-key { padding: 0 6px; }
+.khata-notes { margin: 6px 0 0; color: var(--text-secondary); }
+.khata-day .scroll { max-height: none; }
+.khata-table td { padding-top: 4px; padding-bottom: 4px; }

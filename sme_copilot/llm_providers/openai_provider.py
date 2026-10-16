@@ -39,6 +39,9 @@ def to_openai_messages(messages: list[Message]) -> list[dict[str, Any]]:
                     for tc in m.tool_calls
                 ],
             })
+        elif m.images:
+            out.append({"role": m.role, "content": [{"type": "text", "text": m.content}] + [
+                {"type": "image_url", "image_url": {"url": img.data_url}} for img in m.images]})
         else:
             out.append({"role": m.role, "content": m.content})
     return out

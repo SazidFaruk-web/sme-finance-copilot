@@ -10,6 +10,8 @@
 # pricing:    USD per million tokens. ILLUSTRATIVE PLACEHOLDERS for benchmark cost estimates;
 #             verify against the vendor's current price page before quoting.
 # tools:      native | emulated  (emulated = strict-JSON tool calling for weak tool callers)
+# vision:     true if the model reads photos (khata photo import); auto = ask the llama.cpp server's /props
+#             whether a vision projector (--mmproj) is loaded. Missing = no photos.
 
 # The model used when a request does not pick one. Change this one line to switch:
 #   claude-sonnet   cloud, best quality; the demo default (needs ANTHROPIC_API_KEY)
@@ -31,6 +33,7 @@ profiles:
     api_key_env: ANTHROPIC_API_KEY
     base_url: https://api.anthropic.com
     external: true
+    vision: true
     label: "Claude Sonnet 5.5"
     pricing: {input_per_mtok: 3.0, output_per_mtok: 15.0}
 
@@ -40,6 +43,7 @@ profiles:
     api_key_env: ANTHROPIC_API_KEY
     base_url: https://api.anthropic.com
     external: true
+    vision: true
     label: "Claude Haiku 5.5"
     pricing: {input_per_mtok: 1.0, output_per_mtok: 5.0}
 
@@ -48,6 +52,7 @@ profiles:
     model: gpt-4.1-mini
     api_key_env: OPENAI_API_KEY
     external: true
+    vision: true
     label: "OpenAI gpt-4.1-mini"
     pricing: {input_per_mtok: 0.4, output_per_mtok: 1.6}
 
@@ -56,6 +61,7 @@ profiles:
     model: gemini-2.5-flash
     api_key_env: GEMINI_API_KEY
     external: true
+    vision: true
     label: "Gemini 2.5 Flash"
     pricing: {input_per_mtok: 0.3, output_per_mtok: 2.5}
 
@@ -121,6 +127,7 @@ profiles:
     tools: native          # Gemma ignores the emulated JSON format; its native tool calls are reliable
     timeout: 120
     max_retries: 0         # a local server is up or not; retrying only multiplies the wait
+    vision: auto           # photos work once the server runs with --mmproj (see scripts\start_local_llm.bat)
     label: "Local Gemma 4 12B (llama.cpp, private)"
 
   local-qwen14b:

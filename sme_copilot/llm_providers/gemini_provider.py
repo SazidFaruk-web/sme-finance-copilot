@@ -48,7 +48,8 @@ def to_gemini(messages: list[Message]) -> tuple[str, list[dict[str, Any]]]:
                 parts.append({"functionCall": {"name": tc.name, "args": tc.arguments}})
             push("model", parts or [{"text": ""}])
         else:
-            push("user", [{"text": m.content}])
+            push("user", [{"inlineData": {"mimeType": img.media_type, "data": img.data}} for img in m.images]
+                 + [{"text": m.content}])
     return "\n\n".join(system), contents
 
 

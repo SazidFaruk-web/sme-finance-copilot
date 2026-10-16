@@ -26,12 +26,25 @@ class ToolCall:
 
 
 @dataclass
+class Image:
+    """An image attached to a user message (base64, no data: prefix). Only profiles marked ``vision: true``
+    in providers.yaml are sent images."""
+    media_type: str  # image/jpeg | image/png | image/webp
+    data: str
+
+    @property
+    def data_url(self) -> str:
+        return f"data:{self.media_type};base64,{self.data}"
+
+
+@dataclass
 class Message:
     role: Role
     content: str = ""
     tool_calls: list[ToolCall] = field(default_factory=list)
     tool_call_id: str | None = None  # for role == "tool"
     name: str | None = None  # tool name for role == "tool"
+    images: list[Image] = field(default_factory=list)  # user turns only
 
 
 @dataclass
@@ -104,7 +117,7 @@ def estimate_tokens(text: str) -> int:
 def messages_token_estimate(messages: list[Message]) -> int:
     total = 0
     for m in messages:
-        total += 4 + estimate_tokens(m.content)
+        total += 4 + estimate_tokens(m.content) + 1500 * len(m.images)  # rough per-image budget
         for tc in m.tool_calls:
             total += estimate_tokens(tc.name + json.dumps(tc.arguments, ensure_ascii=False))
     return total

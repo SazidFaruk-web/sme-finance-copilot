@@ -1,0 +1,132 @@
+{
+ "sections": [
+  {
+   "date": null,
+   "date_unclear": false,
+   "written_total": "4,550",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "৯",
+     "item": "Poli 2P + sticker",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১০",
+     "item": "Poli 2P + glass",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১১",
+     "item": "15W charger",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  },
+  {
+   "date": "২৮/০৯/২৫",
+   "date_unclear": false,
+   "written_total": "4.350",
+   "total_unclear": false,
+   "lines": [
+    {
+     "no": "১",
+     "item": "glass 60 + glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "২",
+     "item": "iP cable 60",
+     "amount": "150",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৩",
+     "item": "Mosely C. glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৪",
+     "item": "Sticker + poli",
+     "amount": "200",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৫",
+     "item": "Smart watch 60",
+     "amount": "800",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৬",
+     "item": "T9 trimmer + poli",
+     "amount": "450",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৭",
+     "item": "iP cover + poli",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৮",
+     "item": "Poli 2P + C. glass",
+     "amount": "350",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "৯",
+     "item": "Mosely C. glass",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১০",
+     "item": "UV poli",
+     "amount": "250",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১১",
+     "item": "USB iP cable 60",
+     "amount": "150",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১২",
+     "item": "UV glass",
+     "amount": "300",
+     "kind": "sale",
+     "unclear": false
+    },
+    {
+     "no": "১৩",
+     "item": "Onemax 300H Neckband",
+     "amount": "650",
+     "kind": "sale",
+     "unclear": false
+    }
+   ]
+  }
+ ]
+}
