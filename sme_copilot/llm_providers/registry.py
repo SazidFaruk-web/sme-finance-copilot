@@ -60,12 +60,15 @@ class ProviderRegistry:
         p = self.profiles[name]
         external = bool(p.get("external", True))
         available, reason = True, ""
-        if external and self.settings.local_only_mode:
+        if self.settings.llm_shared_only and name != self.default_profile and p.get("adapter") != "rules":
+            available, reason = False, "this website uses the shared model selected by the server"
+        elif external and self.settings.local_only_mode:
             available, reason = False, "blocked: LOCAL_ONLY_MODE is on"
         elif p.get("adapter") in KEY_REQUIRED or (p.get("api_key_env") and external):
             if not env_or_none(p.get("api_key_env")):
                 available, reason = False, f"missing env var {p.get('api_key_env')}"
-        return ProfileInfo(name=name, adapter=p.get("adapter", "?"), model=p.get("model", "?"),
+        model = self.settings.shared_llm_model if name == "shared-llm" else p.get("model", "?")
+        return ProfileInfo(name=name, adapter=p.get("adapter", "?"), model=model,
                            label=p.get("label", name), external=external, available=available, reason=reason)
 
     def list_profiles(self) -> list[ProfileInfo]:
@@ -75,6 +78,8 @@ class ProviderRegistry:
         if name not in self.profiles:
             raise ProviderError(f"unknown provider profile '{name}'")
         info = self.info(name)
+        if self.settings.llm_shared_only and name != self.default_profile and self.profiles[name].get("adapter") != "rules":
+            raise ProviderBlockedError(info.reason)
         if info.external and self.settings.local_only_mode:
             raise ProviderBlockedError(f"profile '{name}' sends data off-machine; LOCAL_ONLY_MODE is on")
         if name in self._cache:
@@ -85,12 +90,16 @@ class ProviderRegistry:
             raise ProviderError(f"profile '{name}': unknown adapter '{p.get('adapter')}'")
         extra = dict(p.get("extra") or {})
         base_url = p.get("base_url")
-        if p.get("adapter") == "ollama" and env_or_none("OLLAMA_BASE_URL"):
+        model = p.get("model", "")
+        if name == "shared-llm":
+            base_url = self.settings.shared_llm_base_url.rstrip("/")
+            model = self.settings.shared_llm_model
+        if name != "shared-llm" and p.get("adapter") == "ollama" and env_or_none("OLLAMA_BASE_URL"):
             base_url = env_or_none("OLLAMA_BASE_URL")  # e.g. http://ollama:11434/v1 inside docker-compose
         if p.get("tools") == "emulated":
             extra["supports_tools"] = False
         provider = cls(
-            p.get("model", ""), profile=name, api_key=env_or_none(p.get("api_key_env")),
+            model, profile=name, api_key=env_or_none(p.get("api_key_env")),
             base_url=base_url, timeout=float(p.get("timeout", self.settings.llm_timeout_seconds)),
             max_retries=int(p.get("max_retries", self.settings.llm_max_retries)),
             external=bool(p.get("external", True)), pricing=p.get("pricing"),

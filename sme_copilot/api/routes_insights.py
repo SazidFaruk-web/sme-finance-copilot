@@ -67,6 +67,7 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
                      "number_style": (b.prefs or {}).get("number_style", "lakh"),
                      "language": (b.prefs or {}).get("language", "en")},
         "as_of": as_of.isoformat(),
+        "record_count": len(txns),
         "kpis": {
             "cash_balance": fc.start_balance, "income_this_month": this_m.total_income,
             "expense_this_month": this_m.total_expense, "net_last_month": last_m.net_cash_flow,
@@ -90,6 +91,9 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
         "expense_this_month": [d.model_dump() for d in costs_m.drivers],
         "receivables_aging": _aging_buckets(ar),
         "alerts": [alert_dict(a) for a in alerts[:12]],
+        "guidance_alerts": [alert_dict(a) for a in alerts],
+        # Keep personal reminders visible even when many higher-priority system alerts exist.
+        "reminders": [alert_dict(a) for a in alerts if a.kind == "custom"],
     }
 
 

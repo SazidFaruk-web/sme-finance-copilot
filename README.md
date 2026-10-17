@@ -3,6 +3,8 @@
 **An AI finance copilot for Bangladesh small and medium businesses.** Built for the 2026 Shenzhen International
 FinTech Competition (FinTechathon), International Track, **Topic E: SME Finance Copilot**.
 
+The default Home guides owners who have no finance background with just recorded money and one practical next step. Tasks has tabs for To do, Reminders, and Coming up; Money separates monthly totals from forecasts; Records holds entries and history. Other tools remain available through More. Contributors and agents must read the [design principles](docs/DESIGN_PRINCIPLES.md) and [contribution guide](CONTRIBUTING.md) before implementing features.
+
 Small shops, garment subcontractors, traders, food businesses and freelancers can upload their sales ledgers,
 bank statements and bKash/Nagad/Rocket statements, or simply type *"dokan bhara 15000 dilam"*. The copilot then:
 
@@ -44,11 +46,71 @@ shown on the login page.
 | `rafiq` | accountant | `accountant-demo-2026` | analysis, data entry, drafts, reminders, reports (Tier 0-1) |
 | `mitu` | viewer | `viewer-demo-2026` | read-only analysis (Tier 0) |
 
-The default model is cloud Claude (`default_profile` in `config/providers.yaml`; set `ANTHROPIC_API_KEY`).
-Without a key, the offline `rules-offline` engine answers instead: a deterministic engine that implements the
+The default model is the independent **shared Ollama server**, used by every website user. Start it once as
+described below. Without a running model, the offline `rules-offline` engine answers instead: a deterministic engine that implements the
 same provider interface, so the whole product (tool calling and every security control) runs without network
 or GPU. Each such reply is labelled as a fallback in the UI. For a private model on your own GPU, see
 [Local model](#local-model-private-on-your-gpu).
+
+### Shared model service (Windows)
+
+The website and inference run as separate processes on this computer:
+
+```text
+User browsers -> website + API (:8000) -> shared Ollama service (127.0.0.1:11434)
+```
+
+Users open the website; their devices need no model installation. Conversations and business permissions
+stay in the website backend. Every model request uses the same model endpoint, with request-specific messages.
+The browser never contacts Ollama directly. Restarting the website leaves the model service running.
+
+After installing Ollama and pulling `gemma4:12b`, run these independently from the project root:
+
+```powershell
+# Once per computer/service restart. Reuses an already-running Ollama instance.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start_shared_llm.ps1
+
+# Website only; preserves existing data and listens on the network for other users.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start_website.ps1
+```
+
+The model script creates a `sme-copilot` alias of `gemma4:12b` with a 16K context, reusing the existing model
+files, and keeps it loaded. It probes CUDA on NVIDIA systems and checks that the loaded model allocates GPU
+memory. If an existing Ollama daemon cached a failed GPU detection, refresh just the model service with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start_shared_llm.ps1 -Restart
+```
+
+The restart targets only the Ollama process serving the selected port and its tray supervisor, leaving the
+website running. New service instances use flash attention and a Q8 KV cache to reduce context memory use.
+Use `-AllowCpu` only when deliberately running without GPU acceleration. Check `nvidia-smi` and
+`data/llm.stderr.log` for device memory and the number of layers offloaded. Ollama's `/api/ps` can undercount
+GPU memory with speculative models. An 8 GB GPU may keep part of Gemma in system memory; CPU participation
+is expected when the complete model, vision projector, draft model and context do not all fit in VRAM.
+
+Ollama schedules requests against the shared model; users can share it even when
+hardware capacity requires requests to queue. No process is created per user. See
+[Ollama context configuration](https://docs.ollama.com/api/openai-compatibility#setting-the-context-size) and
+[request scheduling](https://docs.ollama.com/faq#how-does-ollama-handle-concurrent-requests).
+
+Copy `.env.example` to `.env`, then use:
+
+```dotenv
+LLM_PROFILE=shared-llm
+LLM_SHARED_ONLY=true
+SHARED_LLM_BASE_URL=http://127.0.0.1:11434/v1
+SHARED_LLM_MODEL=sme-copilot
+LOCAL_ONLY_MODE=true
+```
+
+With `LLM_SHARED_ONLY=true`, the server blocks alternate model profiles and the UI uses the shared default.
+The offline rules engine remains a labelled fallback if the shared service is unavailable. To restore model
+switching, set `LLM_SHARED_ONLY=false`. Restart the website after changing `.env`.
+
+Open `http://127.0.0.1:8000` on this computer, or `http://<this-computer-LAN-IP>:8000` on another device that
+can reach it. Windows Firewall must allow the website port for LAN access. Ollama stays on loopback; only
+the website backend needs access to it. `Start SME Copilot.bat` now launches only the website and opens it.
 
 ### Docker (one command)
 
@@ -60,6 +122,10 @@ docker compose --profile local-llm up --build      # + Ollama with a local 7B mo
 With the `local-llm` profile, choose **Local Qwen2.5 7B (Ollama)** in the model dropdown, or set
 `LLM_PROFILE=local-qwen7b` and `LOCAL_ONLY_MODE=true` in `.env`. `make demo`, `make test`, `make bench` and
 similar targets are in the `Makefile`.
+
+For the independent host Ollama service above, use `LLM_PROFILE=shared-llm`; the app container connects to
+`http://host.docker.internal:11434/v1`. Override `DOCKER_SHARED_LLM_BASE_URL` for a different host endpoint.
+The optional `local-llm` compose profile is unnecessary when the shared host service is already running.
 
 ### Deployment
 
@@ -84,6 +150,9 @@ Secrets come **only** from the environment (`.env` is git-ignored). See [.env.ex
 | `APP_ENV` | `dev` | `dev` / `demo` (shows demo logins) / `production` (requires encryption key, hides API docs) |
 | `FIELD_ENCRYPTION_KEY` | auto dev key | Fernet key for encrypting account numbers, phones, TIN and trade licence at rest |
 | `LLM_PROFILE` | – | Overrides `default_profile` in `config/providers.yaml` on this machine |
+| `LLM_SHARED_ONLY` | `false` (`true` in `.env.example`) | All users use the server default; alternative profiles are blocked |
+| `SHARED_LLM_BASE_URL` | `http://127.0.0.1:11434/v1` | Shared inference endpoint used by the website backend |
+| `SHARED_LLM_MODEL` | `sme-copilot` | Model alias served by the shared Ollama instance |
 | `TOOL_RESULT_BUDGET_CHARS` | 5000 | Max size of one tool result as the model sees it (the UI keeps the full data) |
 | `PROMPT_VARIANT` | `finance` | `finance` adds a Bangladesh money glossary, a tool map and a Banglish example; `base` leaves it out |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | – | Enable the matching cloud profiles |
@@ -103,7 +172,7 @@ Secrets come **only** from the environment (`.env` is git-ignored). See [.env.ex
 
 ## Switching models (no code changes)
 
-All profiles live in [config/providers.yaml](config/providers.yaml). The adapters are Anthropic (Claude), OpenAI,
+When `LLM_SHARED_ONLY=false`, users can switch models as described here. All profiles live in [config/providers.yaml](config/providers.yaml). The adapters are Anthropic (Claude), OpenAI,
 Google Gemini, any OpenAI-compatible endpoint (OpenRouter, Groq, DeepSeek, Together, vLLM, llama.cpp) and Ollama,
 plus the offline `rules` engine.
 

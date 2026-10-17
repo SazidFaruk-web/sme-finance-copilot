@@ -8,6 +8,7 @@ _TMP = tempfile.mkdtemp(prefix="smecopilot-test-")
 os.environ["APP_ENV"] = "test"
 os.environ["DATA_DIR"] = _TMP
 os.environ["LLM_PROFILE"] = "rules-offline"
+os.environ["LLM_SHARED_ONLY"] = "false"
 os.environ["LOCAL_ONLY_MODE"] = "false"
 # Test-only Fernet key (not a secret; generated for this repository's tests).
 os.environ["FIELD_ENCRYPTION_KEY"] = "q2Vt0b2dJ3m8u0cA8n7f1yV3oZx9lS5eT4rW6pQ1hKs="

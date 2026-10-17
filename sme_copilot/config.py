@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # --- LLM ------------------------------------------------------------------------
     providers_file: Path = CONFIG_DIR / "providers.yaml"
     llm_profile: str = ""  # overrides default_profile from providers.yaml
+    llm_shared_only: bool = False  # all users use the server's default profile; rules remain an offline fallback
+    shared_llm_base_url: str = "http://127.0.0.1:11434/v1"
+    shared_llm_model: str = "sme-copilot"  # Ollama alias with the app's context size
     llm_timeout_seconds: float = 60
     llm_max_retries: int = 2
     tool_result_budget_chars: int = 5000  # max size of one tool result as the model sees it (UI keeps full data)

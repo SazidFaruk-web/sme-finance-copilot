@@ -386,3 +386,40 @@ def test_shipped_providers_yaml_is_valid():
     for n in names:
         assert reg.profiles[n]["adapter"] in {"anthropic", "openai", "gemini", "openai_compatible", "ollama", "rules"}
     assert reg.get("local-llama8b").supports_tools is False  # emulated tool mode honoured
+
+
+def test_shared_server_settings_from_dotenv_and_multiple_users(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("SHARED_LLM_BASE_URL=http://central.test:11434/v1/\n"
+                        "SHARED_LLM_MODEL=team-model\n", encoding="utf-8")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://unrelated.test/v1")
+    seen = []
+
+    def handler(req):
+        seen.append((str(req.url), json.loads(req.content)))
+        return httpx.Response(200, json={"model": "team-model", "choices": [{"message": {"content": "ok"}}]})
+
+    settings = Settings(_env_file=env_file, llm_profile="shared-llm", llm_shared_only=True)
+    reg = ProviderRegistry(settings=settings, transport=mock(handler))
+    router = ModelRouter(reg)
+    for user in ("first user", "second user"):
+        result = router.chat([Message("user", user)], tools=[TOOL])
+        assert result.profile == "shared-llm" and result.response.content == "ok"
+    assert reg.info("shared-llm").model == "team-model"
+    assert [url for url, _ in seen] == ["http://central.test:11434/v1/chat/completions"] * 2
+    assert [body["messages"][-1]["content"] for _, body in seen] == ["first user", "second user"]
+    assert all(body["model"] == "team-model" and body["reasoning_effort"] == "none" for _, body in seen)
+
+
+def test_shared_only_blocks_alternate_models_and_keeps_offline_fallback():
+    from sme_copilot.llm_providers.base import ProviderBlockedError
+
+    settings = Settings(llm_profile="shared-llm", llm_shared_only=True, local_only_mode=True)
+    reg = ProviderRegistry(settings=settings, transport=mock(lambda req: httpx.Response(503, text="offline")))
+    assert reg.info("shared-llm").available and reg.info("rules-offline").available
+    assert not reg.info("local-llamacpp").available and not reg.info("claude-sonnet").available
+    with pytest.raises(ProviderBlockedError, match="shared model"):
+        reg.get("local-llamacpp")
+    result = ModelRouter(reg).chat([Message("user", "hello")])
+    assert result.profile == "rules-offline"
+    assert [a.profile for a in result.attempts if a.ok] == ["rules-offline"]

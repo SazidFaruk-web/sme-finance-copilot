@@ -375,6 +375,8 @@ def pick_vision_profile(registry: ProviderRegistry, requested: str | None = None
     ok, why = vision_status(registry, default, transport) if default in registry.profiles else (False, "unknown")
     if ok:
         return default
+    if (registry.profiles.get(default) or {}).get("adapter") == "rules":
+        raise VisionUnavailable("No model that can read photos is selected. Choose a vision model to read photos.")
     local_only = default in registry.profiles and not registry.info(default).external
     for name in registry.profiles:
         if local_only and registry.info(name).external:

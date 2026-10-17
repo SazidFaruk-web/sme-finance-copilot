@@ -305,16 +305,16 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
          period_args("last_3_months")),
         ("forecast_cash_flow", ["forecast", "cash flow", "cashflow", "next 30", "next 60", "next 90", "runway",
                                 "run out", "kotodin", "কতদিন", "নগদ প্রবাহ", "agami", "আগামী", "shortfall",
-                                "projection", "cholbe", "চলবে"], lambda t, o, c: {"horizon_days": detect_horizon(t)}),
+                                "projection", "cholbe", "চলবে", "cover the bills", "সামনের বিল দেওয়ার মতো"], lambda t, o, c: {"horizon_days": detect_horizon(t)}),
         ("get_digest", ["alert", "alerts", "attention", "digest", "to do", "todo", "what should i do", "ki korte hobe",
-                        "কী করতে হবে", "সতর্ক", "warning", "this week", "priority", "agenda", "shoptahe"],
+                        "কী করতে হবে", "সতর্ক", "warning", "this week", "priority", "agenda", "shoptahe", "focus on today", "মনোযোগ দেব"],
          lambda t, o, c: {}),
         ("compliance_info", ["vat", "mushak", "tin", "e-tin", "trade license", "trade licence", "kyc", "aml", "nbr",
                              "ভ্যাট", "মূসক", "ট্রেড লাইসেন্স", "tax return"], compliance),
         ("get_aging:payable", ["payable", "payables", "i owe", "we owe", "supplier due", "dena", "দেনা",
                                "supplier ke dite", "bills to pay"], lambda t, o, c: {"kind": "payable"}),
         ("get_aging", ["receivable", "receivables", "owe me", "owes me", "owes", "overdue", "unpaid", "due from",
-                       "baki", "বাকি", "pawna", "পাওনা", "collect", "outstanding"], lambda t, o, c: {"kind": "receivable"}),
+                       "baki", "বাকি", "pawna", "পাওনা", "টাকা পাব", "collect", "outstanding"], lambda t, o, c: {"kind": "receivable"}),
         ("get_break_even", ["break even", "break-even", "breakeven", "lav loss soman", "লাভ-ক্ষতি সমান",
                             "minimum sales"], lambda t, o, c: {"months": 3}),
         ("explain_change", ["why", "keno", "কেন", "what changed", "drop", "dropped", "fell", "decrease", "decreased",
@@ -656,23 +656,32 @@ def c_alerts(r, f: Fmt) -> str:
 
 def c_digest(r, f: Fmt) -> str:
     k = r.get("kpis") or {}
-    acts = "\n".join(f"- {a['title']}" for a in (r.get("actions") or [])[:4])
-    alerts = "\n".join(f"- [{a['severity']}] {a['title']}" for a in (r.get("alerts") or [])[:5])
-    out = f.pick(
-        f"Cash now {f.m(k.get('cash_balance'))}; lowest in 30 days {f.m(k.get('forecast_min_30d'))}. This month: "
-        f"income {f.m(k.get('income_this_month'))}, expenses {f.m(k.get('expense_this_month'))}. Overdue from "
-        f"customers {f.m(k.get('receivables_overdue'))}.",
-        f"এখন নগদ {f.m(k.get('cash_balance'))}; ৩০ দিনে সর্বনিম্ন {f.m(k.get('forecast_min_30d'))}। এই মাসে আয় "
-        f"{f.m(k.get('income_this_month'))}, খরচ {f.m(k.get('expense_this_month'))}। ক্রেতাদের মেয়াদোত্তীর্ণ পাওনা "
-        f"{f.m(k.get('receivables_overdue'))}।",
-        f"Ekhon cash {f.m(k.get('cash_balance'))}; 30 dine sorbonimno {f.m(k.get('forecast_min_30d'))}. Ei mashe ay "
-        f"{f.m(k.get('income_this_month'))}, khoroch {f.m(k.get('expense_this_month'))}. Customer der overdue pawna "
-        f"{f.m(k.get('receivables_overdue'))}.")
-    if alerts:
-        out += "\n" + f.pick("Needs attention:", "মনোযোগ দরকার:", "Mone rakhun:") + "\n" + alerts
-    if acts:
-        out += "\n" + f.pick("Suggested next steps:", "পরামর্শ:", "Poramorsho:") + "\n" + acts
-    return out
+    out = f.pick(f"Your records show {f.m(k.get('cash_balance'))}. This is not a live bank balance.",
+                 f"আপনার হিসাবে আছে {f.m(k.get('cash_balance'))}। এটি সরাসরি ব্যাংকের ব্যালেন্স নয়।",
+                 f"Apnar hisabe ache {f.m(k.get('cash_balance'))}. Eta live bank balance noy.")
+    # Give one useful decision; a wall of alerts and ratios overwhelms a novice owner.
+    due = [a for a in (r.get("alerts") or []) if not
+           (a.get("kind") == "custom" and (a.get("due_date") or "") > str(r.get("as_of", "")))]
+    if not due:
+        return out + "\n" + f.pick(
+            "Start by adding any missing sale or expense in Records. Check the preview before saving. Home will show a next step based on your entries.",
+            "হিসাব থেকে বাদ পড়া বিক্রি বা খরচ যোগ করুন। মিলিয়ে দেখে সেভ করুন। হোমে আপনার হিসাব অনুযায়ী পরের কাজ দেখাবে।",
+            "Bad pora bikri ba khoroch Records e jog korun. Preview miliye save korun. Home e porer kaj dekhabe.")
+    a = due[0]
+    out += "\n" + f.pick("Focus on this first: ", "আগে এই কাজটি দেখুন: ", "Age ei kajti dekhun: ") + a["title"]
+    if a["kind"] == "overdue_invoice":
+        how = f.pick("A customer payment is late. Open Bills & invoices from More and check the amount still due. Review a polite reminder before confirming; this demo only saves it to the sandbox outbox.",
+                     "ক্রেতার টাকা দেওয়ার তারিখ পেরিয়ে গেছে। আরও মেনু থেকে বিল খুলে বাকি টাকা যাচাই করুন। রিমাইন্ডারের লেখা দেখে নিশ্চিত করুন; এই ডেমোতে শুধু স্যান্ডবক্স আউটবক্সে সেভ হবে।",
+                     "Customer er taka deyar tarikh periyeche. More theke Bills & invoices khule baki taka dekhun. Reminder dekhe confirm korun; ei demo te shudhu sandbox outbox e save hobe.")
+    elif a["kind"] == "low_balance":
+        how = f.pick("Money may run short based on your records; this is an estimate. Check what customers owe you, then check essential bills coming up. Decide which costs can wait before considering borrowing.",
+                     "হিসাব অনুযায়ী টাকা কম পড়তে পারে; এটি একটি অনুমান। আগে ক্রেতাদের পাওনা ও সামনের জরুরি বিল দেখুন। ঋণ নেওয়ার আগে কোন খরচ পরে করা যায় ভাবুন।",
+                     "Hisab onujayi taka kom porte pare; eta onuman. Age customer er pawna ar samner joruri bill dekhun. Rin er age kon khoroch pore kora jay bhabun.")
+    else:
+        how = f.pick("Open the task in Tasks, under To do, and check the original record. Decide what you can do now. Save an in-app reminder in Tasks, under Reminders, if you need to return to it later.",
+                     "কাজ মেনুর করণীয় থেকে কাজটি ও মূল হিসাব দেখুন। এখন কী করা যায় ঠিক করুন। পরে করতে চাইলে কাজ মেনুর রিমাইন্ডারে একটি নোট রাখুন।",
+                     "Tasks er To do theke kajti ar mul hisab dekhun. Ekhon ki kora jay thik korun. Pore korte chaile Tasks er Reminders e note rakhun.")
+    return out + "\n" + how
 
 
 def c_ack(r, f: Fmt) -> str:
@@ -681,9 +690,9 @@ def c_ack(r, f: Fmt) -> str:
 
 
 def c_schedule(r, f: Fmt) -> str:
-    return f.pick(f"Reminder scheduled for {r['due_date']}: \"{r['title']}\".",
-                  f"{f.n(r['due_date'])} তারিখের জন্য রিমাইন্ডার সেট হয়েছে: \"{r['title']}\"।",
-                  f"{r['due_date']} er jonno reminder set hoyeche: \"{r['title']}\".")
+    return f.pick(f"In-app reminder saved for {r['due_date']}: \"{r['title']}\". It appears when you return to the app; no phone notification is sent.",
+                  f"{f.n(r['due_date'])} তারিখের জন্য অ্যাপে রিমাইন্ডার সেভ হয়েছে: \"{r['title']}\"। অ্যাপে ফিরলে দেখবেন; ফোনে নোটিফিকেশন যাবে না।",
+                  f"{r['due_date']} er jonno app e reminder save hoyeche: \"{r['title']}\". App e firle dekhben; phone e notification jabe na.")
 
 
 def c_match(r, f: Fmt) -> str:

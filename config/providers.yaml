@@ -14,13 +14,28 @@
 #             whether a vision projector (--mmproj) is loaded. Missing = no photos.
 
 # The model used when a request does not pick one. Change this one line to switch:
-#   claude-sonnet   cloud, best quality; the demo default (needs ANTHROPIC_API_KEY)
+#   shared-llm      one independent Ollama service shared by every website user (default)
+#   claude-sonnet   cloud (needs ANTHROPIC_API_KEY)
 #   local-llamacpp  private: nothing leaves this PC (start it with scripts\start_local_llm.bat)
 #   rules-offline   no model at all; deterministic, works anywhere
 # LLM_PROFILE in .env overrides this per machine. A local default never falls back to a cloud model.
-default_profile: claude-sonnet
+default_profile: shared-llm
 
 profiles:
+  shared-llm:
+    adapter: ollama
+    model: sme-copilot
+    base_url: http://127.0.0.1:11434/v1
+    external: false
+    tools: native
+    vision: true
+    timeout: 180
+    max_retries: 0
+    label: "Shared Gemma 4 12B (Ollama server)"
+    extra:
+      json_mode: json_schema
+      request_params: {reasoning_effort: none}
+
   rules-offline:
     adapter: rules
     model: rules-v1
@@ -158,4 +173,4 @@ routing:
     advisory: claude-sonnet
   # Tried in order when the chosen profile errors or times out. rules-offline never fails,
   # so the copilot always answers.
-  fallback_chain: [claude-sonnet, claude-haiku, local-llamacpp, rules-offline]
+  fallback_chain: [shared-llm, claude-sonnet, claude-haiku, local-llamacpp, rules-offline]

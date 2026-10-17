@@ -4,6 +4,8 @@
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
+import { icon } from "./icons.js?v=12";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=12";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -69,7 +71,7 @@ const S = {
   user: null, models: null, profile: pref("profile", ""),
   ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
   theme: pref("theme", "system"),          // system | light | dark
-  mode: pref("ui_mode", "advanced"),       // simple | advanced
+  mode: pref("ui_mode", "simple"),       // guided by default; details remain opt-in
   look: "general",                         // Settings > Style: general | green | blue (per user, set after login)
   counts: { overdue: 0, low_stock: 0, recurring_due: 0 },
   home: null, reg: null,                   // home_prefs (widgets, nav, style) + widget/nav registry from the server
@@ -135,10 +137,11 @@ function countUp(root) {
   });
 }
 const pct = v => (v === null || v === undefined) ? "–" : `${v}%`;
-const fmtDate = s => { const d = new Date(s + "T00:00:00"); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+const fmtDate = s => { const d = new Date(s + "T12:00:00Z"); return d.toLocaleDateString(S.ui === "bn" ? "bn-BD" : "en-GB", { day: "numeric", month: "short", timeZone: "UTC" }); };
 
 function toast(msg, tone = "", ms = 3500) {
   if (typeof tone === "number") { ms = tone; tone = ""; }
+  if (S.mode === "simple") document.querySelectorAll(".toast").forEach(el => Element.prototype.remove.call(el));
   const el = h("div", { class: "toast" + (tone ? " " + tone : ""), role: "status" }, msg);
   animatedRemove(el);
   document.body.appendChild(el); setTimeout(() => el.remove(), ms);
@@ -155,12 +158,24 @@ function animatedRemove(el, ms = 200) {
 function restartAnim(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 
 function modal(title, body, actions = []) {
+  const previousFocus = document.activeElement;
   const bg = animatedRemove(h("div", { class: "modal-bg", onclick: e => { if (e.target === bg) bg.remove(); } }));
+  const remove = bg.remove;
+  bg.remove = () => { remove(); if (previousFocus?.isConnected) previousFocus.focus(); };
   const close = h("button", { class: "btn ghost", onclick: () => bg.remove(), "aria-label": "Close" }, "✕");
-  bg.appendChild(h("div", { class: "modal", role: "dialog", "aria-modal": "true" },
+  bg.appendChild(h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": title },
     h("div", { class: "row" }, h("h2", { class: "grow", style: "margin:0" }, title), close), body,
     actions.length ? h("div", { class: "row", style: "justify-content:flex-end;margin-top:14px" }, actions) : null));
   document.body.appendChild(bg);
+  bg.addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.preventDefault(); bg.remove(); }
+    if (e.key !== "Tab") return;
+    const controls = [...bg.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary')].filter(el => el.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+  });
+  setTimeout(() => { if (bg.isConnected && !bg.contains(document.activeElement)) close.focus(); }, 0);
   return bg;
 }
 
@@ -401,11 +416,13 @@ function logout(expired) {
 
 // ------------------------------------------------------------------ shell
 const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
-const SIMPLE_ROUTES = ["dashboard", "chat", "data", "parties", "financing", "settings"];
-const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties", financing: "s_loans", settings: "settings_btn" };
+const SIMPLE_ROUTES = ["dashboard", "tasks", "money", "data", "more"];
+const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties" };
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
-const routes = () => (S.mode === "simple" ? SIMPLE_ROUTES : ROUTES)
+const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
   .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
+const plain = (en, bn) => S.ui === "bn" ? bn : en;
+const simpleLabel = r => ({ tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -486,7 +503,7 @@ async function boot() {
     [S.home, S.reg] = await Promise.all([api("/api/home/prefs"), api("/api/home/registry")]);
     if (S.home.exists) { S.look = S.home.style; savePref("ui_style:" + S.user.username, S.look); applyPrefs(); }
   } catch { return; }
-  if (!S.profile || !S.models.profiles.some(p => p.name === S.profile)) S.profile = S.models.default;
+  if (S.models.shared_only || !S.profile || !S.models.profiles.some(p => p.name === S.profile && p.available)) S.profile = S.models.default;
   renderShell();
   window.onhashchange = route;
   route();
@@ -497,8 +514,8 @@ async function boot() {
 let pendingCount = 0;
 function renderShell() {
   const simple = S.mode === "simple";
-  const nav = h("nav", { class: "nav", "aria-label": "Main" }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
-    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, h("span", { "aria-hidden": "true" }, ICONS[r]), t(simple ? SIMPLE_LABELS[r] : r),
+  const nav = h("nav", { class: "nav", "aria-label": plain("Main navigation", "প্রধান মেনু") }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
+    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", tasks: "check", money: "bill", data: "book", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple ? simpleLabel(r) : t(r)),
       r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null,
       r === "invoices" || r === "stock" ? h("span", { class: "badge hidden", id: "badge-" + r }, "0") : null)));
   const name = S.user.full_name || S.user.username;
@@ -507,23 +524,24 @@ function renderShell() {
   const range = simple ? null : h("select", { "aria-label": t("range"), onchange: e => { const p = e.target.value; e.target.selectedIndex = 0; if (p) location.hash = "#reports?period=" + p; } },
     [["", "▦ " + t("range")], ["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"]].map(([v, l]) => h("option", { value: v }, l)));
   const avatar = accountMenu(name);
-  const modelSel = h("select", { id: "model-select", title: "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
+  const modelSel = h("select", { id: "model-select", disabled: S.models.shared_only, title: S.models.shared_only ? "Shared model managed by the server" : "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
     S.models.profiles.map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
       `${p.label}${p.external ? " ☁" : " ⌂"}${p.available ? "" : " (" + p.reason + ")"}`)));
   const privacy = h("span", { class: "chip", title: "PII (phones, account numbers, NID/TIN) is masked before any external model call" },
     S.models.local_only_mode ? "⌂ Local-only mode" : (S.models.mask_pii ? "🔒 PII masked for cloud models" : "PII masking OFF"));
   $("#root").replaceChildren(h("div", { class: "app" },
-    h("aside", { class: "sidebar" }, h("div", { class: "brand" }, "SME Finance Copilot", h("span", {}, "Bangladesh · Topic E")), nav,
-      h("div", { class: "foot" }, "Decision support, not licensed financial advice. Financing data is illustrative.")),
+    h("aside", { class: "sidebar" }, h("a", { class: "brand", href: "#dashboard" }, simple ? "SME Copilot" : "SME Finance Copilot", h("span", {}, plain("A little help for your business", "আপনার ব্যবসার সহজ সঙ্গী"))), nav,
+      h("div", { class: "foot" }, plain("Your business. One step at a time.", "আপনার ব্যবসা। একবারে একটি কাজ।"))),
     h("div", { class: "main" },
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
         simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
         h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
-        settingsMenu(), avatar),
+        simple ? h("button", { class: "btn language-toggle", onclick: () => setPref("ui", S.ui === "bn" ? "en" : "bn"), "aria-label": plain("Switch to Bangla", "ইংরেজিতে দেখুন") }, S.ui === "bn" ? "English" : "বাংলা") : settingsMenu(), avatar),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }
 async function refreshPending() {
+  if (S.mode === "simple") return; // Prepared actions are loaded when opened, rather than on every Home visit.
   try {
     const p = await api("/api/actions/pending");
     pendingCount = p.filter(x => x.status === "pending").length;
@@ -543,15 +561,23 @@ async function loadCounts() {
 }
 function route() {
   const r = (location.hash || "#dashboard").slice(1).split("?")[0];
-  const name = routes().includes(r) ? r : "dashboard";
-  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.id === "nav-" + name));
-  const v = $("#view"); v.replaceChildren(h("div", { class: "skeleton-block" }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
+  const name = (S.mode === "simple" ? [...ROUTES, "tasks", "money", "more"] : routes()).includes(r) && (r !== "audit" || S.user.max_tier >= 1) ? r : "dashboard";
+  document.querySelectorAll(".nav a").forEach(a => {
+    const active = a.id === "nav-" + (S.mode === "simple" && !SIMPLE_ROUTES.includes(name) ? "more" : name);
+    a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  // A detached route container prevents a slow previous request replacing a newer screen.
+  const v = h("div", { class: "route-content" }); $("#view").replaceChildren(v);
+  v.replaceChildren(h("div", { class: "skeleton-block", role: "status", "aria-label": plain("Loading", "লোড হচ্ছে") }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
   restartAnim(v, "route-enter");
   const views = S.mode === "simple"
-    ? { dashboard: viewSimpleHome, chat: viewChat, data: viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings }
+    ? { dashboard: viewSimpleHome, chat: viewChat, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings,
+      invoices: viewInvoices, reports: viewReports, stock: viewStock, actions: viewActions, audit: viewAudit, more: viewMore,
+      tasks: viewGuidedTasks, money: viewGuidedMoney }
     : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewFinancing, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
-  views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn" }, "Error: " + e.message)));
+  views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
+    h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
 }
 
 // ------------------------------------------------------------------ invoices
@@ -984,13 +1010,13 @@ async function runTool(name, args, host) {
     const out = await api(`/api/tools/${name}`, { body: { args } });
     if (out.status === "pending_confirmation") {
       if (out.tier >= 2) { confirmModal({ id: out.pending_action_id, ...out.data, tool: name }); return; }
-      await proposeAndConfirm({ id: out.pending_action_id, tool: name, ...out.data }, host); return;
+      await proposeAndConfirm({ id: out.pending_action_id, tool: name, ...out.data, scheduled_for: args.remind_on }, host); return;
     }
     const d = out.data || {};
     const body = h("div", {}, d.message ? h("pre", { style: "white-space:pre-wrap" }, d.message) : null,
       d.body ? h("div", {}, h("div", { style: "font-weight:600" }, d.subject), h("pre", { style: "white-space:pre-wrap" }, d.body)) : null,
       d.download_url ? h("button", { class: "btn primary", onclick: () => download(d.download_url, d.filename) }, "Download PDF") : null,
-      h("div", { class: "small muted" }, `Recorded in the operation log (${name}, tier ${out.tier}).`));
+      h("div", { class: "small muted" }, S.mode === "simple" ? plain("Your change has been saved.", "আপনার পরিবর্তন সেভ হয়েছে।") : `Recorded in the operation log (${name}, tier ${out.tier}).`));
     modal("Done ✓", body);
   } catch (e) { toast(e.message, "bad"); }
 }
@@ -1043,13 +1069,13 @@ const SUGGESTIONS = [
 ];
 
 const SIMPLE_SUGGESTIONS = {
-  en: ["What needs my attention this week?", "How much profit did I make last month?", "Which loans fit me?", "Send a payment reminder to Karim Knit"],
-  bn: ["এই সপ্তাহে কী নিয়ে ভাবা দরকার?", "গত মাসে লাভ কত হলো?", "আমার জন্য কোন ঋণ ভালো?", "করিম নিটকে পেমেন্টের রিমাইন্ডার পাঠাও"],
+  en: ["What should I focus on today?", "Which customers still owe me money?", "Can I cover the bills coming up?"],
+  bn: ["আজ কোন কাজে মনোযোগ দেব?", "কোন ক্রেতার কাছে টাকা পাব?", "সামনের বিল দেওয়ার মতো টাকা আছে?"],
 };
 
 async function viewChat(v) {
   const log = h("div", { class: "log", id: "chatlog", "aria-live": "polite" });
-  const input = h("input", { type: "text", placeholder: t("ask"), "aria-label": "Message", maxlength: 2000 });
+  const input = h(S.mode === "simple" ? "textarea" : "input", { ...(S.mode === "simple" ? { rows: 2, class: "chat-question" } : { type: "text" }), placeholder: t("ask"), "aria-label": "Message", maxlength: 2000 });
   const send = async text => {
     text = (text ?? input.value).trim(); if (!text) return;
     input.value = "";
@@ -1060,15 +1086,16 @@ async function viewChat(v) {
   };
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
   const mic = voiceButton(input, send);
+  if (S.chatDraft) { input.value = S.chatDraft; delete S.chatDraft; }
   if (S.mode === "simple") {
     input.placeholder = t("s_ask_ph");
     const chips = h("div", { class: "row", style: "margin-top:10px" }, SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"]
       .map(s => h("button", { class: "btn sm", onclick: () => send(s) }, s)));
-    v.replaceChildren(h("div", { class: "chat chat-simple" }, h("div", { class: "card panel" }, log, chips,
+    v.replaceChildren(h("h1", {}, plain("Let’s work through it together", "একসঙ্গে সহজ করে বুঝি")), h("p", { class: "muted" }, plain("Ask a question, or review the suggested question below and press Send.", "প্রশ্ন করুন, অথবা নিচের প্রশ্ন দেখে পাঠান।")), h("div", { class: "chat chat-simple" }, h("div", { class: "card panel" }, log, chips,
       h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))))));
     log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, S.ui === "bn"
-      ? "আসসালামু আলাইকুম! আপনার ব্যবসার বিক্রি, খরচ, নগদ বা ঋণ নিয়ে যেকোনো প্রশ্ন করুন।"
-      : "Assalamu alaikum! Ask me anything about your sales, costs, cash or loans.")));
+      ? "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।"
+      : "Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.")));
     input.focus();
     return;
   }
@@ -1176,15 +1203,15 @@ function feedbackRow(id) {
 // Reminders and loan reports are only PROPOSED by the copilot or a button; nothing happens until this click.
 async function proposeAndConfirm(pa, host) {
   const reminder = pa.tool === "create_payment_reminder";
-  const ok = await confirmDialog({ title: reminder ? "Send this reminder?" : "Create the loan report?",
-    rows: reminder ? [["To", pa.recipient], ["Amount due", money(pa.amount)]] : [], preview: pa.preview || null,
-    note: pa.summary, confirmLabel: reminder ? "Send reminder" : "Create report" });
+  const ok = await confirmDialog({ title: reminder ? "Save this customer reminder to the demo outbox?" : "Create the loan report?",
+    rows: reminder ? [["To", pa.recipient], ["Amount due", money(pa.amount)], ...(pa.scheduled_for ? [[plain("Scheduled for", "নির্ধারিত তারিখ"), fmtDate(pa.scheduled_for)]] : [])] : [], preview: pa.preview || null,
+    note: pa.summary, confirmLabel: reminder ? "Save to demo outbox" : "Create report" });
   if (!ok) { api(`/api/actions/${pa.id}/reject`, { method: "POST" }).catch(() => {}); refreshPending(); return null; }
   try {
     const r = await api(`/api/actions/${pa.id}/confirm`, { body: {} });
     if (r.status !== "ok") throw new Error(r.message || r.status);
-    successPop(ok.card, ok.bg, reminder ? `Reminder sent to ${pa.recipient} (sandbox outbox)` : "Loan report ready ✓");
-    if (reminder) markRow(host, "✓ Reminder sent");
+    successPop(ok.card, ok.bg, reminder ? `Reminder saved for ${pa.recipient} in the sandbox outbox; no message was delivered.` : "Loan report ready ✓");
+    if (reminder) markRow(host, plain("✓ Saved to demo outbox", "✓ ডেমো আউটবক্সে সেভ হয়েছে"));
     else if (r.data && r.data.download_url) setTimeout(() => toast(h("span", {}, "Loan report ready. ",
       h("button", { class: "btn sm", onclick: () => download(r.data.download_url, r.data.filename) }, "Download PDF")), "ok", 9000), 1100);
     refreshPending(); return r;
@@ -1197,14 +1224,17 @@ function proposalCard(pa) {
     h("div", { class: "row", style: "margin-top:8px" },
       h("button", { class: "btn primary", onclick: async () => {
         try { const r = await api(`/api/actions/${pa.id}/confirm`, { body: {} }); if (r.status !== "ok") throw new Error(r.message || r.status);
-          card.replaceChildren(h("div", { class: "row" }, h("div", { class: "check-wrap sm" }, checkMark()), h("b", {}, pa.tool === "create_payment_reminder" ? "Reminder sent (sandbox outbox)" : "Done")),
+          card.replaceChildren(h("div", { class: "row" }, h("div", { class: "check-wrap sm" }, checkMark()), h("b", {}, pa.tool === "create_payment_reminder" ? "Saved to sandbox outbox; no message delivered" : "Done")),
             r.data && r.data.download_url ? h("button", { class: "btn sm", onclick: () => download(r.data.download_url, r.data.filename) }, "Download PDF") : null);
           refreshPending(); } catch (e) { toast(e.message, "bad"); }
-      } }, pa.tool === "create_payment_reminder" ? "Send reminder" : "Confirm"),
+      } }, pa.tool === "create_payment_reminder" ? "Save to demo outbox" : "Confirm"),
       h("button", { class: "btn ghost", onclick: async () => { try { await api(`/api/actions/${pa.id}/reject`, { method: "POST" }); card.replaceChildren(h("div", { class: "muted" }, "Cancelled - nothing was done.")); refreshPending(); } catch (e) { toast(e.message, "bad"); } } }, "Cancel")));
   return card;
 }
 function confirmCard(pa) {
+  if (S.user.max_tier < 1 || ((pa.tier ?? 2) >= 2 && S.user.role !== "owner")) return h("div", { class: "confirm-card" },
+    h("b", {}, pa.summary || plain("Prepared action", "প্রস্তুত কাজ")), h("p", { class: "small muted" },
+      plain("Waiting for an authorized person to review and confirm. You have read-only access to this action.", "অনুমোদিত ব্যক্তির যাচাই ও নিশ্চিত করার অপেক্ষায়। আপনি এই কাজটি শুধু দেখতে পারবেন।")));
   if ((pa.tier ?? 2) < 2) return proposalCard(pa);
   const pw = S.stepUp && pa.amount >= S.stepUp ? h("input", { type: "password", placeholder: "Your password (large amount)", style: "width:200px" }) : null;
   const amt = h("input", { type: "number", placeholder: "Re-type the amount", style: "width:170px" });
@@ -1686,44 +1716,66 @@ function prefsCard() {
 // Same API, same safety rules (confirmations, tiers); fewer numbers, bigger type, plain words.
 const canWrite = () => S.user.max_tier >= 1;
 
-async function viewSimpleHome(v) {
-  const [d, pend] = await Promise.all([api("/api/dashboard"), api("/api/actions/pending").catch(() => [])]);
-  $("#biz-name").textContent = d.business.name;
-  const k = d.kpis, f = d.forecast;
-  const first = (S.user.full_name || S.user.username).split(" ")[0];
-  const status = f.first_negative_date || k.forecast_min_30d < f.threshold
-    ? h("div", { class: "status bad" }, "⚠ ", f.first_negative_date ? `${t("s_low")} ${fmtDate(f.first_negative_date)}. ` : "",
-      `${t("s_lowest")} `, h("b", { class: "num" }, money(k.forecast_min_30d)))
-    : h("div", { class: "status good" }, "✓ ", t("s_ok"));
-  const tile = (label, value, tone, n, color, icon) => kpiCard({ label, value: money(value), tone, count: n, color, icon });
-  const waiting = pend.filter(x => x.status === "pending");
-  const todo = d.alerts.slice(0, 5).map(a => {
-    const st = a.data && a.data.suggested_tool;
-    return h("div", { class: "alert-item sev-" + a.severity },
-      h("div", { class: "title" }, h("span", { class: "sev " + a.severity }), " ", a.title),
-      h("div", { class: "msg" }, a.message),
-      h("div", { class: "row", style: "margin-top:6px" },
-        st && canWrite() ? h("button", { class: "btn primary", onclick: e => runTool(st.name, st.args, e.target.closest(".alert-item")) },
-          st.name === "create_payment_reminder" ? "Send reminder" : st.name === "pay_supplier_invoice" ? "Pay (sandbox)" : "Do it") : null,
-        h("button", { class: "btn ghost", onclick: async e => { await api(`/api/alerts/${a.id}/dismissed`, { method: "POST" }); e.target.closest(".alert-item").remove(); } }, t("s_dismiss"))));
-  });
-  const chart = lineChart({ series: [{ name: t("s_next90"), color: "var(--series-1)", points: f.series.map(p => ({ x: p.date, y: p.balance })) }],
-    threshold: { value: f.threshold, label: money(f.threshold) }, yfmt: (x, axis) => money(x, axis), xfmt: fmtDate, height: 220, ariaLabel: t("s_next90") });
-  v.replaceChildren(
-    heroBanner(d), h("h1", { class: "hello-h1" }, `${t("hello")}, ${first} 👋`), status,
-    h("div", { class: "grid g-kpi", style: "margin-top:16px" },
-      showWidget("cash_now") ? tile(t("s_cash_now"), k.cash_balance, k.cash_balance < 0 ? "bad" : "", k.cash_balance, "blue", "৳") : null,
-      showWidget("money_in_out") ? tile(t("s_in"), k.income_this_month, "in", k.income_this_month, "green", "↓") : null,
-      showWidget("money_in_out") ? tile(t("s_out"), k.expense_this_month, "out", k.expense_this_month, "orange", "↑") : null,
-      showWidget("receivables_aging") ? tile(t("s_owed"), k.receivables_overdue, k.receivables_overdue > 0 ? "bad" : "in", k.receivables_overdue, "purple", "⏱") : null),
-    waiting.length ? h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, `${t("s_confirm")} (${waiting.length})`), waiting.map(confirmCard)) : "",
-    ...layoutBlocks([
-      showWidget("todo_actions") ? { half: h("div", { class: "card" }, h("h2", {}, t("s_todo")), todo.length ? todo : h("div", { class: "empty" }, h("p", {}, t("s_nothing")))) } : null,
-      showWidget("cash_forecast") ? { half: h("div", { class: "card" }, h("h2", {}, t("s_next90")), chart) } : null,
-      ...Object.keys(ASYNC_WIDGETS).filter(id => S.home && S.home.widgets.includes(id)).flatMap(id => ASYNC_WIDGETS[id]())]),
-    quickEntryCard(),
-    h("p", { class: "small muted", style: "margin-top:16px" }, t("s_switch")));
-  countUp(v);
+function askWithContext(text) {
+  S.chatDraft = text;
+  if (location.hash === "#chat") route(); else location.hash = "#chat";
+}
+
+function guidedContext() {
+  return { h, api, S, money, fmtDate, canWrite, lineChart, reload: route,
+    onAsk: askWithContext, onReminder: reminderDialog, onInvoice: () => invoiceForm(route), onTool: runTool,
+    onTrace: (trace, title) => modal(title, h("div", {},
+      h("p", {}, plain("Opening money plus recorded money in, minus recorded money out. Missing entries can change this amount.", "শুরুর টাকা ও আসা টাকার যোগফল থেকে খরচ বাদ দেওয়া হয়েছে। কোনো হিসাব বাদ পড়লে এই পরিমাণ বদলাবে।")),
+      h("details", {}, h("summary", {}, plain("Calculation details", "হিসাবের বিস্তারিত")), traceView(trace)))),
+    onDone: async id => { try { await api(`/api/alerts/${id}/acknowledged`, { method: "POST" }); }
+      catch (e) { toast(e.message, "bad"); throw e; } },
+  };
+}
+
+async function viewSimpleHome(v) { await renderGuidedHome(v, guidedContext()); }
+async function viewGuidedTasks(v) { await renderGuidedTasks(v, guidedContext(), hashParam("tab") || "todo"); }
+async function viewGuidedMoney(v) { await renderGuidedMoney(v, guidedContext(), hashParam("tab") || "overview"); }
+
+function reminderDialog(task, asOf) {
+  if (!canWrite()) return;
+  const base = new Date(asOf + "T12:00:00Z"); base.setUTCDate(base.getUTCDate() + 1);
+  const title = h("input", { id: "reminder-title", required: true, minlength: 3, maxlength: 160, value: task?.source?.title?.slice(0, 160) || "", placeholder: plain("e.g. Check the supplier bill", "যেমন: সরবরাহকারীর বিল দেখব") });
+  const when = h("input", { id: "reminder-date", type: "date", required: true, min: asOf, value: base.toISOString().slice(0, 10) });
+  const notes = h("textarea", { id: "reminder-notes", maxlength: 500, rows: 3 }, task?.source?.message?.slice(0, 500) || "");
+  const status = h("p", { class: "form-status", role: "status" });
+  const submit = h("button", { class: "btn primary", type: "submit" }, plain("Save reminder", "রিমাইন্ডার সেভ করুন"));
+  const form = h("form", { class: "reminder-form", onsubmit: async e => {
+    e.preventDefault(); submit.disabled = true; status.textContent = "";
+    try {
+      const out = await api("/api/tools/schedule_alert", { body: { args: { title: title.value.trim(), due_date: when.value, notes: notes.value.trim() } } });
+      if (out.status !== "ok") throw new Error(out.message || plain("Could not save the reminder.", "রিমাইন্ডার সেভ হয়নি।"));
+      bg.remove(); toast(plain("Reminder saved. It will appear in this app on ", "রিমাইন্ডার সেভ হয়েছে। অ্যাপে দেখাবে: ") + fmtDate(when.value), "ok");
+      if (["#dashboard", "#tasks"].includes((location.hash || "#dashboard").split("?")[0])) route();
+    } catch (err) { status.textContent = err.message; submit.disabled = false; }
+  } }, h("p", { class: "muted" }, plain("This reminder appears in the app when you return. It does not send an SMS, email, or phone notification.", "আবার অ্যাপে এলে এই রিমাইন্ডার দেখবেন। এসএমএস, ইমেইল বা ফোনে নোটিফিকেশন পাঠানো হবে না।")),
+    h("label", { class: "field", for: "reminder-title" }, plain("What do you want to remember?", "কোন কাজটি মনে রাখতে চান?"), title),
+    h("label", { class: "field", for: "reminder-date" }, plain("When?", "কবে?"), when),
+    h("label", { class: "field", for: "reminder-notes" }, plain("A note (optional)", "নোট (ইচ্ছা হলে)"), notes), status, submit);
+  const bg = modal(plain("Remind me", "মনে করিয়ে দিন"), form);
+  setTimeout(() => title.focus(), 0);
+}
+
+async function viewMore(v) {
+  const items = [
+    ["chat", "chat", plain("Ask Copilot", "কোপাইলটকে জিজ্ঞাসা"), plain("Get help understanding your business and choosing a next step.", "ব্যবসা বুঝতে ও পরের কাজ বেছে নিতে সাহায্য নিন।")],
+    ["parties", "people", plain("Customers & suppliers", "ক্রেতা ও সরবরাহকারী"), plain("Look up who owes you and whom you owe.", "কার কাছে পাওনা ও কাকে টাকা দিতে হবে দেখুন।")],
+    ["invoices", "bill", plain("Bills & invoices", "বিল ও চালান"), plain("Track customer bills and what you owe suppliers.", "ক্রেতার বিল ও সরবরাহকারীর পাওনা দেখুন।")],
+    ["stock", "book", plain("Stock", "পণ্যের হিসাব"), plain("Check products and what needs restocking.", "পণ্য ও নতুন করে কী কিনতে হবে দেখুন।")],
+    ["reports", "book", plain("Reports", "প্রতিবেদন"), plain("See your business numbers in more detail.", "ব্যবসার হিসাব বিস্তারিত দেখুন।")],
+    ["actions", "check", plain("Prepared actions", "প্রস্তুত কাজ"), plain("Review pending actions, drafts, and the sandbox outbox.", "অপেক্ষায় থাকা কাজ, খসড়া ও স্যান্ডবক্স আউটবক্স দেখুন।")],
+    ["financing", "bill", plain("Borrowing options", "ঋণের বিকল্প"), plain("Explore costs and requirements before deciding.", "সিদ্ধান্তের আগে খরচ ও শর্ত জানুন।")],
+    ["settings", "more", plain("Settings", "সেটিংস"), plain("Change language, appearance, and privacy preferences.", "ভাষা, রং ও গোপনীয়তার পছন্দ বদলান।")],
+  ];
+  v.replaceChildren(h("div", { class: "more-page" }, h("h1", {}, plain("A few more tools", "আরও কিছু সুবিধা")),
+    h("p", { class: "muted" }, plain("Here when you need them. Your daily essentials stay on Home.", "দরকার হলে ব্যবহার করুন। দৈনন্দিন কাজ হোমেই পাবেন।")),
+    h("div", { class: "more-grid" }, items.map(([routeName, symbol, title, copy]) => h("a", { class: "more-card", href: "#" + routeName },
+      icon(symbol, 24), h("h2", {}, title), h("p", {}, copy), icon("arrow", 18)))),
+    S.user.max_tier >= 1 ? h("a", { class: "text-link", href: "#audit" }, plain("Activity history", "কাজের ইতিহাস"), icon("arrow", 16)) : null));
 }
 
 // Shown after a record that could not be linked to an item (no match / no quantity). Never guesses.
@@ -1742,7 +1794,7 @@ function askWhichItem(st, host) {
 }
 
 function quickEntryCard(onSaved) {
-  const entry = h("input", { type: "text", class: "grow big-input", placeholder: t("s_add_ph"), disabled: !canWrite() });
+  const entry = h("input", { type: "text", class: "grow big-input", "aria-label": t("s_add_title"), placeholder: t("s_add_ph"), disabled: !canWrite() });
   const preview = h("div", { class: "small muted", style: "min-height:20px;margin-top:6px" });
   let timer;
   entry.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(async () => {
@@ -1754,7 +1806,8 @@ function quickEntryCard(onSaved) {
   }, 250); });
   const saveBtn = h("button", { class: "btn primary", disabled: !canWrite(), onclick: () => save(false) }, t("s_save"));
   const save = async (confirmed = false) => {
-    if (!entry.value.trim()) return;
+    if (!entry.value.trim() || saveBtn.disabled || !canWrite()) return;
+    saveBtn.disabled = true;
     saveBtn.classList.add("loading"); preview.replaceChildren(h("span", { class: "skeleton-line" }));
     try {
       const r = await api("/api/data/entry", { body: { text: entry.value, confirmed } });
@@ -1779,7 +1832,7 @@ function quickEntryCard(onSaved) {
         if (onSaved) onSaved();
       }
     } catch (e) { preview.textContent = ""; toast(e.message, "bad"); }
-    finally { saveBtn.classList.remove("loading"); }
+    finally { saveBtn.disabled = false; saveBtn.classList.remove("loading"); }
   };
   entry.addEventListener("keydown", e => { if (e.key === "Enter") save(false); });
   return h("div", { class: "card hero-card", style: "margin-top:16px" }, h("h2", {}, t("s_add_title")),
@@ -1807,8 +1860,11 @@ async function viewSimpleData(v) {
     const fd = new FormData(); fd.append("file", file.files[0]); fd.append("doc_type", "auto");
     try { const r = await api("/api/data/upload", { body: fd }); toast(r.already_imported ? "Already imported" : `${t("s_saved")} ${r.imported} / ${r.rows_total}`); load(); } catch (e) { toast(e.message, "bad"); }
   } }, t("s_upload"));
-  v.replaceChildren(h("h1", {}, t("s_add")), quickEntryCard(load),
-    h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_upload_title")), h("div", { class: "row" }, file, upload)),
+  v.replaceChildren(h("h1", {}, plain("Your business records", "আপনার ব্যবসার হিসাব")),
+    h("p", { class: "muted" }, canWrite() ? plain("Write a sale or expense in your own words. Check the preview, then save.", "বিক্রি বা খরচ নিজের ভাষায় লিখুন। মিলিয়ে দেখে তারপর সেভ করুন।") : plain("You can review records here. The owner or accountant can add and correct entries.", "এখানে হিসাব দেখতে পারবেন। মালিক বা হিসাবরক্ষক হিসাব যোগ বা ঠিক করতে পারবেন।")),
+    canWrite() ? quickEntryCard(load) : null,
+    canWrite() ? h("details", { class: "card", style: "margin-top:16px" }, h("summary", {}, plain("Import a file or a khata photo", "ফাইল বা খাতার ছবি থেকে হিসাব আনুন")),
+      h("div", { class: "row", style: "margin-top:16px" }, file, upload), h("a", { class: "text-link", href: "#data?tools=all" }, plain("Photo scan and more import options", "ছবি স্ক্যান ও অন্যান্য সুবিধা"), icon("arrow", 16))) : null,
     h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_recent")), list));
   await load();
 }
@@ -1859,6 +1915,7 @@ const TIPS = {
 };
 const TIP_DAYS = 3, TIP_CHANCE = 1 / 3;
 function maybeShowTip() {
+  if (S.mode === "simple") return;
   const created = Date.parse((S.user.created_at || "") + "Z");
   if (!isFinite(created) || Date.now() - created > TIP_DAYS * 864e5 || Math.random() >= TIP_CHANCE) return;
   const key = "tips_seen:" + S.user.username;
@@ -1883,6 +1940,9 @@ function homeLayoutCard() {
   const hp = S.home || { widgets: [] }, bt = hp.business_type || "";
   const type = bt.startsWith("other:") ? bt.slice(6) : (S.reg && S.reg.business_types[bt]) || "Not set yet";
   const mode = { general: "Everything (general home)", simplified: "Simplified", custom: "Custom" }[hp.mode] || "–";
+  if (S.mode === "simple") return h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, plain("Your guided Home", "আপনার সহজ হোম")),
+    h("p", { class: "muted" }, plain("Home shows your recorded money and one next step. Find reminders in Tasks, totals in Money, and entries in Records.", "হোমে হিসাবের টাকা ও একটি পরের কাজ দেখবেন। রিমাইন্ডার কাজ মেনুতে, টাকার বিস্তারিত টাকা মেনুতে এবং লেনদেন হিসাব মেনুতে পাবেন।")),
+    h("p", {}, plain("Business type: ", "ব্যবসার ধরন: ") + type), h("button", { class: "btn", onclick: () => openWizard(false) }, plain("Change business setup", "ব্যবসার সেটআপ বদলান")));
   return h("div", { class: "card", style: "margin-top:16px" },
     h("div", { class: "row" }, h("h2", { class: "grow" }, t("home_layout")), h("button", { class: "btn primary", onclick: () => openWizard(false) }, t("change_layout"))),
     h("p", { class: "small muted", style: "margin:0 0 8px" }, `Business type: ${type} · Layout: ${mode}`),
@@ -1890,9 +1950,29 @@ function homeLayoutCard() {
     h("p", { class: "hint", style: "margin-top:8px" }, "Every change is recorded in the audit log."));
 }
 
+// The guided start asks one familiar question; widget selection stays optional.
+function openWizard(first) {
+  const cur = S.home || {};
+  const kind = h("select", { id: "setup-business" }, h("option", { value: "other" }, plain("Not sure yet / other", "এখনও ঠিক করিনি / অন্য")),
+    Object.entries(S.reg.business_types).filter(([id]) => id !== "other").map(([id, name]) => h("option", { value: id, selected: id === cur.business_type?.split(":")[0] }, name)));
+  const status = h("p", { role: "status", class: "form-status" });
+  const start = h("button", { class: "btn primary", type: "submit" }, plain("Start with the essentials", "সহজ হিসাব দিয়ে শুরু করুন"));
+  const form = h("form", { class: "guided-setup", onsubmit: async e => {
+    e.preventDefault(); start.disabled = true;
+    try {
+      S.home = await api("/api/home/prefs", { body: { business_type: kind.value, mode: "simplified", widgets: S.reg.simplified, nav: S.reg.nav, style: S.look } });
+      S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); bg.remove(); renderShell(); route();
+    } catch (err) { status.textContent = err.message; start.disabled = false; }
+  } }, h("p", { class: "setup-intro" }, plain("See your money, get one practical next step, and keep track of what is coming up. No finance knowledge needed.", "টাকার হিসাব দেখুন, পরের কাজ বুঝুন এবং আসন্ন কাজ মনে রাখুন। হিসাববিজ্ঞানের জ্ঞান লাগবে না।")),
+    h("label", { class: "field", for: "setup-business" }, plain("What kind of business do you run? (optional)", "কী ধরনের ব্যবসা করেন? (ইচ্ছা হলে বলুন)"), kind),
+    h("p", { class: "small muted" }, plain("You can change this or see more detailed tools in Settings at any time.", "যেকোনো সময় সেটিংস থেকে বদলাতে বা বিস্তারিত সুবিধা দেখতে পারবেন।")), status, start,
+    !first ? h("button", { class: "text-link", type: "button", onclick: () => { bg.remove(); setPref("mode", "advanced"); openAdvancedWizard(false); } }, plain("Customize a detailed layout", "বিস্তারিত লেআউট সাজান")) : null);
+  const bg = modal(plain("A simpler start for your business", "ব্যবসার হিসাব সহজে শুরু করুন"), form);
+}
+
 const BT_ICONS = { retail: "🛍", garments_trims: "🧵", restaurant_food: "🍲", pharmacy_grocery: "💊", wholesale_trading: "📦", service_salon: "✂", other: "✎" };
 // Full-screen wizard: 1) business type, 2) pick a layout (AI-suggested, Simplified or Skip), 3) tick/order widgets + pages.
-function openWizard(first) {
+function openAdvancedWizard(first) {
   const reg = S.reg, cur = S.home || {};
   const curBt = cur.business_type || "";
   let type = curBt ? curBt.split(":")[0] : "", text = curBt.startsWith("other:") ? curBt.slice(6) : "";

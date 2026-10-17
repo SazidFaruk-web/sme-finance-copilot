@@ -106,6 +106,7 @@ def _user_dict(u: User) -> dict[str, Any]:
 def models(user: User = Depends(current_user)) -> dict[str, Any]:
     reg = get_registry()
     return {"default": reg.default_profile, "routing_enabled": bool(reg.routing.get("enabled")),
+            "shared_only": reg.settings.llm_shared_only,
             "local_only_mode": reg.settings.local_only_mode, "mask_pii": reg.settings.mask_pii,
             "profiles": [p.__dict__ for p in reg.list_profiles()]}
 

@@ -1,39 +1,39 @@
 Demo Bank Ltd - Current Account Statement
 Account Name: NUSRAT TRIMS & ACCESSORIES
 Account No: 1234-5678-9012
-Period: 01/07/2025 to 14/10/2026
+Period: 01/07/2025 to 16/10/2026
 
 Txn Date,Narration,Withdrawal,Deposit
-04/07/2025,Cheque to Islampur Label Print - stock purchase,122200.0,
+04/07/2025,Cheque to Islampur Label Print - stock purchase,127900.0,
 05/07/2025,Shop rent - Islampur,35000,
-11/07/2025,Cheque to Dhaka Zipper House - stock purchase,114100.0,
-18/07/2025,Cheque to Lalbagh Thread Mills - stock purchase,125400.0,
-25/07/2025,Cheque to Chawkbazar Button Market - stock purchase,113700.0,
+11/07/2025,Cheque to Dhaka Zipper House - stock purchase,119500.0,
+18/07/2025,Cheque to Lalbagh Thread Mills - stock purchase,131300.0,
+25/07/2025,Cheque to Chawkbazar Button Market - stock purchase,119000.0,
 28/07/2025,Staff salary (3 staff),48000,
 04/08/2025,Cheque to Dhaka Zipper House - stock purchase,99500.0,
 05/08/2025,Shop rent - Islampur,35000,
-11/08/2025,NPSB credit from Shapla Apparels against INV-1006,,37900.0
 11/08/2025,Cheque to Lalbagh Thread Mills - stock purchase,131600.0,
+12/08/2025,NPSB credit from Shapla Apparels against INV-1006,,37900.0
+13/08/2025,NPSB credit from Rahman Fashion House against INV-1005,,54000.0
+16/08/2025,NPSB credit from Rahman Fashion House against INV-1004,,42300.0
 16/08/2025,NPSB credit from Meghna Tailoring against INV-1009,,16400.0
 18/08/2025,Cheque to Chawkbazar Button Market - stock purchase,132300.0,
-20/08/2025,NPSB credit from Rahman Fashion House against INV-1004,,45000.0
-24/08/2025,NPSB credit from Rahman Fashion House against INV-1005,,40400.0
 24/08/2025,NPSB credit from Shapla Apparels against INV-1007,,28500.0
 25/08/2025,Cheque to Islampur Label Print - stock purchase,122400.0,
 28/08/2025,Staff salary (3 staff),48000,
-30/08/2025,NPSB credit from Karim Knit Composite against INV-1002,,81500.0
-01/09/2025,NPSB credit from Karim Knit Composite against INV-1001,,71800.0
 04/09/2025,Cheque to Lalbagh Thread Mills - stock purchase,180300.0,
 05/09/2025,Shop rent - Islampur,35000,
 11/09/2025,Cheque to Chawkbazar Button Market - stock purchase,164300.0,
+14/09/2025,NPSB credit from Karim Knit Composite against INV-1001,,63500.0
 15/09/2025,NPSB credit from Shapla Apparels against INV-1015,,34200.0
+16/09/2025,NPSB credit from Karim Knit Composite against INV-1003,,93700.0
 16/09/2025,NPSB credit from Bismillah Garments against INV-1008,,42500.0
 16/09/2025,NPSB credit from Rahman Fashion House against INV-1013,,43800.0
 16/09/2025,NPSB credit from Shapla Apparels against INV-1016,,36000.0
 16/09/2025,NPSB credit from Meghna Tailoring against INV-1018,,24600.0
+17/09/2025,NPSB credit from Karim Knit Composite against INV-1002,,99300.0
 18/09/2025,Cheque to Islampur Label Print - stock purchase,184800.0,
 19/09/2025,NPSB credit from Rahman Fashion House against INV-1014,,51200.0
-21/09/2025,NPSB credit from Karim Knit Composite against INV-1003,,87700.0
 25/09/2025,Cheque to Dhaka Zipper House - stock purchase,186000.0,
 28/09/2025,Staff salary (3 staff),48000,
 03/10/2025,NPSB credit from Meghna Tailoring against INV-1027,,25700.0
@@ -211,10 +211,11 @@ Txn Date,Narration,Withdrawal,Deposit
 14/09/2026,NPSB credit from Rahman Fashion House against INV-1121,,58100.0
 16/09/2026,NPSB credit from Shapla Apparels against INV-1123,,32300.0
 18/09/2026,Cheque to Islampur Label Print - stock purchase,144300.0,
+19/09/2026,NPSB credit from Karim Knit Composite against INV-1111,,82000.0
 22/09/2026,NPSB credit from Bismillah Garments against INV-1116,,47900.0
 25/09/2026,Cheque to Dhaka Zipper House - stock purchase,129400.0,
 28/09/2026,Staff salary (3 staff),48000,
-04/10/2026,Cheque to Chawkbazar Button Market - stock purchase,103100.0,
+04/10/2026,Cheque to Chawkbazar Button Market - stock purchase,103900.0,
 05/10/2026,Shop rent - Islampur,35000,
 09/10/2026,NPSB credit from Meghna Tailoring against INV-1135,,25900.0
-11/10/2026,Cheque to Islampur Label Print - stock purchase,91300.0,
+11/10/2026,Cheque to Islampur Label Print - stock purchase,92100.0,
