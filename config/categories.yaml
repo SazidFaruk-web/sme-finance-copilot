@@ -13,6 +13,22 @@
 # Matching: the longest matching keyword wins, so "dokan bhara" (shop rent) beats "bhara".
 
 categories:
+  internal_transfer:
+    direction: out
+    behavior: non_operating
+    keywords: {en: [], bn: [], banglish: []}
+  customer_advance:
+    direction: in
+    behavior: non_operating
+    keywords: {en: [], bn: [], banglish: []}
+  stock_purchase:
+    direction: out
+    behavior: capex  # inventory acquired; cost of items sold is tracked separately
+    keywords: {en: [], bn: [], banglish: []}
+  loan_interest:
+    direction: out
+    behavior: fixed
+    keywords: {en: [], bn: [], banglish: []}
   sales:
     direction: in
     behavior: revenue

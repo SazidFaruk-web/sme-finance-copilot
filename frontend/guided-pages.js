@@ -85,16 +85,23 @@ export async function renderGuidedTasks(v, ctx, selected = "todo") {
   const { c, g, taskBody, doneButton } = guideUI(ctx, d);
   const body = h("section", { class: "tab-content", "aria-label": c[tab] });
   if (tab === "todo") {
+    const saved = await api("/api/pilot/cases");
+    const active = saved.filter(x => x.status !== "completed");
+    if (active.length) body.appendChild(h("div", { class: "pilot-saved" }, h("h2", {}, ctx.S.ui === "bn" ? "বাকি থাকা কাজ" : "Continue a saved task"),
+      pagedList(h, active, x => h("a", { class: "pilot-saved-row", href: `#chat?case=${x.id}` }, x.title[ctx.S.ui] || x.title.en), c.more)));
+    body.appendChild(h("a", { class: "text-link", href: "#chat" }, ctx.S.ui === "bn" ? "সব কাজ ও পর্যালোচনা" : "All tasks and reviews"));
     body.appendChild(pagedList(h, g.tasks, task => h("details", { class: "task-row guide-task" },
       h("summary", {}, h("span", { class: "task-row-icon" }, icon(task.kind === "custom" ? "bell" : "check", 19)),
         h("span", { class: "task-row-copy" }, h("strong", {}, task.title), task.source ? h("span", {}, task.source.title) : null)), taskBody(task)), c.more));
   } else if (tab === "reminders") {
+    if (ctx.S.user.role === "owner") body.appendChild(h("a", { class: "text-link", href: "#chat?tab=notifications" }, ctx.S.ui === "bn" ? "এসএমএস ও রিমাইন্ডার সেটিংস" : "SMS and reminder settings"));
     // Include both future and overdue personal reminders, but never resolved/dismissed entries.
     const reminders = [...new Map([...g.reminders, ...g.tasks.filter(t => t.kind === "custom").map(t => t.source)].map(a => [a.id, a])).values()]
       .sort((a, b) => (a.due_date || "9999").localeCompare(b.due_date || "9999") || a.id - b.id);
     body.appendChild(h("div", { class: "tab-intro" }, h("p", {}, c.reminderIntro), canWrite() ? h("button", { class: "btn primary", onclick: () => onReminder(null, d.as_of) }, icon("plus", 17), c.newReminder) : null));
     body.appendChild(reminders.length ? pagedList(h, reminders, a => h("article", { class: "reminder-row" },
       h("div", { class: "reminder-heading" }, icon("bell", 19), h("div", { class: "record-copy" }, h("strong", {}, a.title), h("span", {}, a.due_date ? fmtDate(a.due_date) : c.inApp)), canWrite() ? doneButton(a.id) : null),
+      a.data?.case_id ? h("a", { class: "text-link", href: `#chat?case=${a.data.case_id}` }, ctx.S.ui === "bn" ? "কাজ খুলুন / তারিখ বদলান" : "Open task / change date") : null,
       a.message ? h("details", { class: "reminder-note" }, h("summary", {}, c.details), h("p", {}, a.message)) : null), c.more)
       : h("div", { class: "home-panel quiet-empty" }, h("h2", {}, c.emptyReminders), h("p", {}, c.emptyReminderCopy)));
   } else {
@@ -128,7 +135,8 @@ export async function renderGuidedMoney(v, ctx, selected = "overview") {
         yfmt: (n, axis) => money(n, axis), xfmt: fmtDate, height: 250, ariaLabel: c.forecast })));
   }
   v.replaceChildren(h("div", { class: "guided-page money-page" }, h("h1", {}, c.money), h("p", { class: "page-intro" }, c.moneyIntro),
-    pageTabs(h, c, "money", tab, [["overview", c.overview], ["forecast", c.forecast]]), body));
+    pageTabs(h, c, "money", tab, [["overview", c.overview], ["forecast", c.forecast]]), body,
+    h("a", { class: "text-link", href: tab === "forecast" ? "#chat?start=shortfall" : "#chat?start=stock" }, S.ui === "bn" ? (tab === "forecast" ? "একটি পেমেন্টের পরিকল্পনা" : "পণ্য কেনার পরিকল্পনা") : (tab === "forecast" ? "Plan an upcoming payment" : "Plan a product purchase"))));
 }
 
 function canWriteOrReadLink(ctx, c) {

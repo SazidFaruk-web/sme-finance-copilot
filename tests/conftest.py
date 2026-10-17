@@ -14,6 +14,7 @@ os.environ["LOCAL_ONLY_MODE"] = "false"
 os.environ["FIELD_ENCRYPTION_KEY"] = "q2Vt0b2dJ3m8u0cA8n7f1yV3oZx9lS5eT4rW6pQ1hKs="
 os.environ["RATE_LIMIT_PER_MINUTE"] = "100000"
 os.environ["LOGIN_RATE_LIMIT_PER_MINUTE"] = "100000"
+os.environ["ALLOW_ILLUSTRATIVE_GUIDANCE"] = "true"  # legacy calculator fixtures, never real-owner guidance
 for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
           "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY"):
     os.environ.pop(k, None)

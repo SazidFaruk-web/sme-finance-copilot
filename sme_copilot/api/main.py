@@ -59,12 +59,12 @@ def create_app() -> FastAPI:
                                                                 get_settings().login_rate_limit_per_minute))
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origin_list, allow_credentials=False,
-                       allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"])
+                       allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"])
 
     from . import routes_core, routes_data
     app.include_router(routes_core.router)
     app.include_router(routes_data.router)
-    for mod in ("routes_insights", "routes_actions", "routes_stock", "routes_books", "routes_home"):
+    for mod in ("routes_insights", "routes_actions", "routes_stock", "routes_books", "routes_home", "routes_pilot"):
         try:
             m = __import__(f"sme_copilot.api.{mod}", fromlist=["router"])
             app.include_router(m.router)
@@ -89,6 +89,11 @@ def create_app() -> FastAPI:
 
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+        @app.get("/service-worker.js", include_in_schema=False)
+        def service_worker() -> FileResponse:
+            return FileResponse(FRONTEND_DIR / "service-worker.js", media_type="application/javascript",
+                                headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
         @app.get("/", include_in_schema=False)
         def index() -> FileResponse:

@@ -73,6 +73,24 @@ Authentication uses **one active language at a time**. Provide an explicit Engli
 
 ## Contributor review checklist
 
+### Guided tasks and the Bangladesh pilot
+
+The agreed [Bangladesh product plan](PRODUCT_PLAN_BD.md) is shared implementation context. The first audience is small shops and traders in Dhaka South. Copilot opens a functional task, not a chat transcript: establish the goal, confirm facts, ask the next useful question, compare options, prepare an action, and review its outcome.
+
+- Show one question and at most three choices at a time. Prefer amounts, dates, selected records and short checklists. Offer “I don't know” and “Do this later.” Unknown values never silently become zero.
+- Reuse known facts as editable suggestions. After six new questions, offer an answer summary and the choice to continue deeper or pause. Preserve input on language switches and provide backtracking and resuming.
+- Keep optional text/voice for unusual cases. Speech only fills reviewable input; it cannot trigger a payment, message, application or record confirmation.
+- Show at most three leading comparison figures. Put payment schedules, calculations and explanations behind “Why?” or “Show calculation.” Separate lender eligibility from the owner's ability to repay.
+- Any relevant answer, record or source change invalidates action previews. Saved comparisons must show when their supporting facts have changed. Only deterministic services calculate money, check applicability, validate dates and enforce permissions.
+- The model selects approved task/question IDs. It cannot generate arbitrary executable components or bypass confirmation. Keep a usable rules fallback when the model is unavailable.
+- Distinguish **saved on this device**, **synchronised for review**, and **confirmed in records**. No automatic execution when connectivity returns. Never imply live source checks, SMS or speech are available offline.
+- Distinguish **Prepared**, **Submitted**, and **Accepted/completed**. Printing a draft does not submit an application. Retain the official form and submission destination when verified.
+- Owner SMS is opt-in, generic and grouped at most once daily, with provider setup and number verification. Provider acceptance is not handset delivery; delivery is not task completion. Customer messages remain owner-reviewed drafts.
+- Before offering guidance from a regulation or lender product, consult the dated source register and its review state. Unreviewed material is an enquiry route, never a confident rate, deadline or recommendation.
+- A human-help route, owner-controlled sharing, exports and recovery are part of the product. Review borrowing and personalised compliance conclusions during the pilot. Do not introduce scores or jargon to conceal missing evidence.
+
+Do not add anything to Home for these capabilities. Put saved tasks in Tasks, calculations in Money, drafts/history in Records and documents/support in More.
+
 Before implementing a feature, write down its audience, single user goal, hierarchy, primary action, data source, empty/error/loading states, and permission/confirmation behavior. Apply the installed MengTo design-first skill where available (see root AGENTS.md); this document remains usable without it.
 
 Before shipping, ask:

@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { buildGuidance, upcomingItems } from '../../frontend/guidance.js';
 
 const base = { asOf: '2026-10-17', recordCount: 20, canWrite: true };
+
+test('a reconciliation gap comes before money advice and opens its saved task', () => {
+  const g = buildGuidance({ ...base, alerts: [
+    { id: 1, kind: 'low_balance', severity: 'critical', title: 'Forecast', data: {} },
+    { id: 2, kind: 'custom', severity: 'info', title: 'Check money', due_date: base.asOf, data: { reconciliation: true, case_id: 42 } },
+  ] });
+  assert.equal(g.primary.id, 2);
+  assert.equal(g.primary.action.href, '#chat?case=42');
+  assert.match(g.primary.why, /missing or incorrect/);
+});
 const alert = (id, kind, extra = {}) => ({ id, kind, title: `Recorded issue ${id}`, message: 'Source evidence', severity: 'warning', status: 'open', data: {}, ...extra });
 
 test('cash risk is prioritized over overdue collections and routine spending', () => {

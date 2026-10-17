@@ -47,6 +47,7 @@ def get_engine() -> Engine:
 
 def init_db() -> None:
     from sme_copilot import models  # noqa: F401  (register tables)
+    from sme_copilot.pilot import models as pilot_models  # noqa: F401
 
     engine = get_engine()
     Base.metadata.create_all(engine)

@@ -7,6 +7,8 @@ import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=12";
 import { renderAuth } from "./auth.js?v=13";
+import { renderPilot } from "./pilot.js?v=14";
+import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -369,6 +371,7 @@ let loginRender = 0;
 async function renderLogin(err, startTab = "login") {
   const renderId = ++loginRender;
   S.user = null; S.conv = null; window.onhashchange = null;
+  sessionStorage.removeItem("pilot-profile"); setDraftOwner(null);
   document.body.classList.add("auth-open");
   try { S.health = await (await fetch("/api/health")).json(); } catch { S.health = {}; }
   if (renderId !== loginRender || S.user) return;
@@ -379,7 +382,9 @@ async function renderLogin(err, startTab = "login") {
     },
   });
 }
-function logout(expired) {
+async function logout(expired) {
+  if (!expired) await clearLocalOwner().catch(() => {});
+  sessionStorage.removeItem("pilot-profile");
   if (!expired) fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": csrf() }, credentials: "same-origin" });
   sessionStorage.removeItem("token"); renderLogin(expired ? "Please log in again." : "");
 }
@@ -463,16 +468,32 @@ function accountMenu(name) {
 }
 
 async function boot() {
+  registerOffline();
   try {
     const me = await fetch("/api/auth/me", { credentials: "same-origin" });  // cookie session, if any
     if (!me.ok) return renderLogin();
     S.user = await me.json();
+    setDraftOwner(S.user);
+    sessionStorage.setItem("pilot-profile", JSON.stringify(S.user));
     S.look = pref("ui_style:" + S.user.username, "general"); applyPrefs();
     S.models = await api("/api/models");
     const st = await api("/api/settings"); S.style = st.number_style; S.stepUp = st.step_up_amount;
     [S.home, S.reg] = await Promise.all([api("/api/home/prefs"), api("/api/home/registry")]);
     if (S.home.exists) { S.look = S.home.style; savePref("ui_style:" + S.user.username, S.look); applyPrefs(); }
-  } catch { return; }
+  } catch {
+    const saved = sessionStorage.getItem("pilot-profile");
+    if (!saved) return renderLogin();
+    try { S.user = JSON.parse(saved); } catch { return renderLogin(); }
+    setDraftOwner(S.user); document.body.classList.remove("auth-open");
+    const offline = h("main", { class: "pilot-offline-shell" });
+    $("#root").replaceChildren(h("div", { class: "pilot-offline-shell" },
+      h("p", {}, plain("Connection unavailable. Only this device’s saved drafts are available.", "সংযোগ নেই। শুধু এই ডিভাইসে রাখা খসড়া পাওয়া যাবে।")),
+      h("button", { class: "btn", onclick: () => location.reload() }, plain("Reconnect", "আবার সংযোগ")),
+      h("button", { class: "btn", onclick: () => logout(false) }, plain("Sign out and clear local drafts", "লগ আউট করে ডিভাইসের খসড়া মুছুন")), offline));
+    const show = () => renderPilot(offline, guidedContext());
+    if (!location.hash.startsWith("#chat")) location.hash = "#chat?tab=offline";
+    window.onhashchange = show; await show(); return;
+  }
   if (S.models.shared_only || !S.profile || !S.models.profiles.some(p => p.name === S.profile && p.available)) S.profile = S.models.default;
   renderShell();
   window.onhashchange = route;
@@ -543,10 +564,10 @@ function route() {
   v.replaceChildren(h("div", { class: "skeleton-block", role: "status", "aria-label": plain("Loading", "লোড হচ্ছে") }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
   restartAnim(v, "route-enter");
   const views = S.mode === "simple"
-    ? { dashboard: viewSimpleHome, chat: viewChat, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewSimpleFinancing, settings: viewSimpleSettings,
+    ? { dashboard: viewSimpleHome, chat: viewPilot, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewPilotFunding, settings: viewSimpleSettings,
       invoices: viewInvoices, reports: viewReports, stock: viewStock, actions: viewActions, audit: viewAudit, more: viewMore,
       tasks: viewGuidedTasks, money: viewGuidedMoney }
-    : { dashboard: viewDashboard, chat: viewChat, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewFinancing, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewPilot, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
     h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
@@ -1662,7 +1683,7 @@ async function privacyCard() {
     h("ul", { class: "plain see-list" },
       h("li", { class: "ok-li" }, "Only what you type or upload here: records, files and invoices."),
       h("li", { class: "no-li" }, "No access to your contacts, email, SMS, camera, other files or other apps."),
-      h("li", { class: "ok-li" }, "Reminders and payments are drafts or sandbox only. Nothing is sent to real phones, email or banks."),
+      h("li", { class: "ok-li" }, "Customer messages and payments remain drafts or sandbox actions. Owner SMS reminders require consent, phone verification and a configured provider. Delivery is tracked separately."),
       h("li", { class: local ? "ok-li" : "warn-li" }, local
         ? `AI model "${prof.label || S.profile}" runs on this computer, so your data stays here.`
         : `AI model "${prof.label || S.profile}" is a cloud model: questions go to it with phone and account numbers masked.`)),
@@ -1689,9 +1710,12 @@ function prefsCard() {
 const canWrite = () => S.user.max_tier >= 1;
 
 function askWithContext(text) {
-  S.chatDraft = text;
-  if (location.hash === "#chat") route(); else location.hash = "#chat";
+  const target = /shortfall|payment|cash|টাকা|ঘাটতি/i.test(text) ? "shortfall" : /stock|product|পণ্য/i.test(text) ? "stock" : /loan|ঋণ/i.test(text) ? "loan" : "";
+  location.hash = target ? `#chat?start=${target}` : "#chat";
 }
+
+async function viewPilot(v) { await renderPilot(v, guidedContext()); }
+async function viewPilotFunding(v) { await renderPilot(v, guidedContext(), "loan"); }
 
 function guidedContext() {
   return { h, api, S, money, fmtDate, canWrite, lineChart, reload: route,
@@ -1724,7 +1748,7 @@ function reminderDialog(task, asOf) {
       bg.remove(); toast(plain("Reminder saved. It will appear in this app on ", "রিমাইন্ডার সেভ হয়েছে। অ্যাপে দেখাবে: ") + fmtDate(when.value), "ok");
       if (["#dashboard", "#tasks"].includes((location.hash || "#dashboard").split("?")[0])) route();
     } catch (err) { status.textContent = err.message; submit.disabled = false; }
-  } }, h("p", { class: "muted" }, plain("This reminder appears in the app when you return. It does not send an SMS, email, or phone notification.", "আবার অ্যাপে এলে এই রিমাইন্ডার দেখবেন। এসএমএস, ইমেইল বা ফোনে নোটিফিকেশন পাঠানো হবে না।")),
+  } }, h("p", { class: "muted" }, plain("This reminder stays in the app. Owner SMS requires opt-in, number verification and an active provider in Reminder settings.", "এই রিমাইন্ডার অ্যাপে থাকবে। মালিকের এসএমএসের জন্য রিমাইন্ডার সেটিংসে সম্মতি, নম্বর যাচাই ও সক্রিয় সেবা দরকার।")),
     h("label", { class: "field", for: "reminder-title" }, plain("What do you want to remember?", "কোন কাজটি মনে রাখতে চান?"), title),
     h("label", { class: "field", for: "reminder-date" }, plain("When?", "কবে?"), when),
     h("label", { class: "field", for: "reminder-notes" }, plain("A note (optional)", "নোট (ইচ্ছা হলে)"), notes), status, submit);
@@ -1742,6 +1766,8 @@ async function viewMore(v) {
     ["actions", "check", plain("Prepared actions", "প্রস্তুত কাজ"), plain("Review pending actions, drafts, and the sandbox outbox.", "অপেক্ষায় থাকা কাজ, খসড়া ও স্যান্ডবক্স আউটবক্স দেখুন।")],
     ["financing", "bill", plain("Borrowing options", "ঋণের বিকল্প"), plain("Explore costs and requirements before deciding.", "সিদ্ধান্তের আগে খরচ ও শর্ত জানুন।")],
     ["settings", "more", plain("Settings", "সেটিংস"), plain("Change language, appearance, and privacy preferences.", "ভাষা, রং ও গোপনীয়তার পছন্দ বদলান।")],
+    ["chat?tab=documents", "book", plain("Documents", "কাগজপত্র"), plain("Find drafts, quotes and receipts.", "খসড়া, প্রস্তাব ও রসিদ খুঁজুন।")],
+    ["chat?tab=offline", "book", plain("Saved on this device", "এই ডিভাইসে রাখা"), plain("Review and synchronise local record drafts.", "ডিভাইসের খসড়া দেখে সার্ভারে পাঠান।")],
   ];
   v.replaceChildren(h("div", { class: "more-page" }, h("h1", {}, plain("A few more tools", "আরও কিছু সুবিধা")),
     h("p", { class: "muted" }, plain("Here when you need them. Your daily essentials stay on Home.", "দরকার হলে ব্যবহার করুন। দৈনন্দিন কাজ হোমেই পাবেন।")),
@@ -1834,7 +1860,8 @@ async function viewSimpleData(v) {
   } }, t("s_upload"));
   v.replaceChildren(h("h1", {}, plain("Your business records", "আপনার ব্যবসার হিসাব")),
     h("p", { class: "muted" }, canWrite() ? plain("Write a sale or expense in your own words. Check the preview, then save.", "বিক্রি বা খরচ নিজের ভাষায় লিখুন। মিলিয়ে দেখে তারপর সেভ করুন।") : plain("You can review records here. The owner or accountant can add and correct entries.", "এখানে হিসাব দেখতে পারবেন। মালিক বা হিসাবরক্ষক হিসাব যোগ বা ঠিক করতে পারবেন।")),
-    canWrite() ? quickEntryCard(load) : null,
+    canWrite() ? h("div", { class: "pilot-inline" }, h("a", { href: "#chat?start=record", class: "btn primary" }, plain("Add or check money", "হিসাব লিখুন বা টাকা মেলান")), h("a", { href: "#chat?tab=offline", class: "text-link" }, plain("Offline drafts", "অফলাইন খসড়া"))) : null,
+    canWrite() ? h("details", {}, h("summary", {}, plain("Write a quick note instead", "নিজের ভাষায় লিখুন")), quickEntryCard(load)) : null,
     canWrite() ? h("details", { class: "card", style: "margin-top:16px" }, h("summary", {}, plain("Import a file or a khata photo", "ফাইল বা খাতার ছবি থেকে হিসাব আনুন")),
       h("div", { class: "row", style: "margin-top:16px" }, file, upload), h("a", { class: "text-link", href: "#data?tools=all" }, plain("Photo scan and more import options", "ছবি স্ক্যান ও অন্যান্য সুবিধা"), icon("arrow", 16))) : null,
     h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_recent")), list));

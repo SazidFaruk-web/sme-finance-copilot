@@ -5,6 +5,10 @@ FinTech Competition (FinTechathon), International Track, **Topic E: SME Finance 
 
 The default Home guides owners who have no finance background with just recorded money and one practical next step. Tasks has tabs for To do, Reminders, and Coming up; Money separates monthly totals from forecasts; Records holds entries and history. Other tools remain available through More. Contributors and agents must read the [design principles](docs/DESIGN_PRINCIPLES.md) and [contribution guide](CONTRIBUTING.md) before implementing features.
 
+The **Dhaka South shop/trader pilot** adds six resumable guided tasks: record/check money, collect a customer due, plan a payment, check real loan quotes, test a product and prepare paperwork. Open **More → Ask Copilot**. The flow asks one question at a time and prepares owner-confirmed actions, without a chat transcript. Documents, reminder settings and offline drafts have their own destinations. See the [agreed product plan, source register and operator runbook](docs/PRODUCT_PLAN_BD.md).
+
+Owner SMS has a disabled-by-default provider adapter and an independent persistent worker: `scripts\start_reminder_worker.ps1`. It requires provider onboarding, opt-in and phone verification. In-app reminders work without SMS. The browser can keep local drafts and cached task progress through connection loss; reconnect to review and confirm them. Legacy illustrative financing tools and generic compliance dates are blocked by default. Current operational sources remain marked for human review, and the real-owner pilot study has not yet been conducted.
+
 Small shops, garment subcontractors, traders, food businesses and freelancers can upload their sales ledgers,
 bank statements and bKash/Nagad/Rocket statements, or simply type *"dokan bhara 15000 dilam"*. The copilot then:
 
@@ -12,11 +16,10 @@ bank statements and bKash/Nagad/Rocket statements, or simply type *"dokan bhara 
   Pohela Boishakh seasonality, and why the numbers changed;
 - **manages cash flow**: 30/60/90-day forecast with an uncertainty band, what-if simulation, and proactive alerts
   for low balance, overdue invoices, rent/salary/EMI/VAT dates and unusual spending;
-- **matches financing**: bank, CMSME refinance-scheme, MFI, MFS nano-loan, supplier credit, invoice financing
-  and leasing options, evaluated on the business's real numbers (DSCR, revenue stability, age, documents,
-  collateral), with EMI and total cost of credit and a plain-language reason for every match and rejection;
-- **gets work done**: payment reminders, Bangla/English follow-up letters, a loan-readiness PDF, an
-  application checklist, and **sandbox** payments that need the owner's explicit confirmation. Every action
+- **checks actual financing quotes**: net proceeds, complete repayment schedules, essential costs and a chosen reserve,
+  with slower-sales scenarios and separate funding enquiry routes. Legacy illustrative matching is disabled for the pilot;
+- **gets work done**: saved tasks, Bangla/English follow-up letters, editable paperwork, product experiments and
+  in-app reminders. Owner SMS requires setup and consent; **sandbox** payments need the owner's explicit confirmation. Every action
   lands in a hash-chained operation log.
 
 It works in **English, বাংলা and Banglish**, and replies in the language you write in. Every number comes

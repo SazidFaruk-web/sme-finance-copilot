@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     # --- Telemetry / background ---------------------------------------------------------
     interaction_log_enabled: bool = True
     digest_scheduler: bool = False  # refresh alerts for every business hourly (proactive digest)
+    pilot_sms_enabled: bool = False  # enable only after provider onboarding and delivery tests
+    pilot_sms_api_token: str = ""
+    pilot_sms_sid: str = ""
+    pilot_source_checks: bool = False
+    pilot_question_model: bool = False  # optional shared LLM ordering; deterministic fallback always available
+    allow_illustrative_guidance: bool = False  # isolated demos/tests only; never enable for a real pilot
+    pilot_help_contact: str = ""  # operator-supplied facilitator phone/office; never invent a helpline
 
     @property
     def db_url(self) -> str:

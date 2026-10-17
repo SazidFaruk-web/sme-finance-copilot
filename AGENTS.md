@@ -1,5 +1,7 @@
 # Project instructions
 
+The agreed pilot specification and dated source register are in [docs/PRODUCT_PLAN_BD.md](docs/PRODUCT_PLAN_BD.md). Read it before changing guided workflows, financing, compliance, reminders or offline behaviour. Do not enable illustrative financial/compliance guidance for real owners. Keep source review, SMS provider acceptance, delivery, and owner completion distinct.
+
 ## Design-related changes
 
 Before designing or implementing any feature, read [docs/DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md). It is the shared product and design context for every agent and contributor. Design for small-business owners with no finance background: a calm guided Home, one clear next step, plain explanations, persistent in-app reminders, and details on demand. Update that file when the user agrees to a new design principle.

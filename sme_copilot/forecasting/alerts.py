@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sme_copilot.config import load_yaml
+from sme_copilot.config import load_yaml, get_settings
 from sme_copilot.models import Alert, Business
 from sme_copilot.tools import repo
 from sme_copilot.tools.analysis import add_months, aging, seasonality
@@ -61,6 +61,8 @@ def _applies(rule: dict[str, Any], business: Business) -> bool:
 
 def compliance_due_dates(business: Business, as_of: date, window: int = 10) -> list[tuple[dict[str, Any], date]]:
     out = []
+    if not get_settings().allow_illustrative_guidance:
+        return out  # real deadlines come from scoped guided cases and owner documents
     for r in compliance_rules().get("rules", []):
         rec = r.get("recurrence")
         if not rec or not _applies(r, business):

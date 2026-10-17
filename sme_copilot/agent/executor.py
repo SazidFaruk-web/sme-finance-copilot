@@ -179,6 +179,15 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
             ctx.session.commit()
             return out
     args_dict = args.model_dump(mode="json")
+    if (not get_settings().allow_illustrative_guidance and name in {
+            "match_financing", "loan_readiness_score", "get_financing_catalog", "generate_loan_report",
+            "prepare_loan_checklist", "compliance_info"}):
+        out = ToolOutcome(name, "blocked", tool.tier, args_dict,
+            data={"next_destination": "#chat?start=paperwork" if name == "compliance_info" else "#chat?start=loan"},
+            message="This older tool uses illustrative terms or generic requirements. Open the guided task to review an actual quote or verified paperwork source.")
+        _audit(ctx, tool, name, out, event_type="tool_call", confirmation="blocked")
+        ctx.session.commit()
+        return out
     amount = float(getattr(args, tool.amount_field)) if tool.amount_field else None
     decision = authorize(ctx.session, ctx.user, name, tool.tier, amount=amount)
     if decision.allowed and tool.tier >= 2 and ctx.suspicious_input:

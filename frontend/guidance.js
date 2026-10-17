@@ -54,12 +54,12 @@ export function buildGuidance({ alerts = [], recordCount = 0, asOf, canWrite = f
     .sort((a, b) => a.due_date.localeCompare(b.due_date));
   const ranked = active.filter(a => !reminders.includes(a) && (recordCount > 0 || !["low_balance", "spending_spike", "unusual_spending"].includes(a.kind))).sort((a, b) => {
     const sev = s => ({ critical: 0, warning: 1, info: 2 }[s] ?? 3);
-    return sev(a.severity) - sev(b.severity)
+    return Number(Boolean(b.data?.reconciliation)) - Number(Boolean(a.data?.reconciliation)) || sev(a.severity) - sev(b.severity)
       || (KIND_ORDER.indexOf(a.kind) < 0 ? 99 : KIND_ORDER.indexOf(a.kind)) - (KIND_ORDER.indexOf(b.kind) < 0 ? 99 : KIND_ORDER.indexOf(b.kind))
       || (a.due_date || "9999").localeCompare(b.due_date || "9999") || a.id - b.id;
   });
   const tasks = ranked.map(a => {
-    const [title, why, steps] = c[a.kind] || c.fallback;
+    let [title, why, steps] = c[a.kind] || c.fallback;
     let action = { label: c.ask, href: "#chat" };
     if (["overdue_invoice", "payable_due", "obligation_due"].includes(a.kind)) action = { label: c.check, href: "#invoices" };
     if (["unusual_spending", "spending_spike"].includes(a.kind)) action = { label: c.records, href: "#data" };
@@ -68,14 +68,20 @@ export function buildGuidance({ alerts = [], recordCount = 0, asOf, canWrite = f
     const st = a.data?.suggested_tool;
     if (canWrite && a.kind === "overdue_invoice" && st?.name === "create_payment_reminder") action = { label: c.reminder, tool: st.name, args: st.args };
     if (a.kind === "custom") action = { label: c.note, details: true };
-    return { id: a.id, kind: a.kind, title: a.kind === "custom" ? a.title : title, why, steps, action, source: a,
+    if (a.data?.case_id) action = { label: language === "bn" ? "কাজ খুলুন" : "Open task", href: `#chat?case=${a.data.case_id}` };
+    if (a.data?.reconciliation) {
+      title = language === "bn" ? "আগে টাকার হিসাব মিলিয়ে নিন" : "Check the money records first";
+      why = language === "bn" ? "গুনে পাওয়া টাকা হিসাবের সঙ্গে মেলেনি। সিদ্ধান্তের আগে বাদ পড়া বা ভুল হিসাব ঠিক করুন।" : "Your counted money differs from the records. Check missing or incorrect entries before relying on a money decision.";
+      steps = [];
+    }
+    return { id: a.id, kind: a.kind, title: a.data?.reconciliation ? title : a.kind === "custom" ? a.data?.task_title?.[language] || a.title : title, why, steps, action, source: a,
       question: c.question + a.title + (a.message ? "\n" + a.message : "") };
   });
   const routine = { id: "routine", kind: "routine", title: canWrite ? (recordCount ? c.daily : c.first) : c.readOnly,
     why: canWrite ? (recordCount ? c.dailyWhy : c.firstWhy) : c.readOnlyWhy,
     steps: canWrite ? c.entrySteps : [], action: { label: canWrite ? c.add : c.records, href: "#data" }, question: c.question + (recordCount ? c.daily : c.first) };
   // With no transaction history, start with recording rather than inventing a healthy cash assessment.
-  if (!recordCount && canWrite) tasks.unshift(routine);
+  if (!recordCount && canWrite && !ranked.some(a => a.data?.reconciliation)) tasks.unshift(routine);
   if (!tasks.length) tasks.push(routine);
   // Home receives one recommendation. The complete priority order belongs on the Tasks page.
   return { primary: tasks[0], tasks, reminders, count: tasks.filter(t => t.kind !== "routine").length };

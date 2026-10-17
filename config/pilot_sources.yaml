@@ -1,0 +1,82 @@
+# Sources located during desk research on 2026-10-17. Publication is NOT professional review.
+# A reviewer must supply reviewed_by, reviewed_on, effective_from and valid_until to publish.
+sources:
+  - id: trade
+    title: {en: Dhaka South trade licence, bn: ঢাকা দক্ষিণ ট্রেড লাইসেন্স}
+    authority: Dhaka South City Corporation
+    url: https://dscc.gov.bd/pages/static-pages/6922dba2933eb65569e0b707
+    audience: dscc
+    kind: compliance
+    documents: {en: 'Existing licence, identity and address evidence, rent documents, relevant payment receipts. Confirm the exact list with the revenue office.', bn: 'আগের লাইসেন্স, পরিচয় ও ঠিকানার প্রমাণ, ভাড়ার কাগজ, প্রযোজ্য রশিদ। রাজস্ব দপ্তরে সঠিক তালিকা যাচাই করুন।'}
+    destination: {en: 'DSCC revenue office for your ward; use the official procedure page to find the application route.', bn: 'আপনার ওয়ার্ডের ডিএসসিসি রাজস্ব দপ্তর; আবেদনের পথ জানতে সরকারি নির্দেশনা দেখুন।'}
+  - id: income_tax
+    title: {en: NBR income tax return, bn: এনবিআর আয়কর রিটার্ন}
+    authority: National Board of Revenue
+    url: https://nbr.gov.bd/uploads/news-scroller/FAQ_e-Return_-_2026.pdf
+    audience: bangladesh
+    kind: compliance
+    documents: {en: 'TIN, prior return, income and expense records, household spending, assets, debts and tax-payment evidence. Business records alone may be incomplete.', bn: 'টিআইএন, আগের রিটার্ন, আয়-ব্যয়, সংসার খরচ, সম্পদ, ঋণ ও কর প্রদানের প্রমাণ। শুধু ব্যবসার হিসাব যথেষ্ট নাও হতে পারে।'}
+    destination: {en: 'NBR e-Return at etaxnbr.gov.bd. Some steps need a desktop or laptop. Keep the acknowledgement after filing.', bn: 'etaxnbr.gov.bd-তে এনবিআর ই-রিটার্ন। কিছু ধাপে কম্পিউটার লাগতে পারে। দাখিলের প্রাপ্তিস্বীকার সংরক্ষণ করুন।'}
+  - id: vat
+    title: {en: VAT registration and filing, bn: ভ্যাট নিবন্ধন ও দাখিল}
+    authority: National Board of Revenue
+    url: https://nbr.gov.bd/
+    audience: bangladesh
+    kind: compliance
+    documents: {en: 'Current BIN if any, business activity, sales totals, purchase invoices and previous filings. Registration, filing and payment need separate checks.', bn: 'বিআইএন থাকলে সেটি, ব্যবসার ধরন, মোট বিক্রি, কেনার চালান ও আগের দাখিল। নিবন্ধন, দাখিল ও পেমেন্ট আলাদা করে যাচাই করতে হবে।'}
+    destination: {en: 'Your NBR VAT office. Confirm applicability, current form and deadline before filing.', bn: 'আপনার এনবিআর ভ্যাট দপ্তর। দাখিলের আগে প্রযোজ্যতা, বর্তমান ফরম ও শেষ তারিখ যাচাই করুন।'}
+  - id: bb_cmsme
+    title: {en: CMSME funding through participating lenders, bn: অংশগ্রহণকারী প্রতিষ্ঠানের মাধ্যমে সিএমএসএমই অর্থায়ন}
+    authority: Bangladesh Bank
+    url: https://www.bb.org.bd/mediaroom/circulars/smespd/feb052026smespd01.pdf
+    kind: funding
+  - id: smef
+    title: {en: SME Foundation partner finance, bn: এসএমই ফাউন্ডেশনের সহযোগী অর্থায়ন}
+    authority: SME Foundation
+    url: https://smef.gov.bd/pages/static-pages/6922e0e2933eb65569e29043
+    kind: funding
+  - id: pksf
+    title: {en: PKSF microenterprise partners, bn: পিকেএসএফ ক্ষুদ্র উদ্যোগ সহযোগী}
+    authority: PKSF
+    url: https://pksf.org.bd/our-activities/core-programmes/microenterprise-programme/
+    kind: funding
+  - id: mra
+    title: {en: Check a microfinance provider, bn: ক্ষুদ্রঋণ প্রতিষ্ঠান যাচাই}
+    authority: Microcredit Regulatory Authority
+    url: https://mra.gov.bd/pages/static-pages/6922dc23933eb65569e0e9ab
+    kind: funding
+  - id: islamic
+    title: {en: Islamic SME financing, bn: ইসলামি এসএমই অর্থায়ন}
+    authority: Islami Bank Bangladesh
+    url: https://www.islamibankbd.com/investment/sme-investment
+    kind: funding
+  - id: bkash
+    title: {en: Check an existing bKash loan offer, bn: বিকাশে পাওয়া ঋণের প্রস্তাব দেখুন}
+    authority: bKash / City Bank
+    url: https://www.bkash.com/en/products-services/loan/loan-bkash
+    kind: funding
+  - id: fire
+    title: {en: Fire licensing, bn: ফায়ার লাইসেন্স}
+    authority: Fire Service and Civil Defence
+    url: https://elicense.fireservice.gov.bd/
+    kind: specialist
+  - id: dife
+    title: {en: Establishment licensing, bn: প্রতিষ্ঠান লাইসেন্স}
+    authority: DIFE
+    url: https://lima.dife.gov.bd/license-verification
+    kind: specialist
+  - id: bsti
+    title: {en: Regulated products, bn: নিয়ন্ত্রিত পণ্য}
+    authority: BSTI
+    url: https://bsti.gov.bd/site/page/741c4948-53e2-455e-bb38-f4281381f426/List-of-Mandatory-Products-
+    kind: specialist
+  - id: bfsa
+    title: {en: Food business requirements, bn: খাদ্য ব্যবসার প্রয়োজনীয়তা}
+    authority: BFSA
+    url: https://fbo.bfsa.gov.bd/license-application-process
+    kind: specialist
+  - id: dbid
+    title: {en: Online selling requirements, bn: অনলাইন বিক্রির প্রয়োজনীয়তা}
+    authority: DBID
+    url: https://dbid.gov.bd/application-info
+    kind: specialist

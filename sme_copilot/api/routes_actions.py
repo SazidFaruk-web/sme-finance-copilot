@@ -44,6 +44,8 @@ from sme_copilot.security.auth import verify_password
 from sme_copilot.security.permissions import daily_money_used
 from sme_copilot.security.pii import mask_account
 from sme_copilot.telemetry.interactions import purge_business
+from sme_copilot.models import Item
+from sme_copilot.pilot.models import CaseDocument, GuidedCase, NotificationDelivery, NotificationPreference, ReminderJob
 
 from .deps import current_user, require_owner, require_tier, tool_context
 from .schemas import CancelIn, ConfirmIn, DeleteDataIn
@@ -237,7 +239,8 @@ def compliance(user: User = Depends(current_user), db: Session = Depends(get_db)
 
 
 # ----------------------------------------------------------------------------- privacy
-BUSINESS_TABLES = [ChatMessage, Conversation, PendingAction, SandboxTransfer, SandboxAccount, Reminder, Draft, Report,
+BUSINESS_TABLES = [ChatMessage, CaseDocument, ReminderJob, NotificationDelivery, NotificationPreference, GuidedCase,
+                   Conversation, PendingAction, SandboxTransfer, SandboxAccount, Reminder, Draft, Report, Item,
                    InvoicePayment, DeletedTransaction, RecurringInvoice, Alert, Obligation, Transaction, Invoice,
                    ImportBatch, HomePrefs]
 
@@ -299,6 +302,10 @@ def export_my_data(user: User = Depends(require_owner), db: Session = Depends(ge
                       "phone": i.counterparty_phone, "amount": float(i.amount), "due_date": i.due_date, "status": i.status}
                      for i in db.scalars(select(Invoice).where(Invoice.business_id == bid))],
     }
+    # Explicit owner export, including encrypted documents decoded only for this response.
+    for model in (GuidedCase, CaseDocument, ReminderJob, NotificationPreference, NotificationDelivery):
+        data[model.__tablename__] = [{c.name: getattr(row, c.name) for c in model.__table__.columns}
+                                    for row in db.scalars(select(model).where(model.business_id == bid))]
     audit.record(db, actor=user.username, actor_role=user.role, business_id=bid, event_type="data",
                  action="export_business_data", result={"transactions": len(data["transactions"]),
                                                         "invoices": len(data["invoices"])})
