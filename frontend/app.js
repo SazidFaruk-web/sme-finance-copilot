@@ -73,7 +73,7 @@ const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* priv
 const S = {
   user: null, models: null, profile: pref("profile", ""),
   ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
-  theme: pref("theme", "system"),          // system | light | dark
+  theme: pref("theme", "light"),           // system | light | dark; light = the cream General look
   mode: pref("ui_mode", "simple"),       // guided by default; details remain opt-in
   look: "general",                         // Settings > Style: general | sky | classic (per user, set after login)
   counts: { overdue: 0, low_stock: 0, recurring_due: 0 },
