@@ -37,7 +37,7 @@ const T = {
     s_pdf: "Make loan report (PDF)", s_dismiss: "Hide", s_ask_ph: "Ask anything about your business…",
     s_switch: "Want charts and details? Switch to Advanced in Settings.",
     // styles + dashboard sections
-    style: "Style", st_general: "General", st_green: "Green", st_blue: "Blue", theme_note: "Light/Dark applies to the General style.",
+    style: "Style", st_general: "General", st_sky: "Sky", st_classic: "Classic", theme_note: "Light/Dark applies to the General and Sky styles.",
     search_ph: "Search records…", range: "Date range", welcome: "Welcome back", sec_work: "What's working", sec_alerts: "Alerts",
     sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip",
     home_layout: "Business & home layout", change_layout: "Change layout", account: "Account", show_me: "Show me", got_it: "Got it" },
@@ -63,7 +63,7 @@ const T = {
     s_amount: "কত টাকা দরকার? (৳)", s_find: "ঋণ খুঁজুন", s_per_month: "প্রতি মাসে", s_months: "মাস",
     s_pdf: "ঋণ রিপোর্ট বানান (PDF)", s_dismiss: "লুকান", s_ask_ph: "আপনার ব্যবসা নিয়ে যেকোনো প্রশ্ন করুন…",
     s_switch: "চার্ট ও বিস্তারিত চান? সেটিংসে অ্যাডভান্সড চালু করুন।",
-    style: "স্টাইল", st_general: "সাধারণ", st_green: "সবুজ", st_blue: "নীল", theme_note: "লাইট/ডার্ক শুধু সাধারণ স্টাইলে কাজ করে।",
+    style: "স্টাইল", st_general: "সাধারণ", st_sky: "আকাশ", st_classic: "ক্লাসিক", theme_note: "লাইট/ডার্ক সাধারণ ও আকাশ স্টাইলে কাজ করে।",
     search_ph: "হিসাব খুঁজুন…", range: "সময়সীমা", welcome: "আবার স্বাগতম", sec_work: "যা ভালো চলছে", sec_alerts: "সতর্কতা",
     sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস",
     home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান", account: "অ্যাকাউন্ট", show_me: "দেখান", got_it: "বুঝেছি" },
@@ -75,15 +75,17 @@ const S = {
   ui: pref("ui_lang", "en"), style: "lakh", conv: null, health: {},
   theme: pref("theme", "system"),          // system | light | dark
   mode: pref("ui_mode", "simple"),       // guided by default; details remain opt-in
-  look: "general",                         // Settings > Style: general | green | blue (per user, set after login)
+  look: "general",                         // Settings > Style: general | sky | classic (per user, set after login)
   counts: { overdue: 0, low_stock: 0, recurring_due: 0 },
   home: null, reg: null,                   // home_prefs (widgets, nav, style) + widget/nav registry from the server
 };
 const t = k => (T[S.ui] && T[S.ui][k]) || T.en[k] || k;
+// Styles renamed 2026-10 (Green -> Classic, Blue -> General); unknown values fall back to General.
+const lookOf = v => ({ green: "classic", blue: "general" })[v] || (["general", "sky", "classic"].includes(v) ? v : "general");
 function applyPrefs() {
   const root = document.documentElement;
   root.dataset.style = S.look;
-  const theme = S.look === "general" ? S.theme : "light";  // Green and Blue are light-only styles
+  const theme = (S.look === "general" || S.look === "sky") ? S.theme : "light";  // Classic is light-only
   if (theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
   root.lang = S.ui === "bn" ? "bn" : "en";
   document.body.classList.toggle("simple", S.mode === "simple");
@@ -415,9 +417,9 @@ function prefControls() {
     options.map(([v, l]) => h("option", { value: v, selected: v === value }, l)));
   const field = (label, control) => h("label", { class: "field" }, label, control);
   const theme = sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v));
-  if (S.look !== "general") { theme.disabled = true; theme.title = t("theme_note"); }
+  if (S.look === "classic") { theme.disabled = true; theme.title = t("theme_note"); }
   return [
-    field(t("style"), sel(S.look, [["general", t("st_general")], ["green", t("st_green")], ["blue", t("st_blue")]], v => setPref("look", v))),
+    field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
     field(t("language"), sel(S.ui, [["en", "English"], ["bn", "বাংলা"]], v => setPref("ui", v))),
     field(t("theme"), theme),
     field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
@@ -475,11 +477,11 @@ async function boot() {
     S.user = await me.json();
     setDraftOwner(S.user);
     sessionStorage.setItem("pilot-profile", JSON.stringify(S.user));
-    S.look = pref("ui_style:" + S.user.username, "general"); applyPrefs();
+    S.look = lookOf(pref("ui_style:" + S.user.username, "general")); applyPrefs();
     S.models = await api("/api/models");
     const st = await api("/api/settings"); S.style = st.number_style; S.stepUp = st.step_up_amount;
     [S.home, S.reg] = await Promise.all([api("/api/home/prefs"), api("/api/home/registry")]);
-    if (S.home.exists) { S.look = S.home.style; savePref("ui_style:" + S.user.username, S.look); applyPrefs(); }
+    if (S.home.exists) { S.look = lookOf(S.home.style); savePref("ui_style:" + S.user.username, S.look); applyPrefs(); }
   } catch {
     const saved = sessionStorage.getItem("pilot-profile");
     if (!saved) return renderLogin();

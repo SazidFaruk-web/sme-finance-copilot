@@ -49,7 +49,8 @@ BUSINESS_TYPES = {
     "other": "Other",
 }
 SERVICE_TYPES = {"service_salon"}
-STYLES = ("general", "green", "blue")
+STYLES = ("general", "sky", "classic")
+LEGACY_STYLES = {"green": "classic", "blue": "general"}  # renamed 2026-10; old rows migrate on read
 MODES = ("general", "simplified", "custom")
 SIMPLIFIED = ["cash_now", "money_in_out", "receivables_aging", "todo_actions"]
 MAX_LAYOUTS, MAX_LAYOUT_WIDGETS = 3, 8
@@ -157,7 +158,7 @@ def normalize_prefs(*, business_type: str | None, mode: str, widgets: Any = None
         if not w:
             w = list(rule_layouts(business_type)[0]["widgets"])
     return {"business_type": business_type, "mode": mode, "widgets": w, "nav": clean_nav(nav, business_type),
-            "style": style if style in STYLES else "general"}
+            "style": style if style in STYLES else LEGACY_STYLES.get(style, "general")}
 
 
 # ---------------------------------------------------------------------------------------------- LLM

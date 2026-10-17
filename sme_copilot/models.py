@@ -407,5 +407,5 @@ class HomePrefs(Base):
     mode: Mapped[str] = mapped_column(String(12), default="general")  # general | simplified | custom
     widgets: Mapped[list[str]] = mapped_column(JSON, default=list)
     nav: Mapped[list[str]] = mapped_column(JSON, default=list)
-    style: Mapped[str] = mapped_column(String(12), default="general")  # general | green | blue
+    style: Mapped[str] = mapped_column(String(12), default="general")  # general | sky | classic (legacy green/blue migrate on read)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

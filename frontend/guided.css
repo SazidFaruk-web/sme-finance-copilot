@@ -6,6 +6,8 @@
   --in: #28694f; --in-soft: #eaf3ee; --out: #a33e43; --out-soft: #f9edef;
   --series-1: #609d85; --band: rgba(96,157,133,.14);
   --sb-bg: #faf8f5; --sb-text: #69635e; --sb-active-bg: #fbe9e0; --sb-active-text: #a84227;
+  /* General's advanced sidebar is a terracotta gradient with white ink; the guided sidebar is light */
+  --sb-hover: var(--surface-2); --sb-icon-bg: var(--surface-2); --sb-icon-active: var(--accent); --sb-bar: var(--accent); --sb-muted: var(--text-muted);
   --shadow: 0 3px 16px rgba(70,45,25,.025); --radius: 22px; --btn-radius: 12px;
   --home-wash: #fbe7db; --home-accent: #ec805b;
 }

@@ -99,9 +99,9 @@ def test_simplified_set_and_custom_validation(client):
     d = client.post("/api/home/prefs", json={"business_type": "garments_trims", "mode": "simplified"}, headers=h).json()
     assert d["mode"] == "simplified" and d["widgets"] == ["cash_now", "money_in_out", "receivables_aging", "todo_actions"]
     d = client.post("/api/home/prefs", json={"mode": "custom", "widgets": ["loan_readiness", "bogus", "cash_now", "loan_readiness"],
-                                             "nav": ["chat", "evil"], "style": "green"}, headers=h).json()
+                                             "nav": ["chat", "evil"], "style": "classic"}, headers=h).json()
     assert d["widgets"] == ["loan_readiness", "cash_now"] and d["nav"] == ["dashboard", "chat", "settings"]
-    assert d["style"] == "green" and d["business_type"] == "garments_trims"
+    assert d["style"] == "classic" and d["business_type"] == "garments_trims"
     assert client.post("/api/home/prefs", json={"style": "neon"}, headers=h).status_code == 422
     ev = client.get("/api/audit?event_type=operation", headers=h).json()
     assert any(e["action"] == "update_home_layout" for e in ev)
@@ -158,3 +158,9 @@ def test_signup_creates_business_owner_then_onboarding(client, monkeypatch):
     reset_settings_cache()
     assert client.post("/api/auth/signup", json={**body, "username": "rina2"}).status_code == 403
     assert client.get("/api/health").json()["allow_signup"] is False
+
+
+def test_legacy_style_names_migrate():
+    # Green was renamed Classic; Blue became the new General (login palette). The old General is now Sky.
+    for old, new in (("green", "classic"), ("blue", "general"), ("sky", "sky"), ("neon", "general")):
+        assert hl.normalize_prefs(business_type=None, mode="general", style=old)["style"] == new

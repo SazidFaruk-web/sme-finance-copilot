@@ -32,7 +32,7 @@ def _out(p: HomePrefs | None) -> dict[str, Any]:
         return {"exists": False, **hl.normalize_prefs(business_type=None, mode="general")}
     return {"exists": p.business_type is not None, "business_type": p.business_type, "mode": p.mode,
             "widgets": hl.clean_ids(p.widgets, hl.WIDGET_IDS, len(hl.WIDGET_IDS)), "nav": hl.clean_nav(p.nav, p.business_type),
-            "style": p.style if p.style in hl.STYLES else "general"}
+            "style": p.style if p.style in hl.STYLES else hl.LEGACY_STYLES.get(p.style, "general")}
 
 
 @router.get("/registry")
@@ -65,7 +65,7 @@ class PrefsIn(BaseModel):
     mode: Literal["general", "simplified", "custom"] | None = None
     widgets: list[str] | None = Field(None, max_length=40)
     nav: list[str] | None = Field(None, max_length=40)
-    style: Literal["general", "green", "blue"] | None = None
+    style: Literal["general", "sky", "classic"] | None = None
 
 
 @router.post("/prefs")
