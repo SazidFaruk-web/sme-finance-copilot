@@ -50,6 +50,8 @@ Use “money in,” “money out,” “customers owe you,” “bills to pay,�
 
 Localize new guidance and navigation in English and Bangla. Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
 
+Authentication uses **one active language at a time**. Provide an explicit English / বাংলা selector and remember the selection through login and subsequent visits. Translate the heading, labels, placeholders, instructions, validation, service errors, loading state, demo-role labels, and account-creation flow together. The language selector itself and user-entered names or credentials are exceptions. Never clear a form just because its language changes, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
+
 ## Visual system
 
 - General light theme: warm off-white page `#FAF8F5`, white cards, charcoal `#29292D`, muted text `#69635E`, subtle border `#EAE5DF`.

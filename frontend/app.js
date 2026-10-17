@@ -6,6 +6,7 @@
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=12";
+import { renderAuth } from "./auth.js?v=13";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -242,7 +243,7 @@ async function api(path, opts = {}) {
   if (!r.ok) {
     let msg = r.statusText, code = "";
     try { const j = await r.json(); msg = typeof j.detail === "string" ? j.detail : (j.detail && j.detail.message) || JSON.stringify(j.detail); code = (j.detail && j.detail.code) || ""; } catch { /* ignore */ }
-    const err = new Error(msg); err.code = code; throw err;
+    const err = new Error(msg); err.code = code; err.status = r.status; throw err;
   }
   const ct = r.headers.get("content-type") || "";
   return ct.includes("application/json") ? r.json() : r;
@@ -364,50 +365,19 @@ async function deleteTxn(r, onDone, tr) {
 }
 
 // ------------------------------------------------------------------ login
+let loginRender = 0;
 async function renderLogin(err, startTab = "login") {
+  const renderId = ++loginRender;
+  S.user = null; S.conv = null; window.onhashchange = null;
+  document.body.classList.add("auth-open");
   try { S.health = await (await fetch("/api/health")).json(); } catch { S.health = {}; }
-  const canSignup = S.health.allow_signup !== false;
-  const msg = h("div", { class: "small", style: "color:var(--critical);min-height:18px" }, err || "");
-  const field = (label, input, hint) => h("label", { class: "field" }, label, input, hint ? h("span", { class: "hint" }, hint) : null);
-  // Log in
-  const u = h("input", { type: "text", placeholder: "username", autocomplete: "username", value: S.health.demo_users ? "nusrat" : "" });
-  const p = h("input", { type: "password", placeholder: "password", autocomplete: "current-password" });
-  const loginForm = h("form", { class: "grid", style: "gap:10px", onsubmit: async e => {
-    e.preventDefault();
-    try { await api("/api/auth/login", { body: { username: u.value, password: p.value } }); sessionStorage.removeItem("token"); boot(); }
-    catch (ex) { msg.textContent = ex.message; }
-  } }, field("Username", u), field("Password", p), h("button", { class: "btn primary", type: "submit" }, t("login")));
-  // Create account: a new business with you as the owner; the setup wizard follows.
-  const biz = h("input", { type: "text", placeholder: "e.g. Rina Beauty Salon", maxlength: 120, autocomplete: "organization" });
-  const name = h("input", { type: "text", placeholder: "Your name", maxlength: 120, autocomplete: "name" });
-  const nu = h("input", { type: "text", placeholder: "letters, numbers, . _ -", maxlength: 40, autocomplete: "username" });
-  const np = h("input", { type: "password", minlength: 8, autocomplete: "new-password" });
-  const np2 = h("input", { type: "password", minlength: 8, autocomplete: "new-password" });
-  const signupForm = h("form", { class: "grid", style: "gap:10px", onsubmit: async e => {
-    e.preventDefault();
-    if (np.value !== np2.value) { msg.textContent = "The two passwords are different."; return; }
-    try { await api("/api/auth/signup", { body: { business_name: biz.value, full_name: name.value, username: nu.value, password: np.value } }); boot(); }
-    catch (ex) { msg.textContent = ex.message; }
-  } }, field("Business name", biz), field("Your name", name), field("Username", nu, "You will use this to log in."),
-    field("Password", np, "At least 8 characters."), field("Password again", np2), h("button", { class: "btn primary", type: "submit" }, "Create account"));
-  const body = h("div", {});
-  const tabs = h("div", { class: "tabs", role: "tablist" }, [["login", t("login")], ["signup", "Create account"]].map(([k, l]) =>
-    h("button", { type: "button", role: "tab", class: k === startTab ? "active" : "", onclick: e => show(k, e.currentTarget) }, l)));
-  const show = (k, btn) => {
-    tabs.querySelectorAll("button").forEach(x => { x.classList.toggle("active", x === btn); x.setAttribute("aria-selected", String(x === btn)); });
-    msg.textContent = ""; body.replaceChildren(k === "login" ? loginForm : signupForm, msg);
-    (k === "login" ? (u.value ? p : u) : biz).focus();
-  };
-  const demo = S.health.demo_users ? h("div", { class: "notice", style: "margin-top:12px" },
-    h("div", { style: "font-weight:600" }, "Demo logins (demo deployment only)"),
-    S.health.demo_users.map(d => h("div", { class: "row small" }, h("span", { class: "chip" }, d.role),
-      h("button", { class: "btn ghost sm", type: "button", onclick: () => { show("login", tabs.firstChild); u.value = d.username; p.value = d.password; } }, `${d.username} / ${d.password}`)))) : null;
-  $("#root").replaceChildren(h("div", { class: "login" }, h("div", { class: "card" },
-    h("h1", {}, "SME Finance Copilot"),
-    h("p", { class: "muted" }, "Cash flow, analysis and financing for Bangladesh small businesses. ব্যবসার হিসাব, নগদ প্রবাহ ও ঋণ সহায়ক।"),
-    canSignup ? tabs : null, body, demo,
-    h("p", { class: "small muted", style: "margin-top:12px" }, "Decision support only - not licensed financial advice."))));
-  show(canSignup ? startTab : "login", [...tabs.children].find(x => x.classList.contains("active")) || tabs.firstChild);
+  if (renderId !== loginRender || S.user) return;
+  renderAuth($("#root"), { h, api, health: S.health, language: S.ui, initialError: err, startMode: startTab,
+    onLanguage: language => { S.ui = language; savePref("ui_lang", language); applyPrefs(); },
+    onAuthenticated: async () => { sessionStorage.removeItem("token"); await boot();
+      if ($(".auth-screen")) { const error = new Error("Application unavailable"); error.status = 503; throw error; }
+    },
+  });
 }
 function logout(expired) {
   if (!expired) fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": csrf() }, credentials: "same-origin" });
@@ -513,6 +483,8 @@ async function boot() {
 
 let pendingCount = 0;
 function renderShell() {
+  document.body.classList.remove("auth-open");
+  document.title = plain("SME Copilot", "এসএমই কোপাইলট");
   const simple = S.mode === "simple";
   const nav = h("nav", { class: "nav", "aria-label": plain("Main navigation", "প্রধান মেনু") }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
     .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", tasks: "check", money: "bill", data: "book", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple ? simpleLabel(r) : t(r)),
