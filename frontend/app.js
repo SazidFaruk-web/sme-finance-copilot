@@ -7,7 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=12";
 import { renderAuth } from "./auth.js?v=13";
-import { renderPilot } from "./pilot.js?v=14";
+import { renderPilot } from "./pilot.js?v=15";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
@@ -1671,8 +1671,11 @@ async function viewSettings(v) {
           try { const r = await api("/api/privacy/delete", { body: { password: pw.value, confirm: phrase.value } }); toast("Deleted: " + JSON.stringify(r.rows_deleted)); logout(true); } catch (e) { toast(e.message, "bad"); }
         } }, "Delete")), !isOwner ? h("div", { class: "small muted" }, "Owner only.") : null)),
     h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Bangladesh compliance awareness"),
-      h("p", { class: "small muted" }, comp.disclaimer),
-      comp.rules.map(r => h("div", { class: "alert-item" }, h("div", { class: "row" }, h("b", { class: "grow" }, r.title), r.applies_to_you ? h("span", { class: "chip" }, "applies to you") : null, h("span", { class: "illus" }, r.verify_label)),
+      // The generic rules list is off unless illustrative guidance is allowed; then the API only names the guided task.
+      comp.rules ? h("p", { class: "small muted" }, comp.disclaimer)
+        : h("p", { class: "small" }, "Requirements depend on your exact business and area. ",
+            h("a", { href: comp.next_destination || "#chat?start=paperwork" }, "Prepare business paperwork"), " to check them with a verified source."),
+      (comp.rules || []).map(r => h("div", { class: "alert-item" }, h("div", { class: "row" }, h("b", { class: "grow" }, r.title), r.applies_to_you ? h("span", { class: "chip" }, "applies to you") : null, h("span", { class: "illus" }, r.verify_label)),
         h("div", { class: "msg" }, r.summary), r.source_url ? h("div", { class: "small muted" }, "Check: " + r.source_url) : null))));
 }
 

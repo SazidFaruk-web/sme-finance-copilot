@@ -38,10 +38,11 @@ export async function renderPilot(host, ctx, initialKind = "") {
   const saveForOwner = (id, value) => { if (!sameOwner()) throw new Error("Session changed"); return saveLocal(id, value); };
   let current, editing = "", choicePage = 0, busy = false, catalog;
   const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  const here = location.hash.slice(1).split("?")[0] || "chat";  // tasks opened from Financing stay under Financing
   const shell = h("div", { class: "pilot-page" });
   const message = h("p", { class: "pilot-status", role: "status", "aria-live": "polite" });
   const body = h("div", {});
-  shell.append(h("a", { href: "#more", class: "text-link" }, say("← More", "← আরও")), body, message);
+  shell.append(...(S.mode === "simple" ? [h("a", { href: "#more", class: "text-link" }, say("← More", "← আরও"))] : []), body, message);  // #more is guided-only
   host.replaceChildren(shell);
   const button = (label, fn, primary = false) => h("button", { type: "button", "aria-label": label, class: "btn" + (primary ? " primary" : ""), onclick: () => guard(fn) }, label);
   const link = (label, href) => h("a", { class: "text-link", href }, label);
@@ -77,9 +78,9 @@ export async function renderPilot(host, ctx, initialKind = "") {
   }
   async function start(kind) {
     const c = await api("/api/pilot/cases", { body: { kind, language: S.ui, request_key: crypto.randomUUID() } });
-    location.hash = `#chat?case=${c.id}`;
+    location.hash = `#${here}?case=${c.id}`;
   }
-  function heading(title, sub) { body.replaceChildren(h("h1", { tabindex: "-1" }, title), sub ? h("p", { class: "pilot-intro" }, sub) : null); }
+  function heading(title, sub) { body.replaceChildren(h("h1", { tabindex: "-1" }, title), ...(sub ? [h("p", { class: "pilot-intro" }, sub)] : [])); }
   function choices(items, choose, page = 0) {
     const box = h("div", { class: "pilot-choices" });
     for (const x of items.slice(page * 3, page * 3 + 3)) box.append(button(txt(x.label || x.title), () => choose(x)));
@@ -92,6 +93,15 @@ export async function renderPilot(host, ctx, initialKind = "") {
     }
     return box;
   }
+  // Opening a section such as Financing must not create a task on every visit: show saved ones and a Start button.
+  async function kindLanding(kind) {
+    const rows = (await api("/api/pilot/cases")).filter(c => c.kind === kind);
+    const flow = (catalog.workflows || []).find(x => x.id === kind);
+    heading(flow ? txt(flow.title) : say("Your tasks", "আপনার কাজ"), flow && flow.description ? txt(flow.description) : null);
+    if (S.user.max_tier >= 1) body.append(h("p", {}, button(rows.length ? say("Start a new check", "নতুন যাচাই শুরু করুন") : say("Start", "শুরু করুন"), () => start(kind), true)));
+    if (rows.length) body.append(h("div", { class: "pilot-saved" }, h("h2", {}, say("Pick up where you left off", "যেখান থেকে বাকি ছিল")),
+      ...rows.slice(0, 10).map(c => h("a", { class: "pilot-saved-row", href: `#${here}?case=${c.id}` }, h("strong", {}, txt(c.title)), h("span", {}, word(c.status))))));
+  }
   async function landing() {
     heading(say("What would help today?", "আজ কোন কাজে সাহায্য চান?"), say("Choose one thing. We’ll work through it together.", "একটি কাজ বাছুন। ধাপে ধাপে এগিয়ে যাব।"));
     if (S.user.max_tier >= 1) body.append(choices(catalog.workflows, x => start(x.id)));
@@ -101,7 +111,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
       let shown = 0;
       const more = button(say("Show more", "আরও দেখুন"), append);
       function append() {
-        rows.slice(shown, shown + 5).forEach(c => list.insertBefore(h("a", { class: "pilot-saved-row", href: `#chat?case=${c.id}` }, h("strong", {}, txt(c.title)), h("span", {}, word(c.status))), more));
+        rows.slice(shown, shown + 5).forEach(c => list.insertBefore(h("a", { class: "pilot-saved-row", href: `#${here}?case=${c.id}` }, h("strong", {}, txt(c.title)), h("span", {}, word(c.status))), more));
         shown += 5; more.hidden = shown >= rows.length;
       }
       list.append(more); append(); body.append(list);
@@ -332,17 +342,17 @@ export async function renderPilot(host, ctx, initialKind = "") {
     for (const row of local.filter(x => !x.id.startsWith("case-"))) {
       body.append(h("article", { class: "pilot-card" }, h("h2", {}, row.value.note || say("An answer waiting to sync", "সার্ভারে পাঠানোর অপেক্ষায় উত্তর")), h("p", {}, say("Saved locally", "ডিভাইসে সেভ")), button(say("Send for review", "যাচাইয়ের জন্য পাঠান"), async () => {
         const d = row.value;
-        if (d.answer) { await api(`/api/pilot/cases/${d.case_id}/answer`, { body: d.answer }); await removeLocal(row.id); location.hash = `#chat?case=${d.case_id}`; }
+        if (d.answer) { await api(`/api/pilot/cases/${d.case_id}/answer`, { body: d.answer }); await removeLocal(row.id); location.hash = `#${here}?case=${d.case_id}`; }
         else {
           let c = await api("/api/pilot/cases", { body: { kind: "record", language: S.ui, request_key: row.id } });
           for (const [question_id, value] of Object.entries({ record_type: d.kind, date: d.date, amount: d.amount, description: d.note })) {
             if (c.answers[question_id] == null) c = await api(`/api/pilot/cases/${c.id}/answer`, { body: { version: c.version, question_id, value, language: S.ui } });
           }
-          await removeLocal(row.id); location.hash = `#chat?case=${c.id}`;
+          await removeLocal(row.id); location.hash = `#${here}?case=${c.id}`;
         }
       }, true), button(say("Delete local draft", "ডিভাইসের খসড়া মুছুন"), async () => { await removeLocal(row.id); await offline(); })));
     }
-    for (const row of local.filter(x => x.id.startsWith("case-"))) body.append(link(txt(row.value.case.title), `#chat?case=${row.value.case.id}`));
+    for (const row of local.filter(x => x.id.startsWith("case-"))) body.append(link(txt(row.value.case.title), `#${here}?case=${row.value.case.id}`));
     const note = h("textarea", { rows: 2, required: true, maxlength: 500, "aria-label": say("What happened?", "কী হয়েছে?") });
     const amount = h("input", { required: true, inputmode: "decimal", "aria-label": say("Amount", "টাকা") });
     const date = h("input", { required: true, type: "date", value: S.user.as_of || new Date().toLocaleDateString("en-CA"), "aria-label": say("Date", "তারিখ") });
@@ -356,7 +366,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     heading(say("Your documents", "আপনার কাগজপত্র"), say("Prepared, submitted and completed are separate steps.", "প্রস্তুত, দাখিল ও সম্পন্ন আলাদা ধাপ।"));
     const list = await api("/api/pilot/documents");
     if (!list.length) body.append(link(say("Prepare business paperwork", "ব্যবসার কাগজপত্র তৈরি"), "#chat?start=paperwork"));
-    for (const d of list) body.append(h("a", { class: "pilot-saved-row", href: `#chat?case=${d.case_id}` }, h("strong", {}, d.name), h("span", {}, word(d.stage))));
+    for (const d of list) body.append(h("a", { class: "pilot-saved-row", href: `#${here}?case=${d.case_id}` }, h("strong", {}, d.name), h("span", {}, word(d.stage))));
   }
   async function compareQuotes() {
     heading(say("Compare your actual quotes", "আপনার আসল প্রস্তাব তুলনা করুন"), say("Compare money received, repayments and dates. Lender eligibility is separate from affordability.", "হাতে পাওয়া টাকা, কিস্তি ও তারিখ তুলনা করুন। ঋণ পাওয়ার যোগ্যতা ও শোধ করার সামর্থ্য আলাদা।"));
@@ -369,7 +379,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
       const selected = [...new Set(selects.map(s => Number(s.value)))].map(id => choices.find(c => c.id === id));
       comparison.replaceChildren(...selected.map(c => h("article", { class: "pilot-card" }, h("h2", {}, c.answers.lender), h("p", { class: "notice" }, c.stale ? say("Outdated — check again", "পুরোনো — আবার যাচাই করুন") : word(c.result.status)),
         h("div", { class: "pilot-metrics" }, ["net_received", "total_repaid", "cost", "slow_minimum"].map(key => h("div", { class: "pilot-metric" }, h("span", {}, say(...METRICS[key])), h("strong", {}, taka(c.result.metrics[key]))))),
-        h("p", {}, say("Last payment: ", "শেষ কিস্তি: ") + c.result.end_date), h("p", {}, say("Security / guarantee: ", "জামানত / গ্যারান্টি: ") + c.answers.security), link(say("Review dates and assumptions", "তারিখ ও অনুমান দেখুন"), `#chat?case=${c.id}`))));
+        h("p", {}, say("Last payment: ", "শেষ কিস্তি: ") + c.result.end_date), h("p", {}, say("Security / guarantee: ", "জামানত / গ্যারান্টি: ") + c.answers.security), link(say("Review dates and assumptions", "তারিখ ও অনুমান দেখুন"), `#${here}?case=${c.id}`))));
     };
     selects.forEach(s => s.onchange = draw); body.append(h("div", { class: "pilot-schedule-fields" }, selects), comparison); draw();
   }
@@ -389,7 +399,8 @@ export async function renderPilot(host, ctx, initialKind = "") {
     if (params.get("tab") === "documents") return allDocuments();
     if (params.get("tab") === "compare") return compareQuotes();
     if (params.get("tab") === "help") return help();
-    if (initialKind || params.get("start")) return start(initialKind || params.get("start"));
+    if (params.get("start")) return start(params.get("start"));
+    if (initialKind) return kindLanding(initialKind);
     return landing();
   });
 }
