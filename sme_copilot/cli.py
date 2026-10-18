@@ -10,6 +10,8 @@
   evidence           run the scripted end-to-end demo and export execution evidence
   export-finetune    export the interaction log as a fine-tuning dataset
   warmup             prime the local model with the agent prompt so the first chat answer is fast
+  market [--setup]   show the Home price drawer data; --setup downloads the public prices and the
+                     forecast model once (an explicit operator step, allowed even in LOCAL_ONLY_MODE)
 """
 from __future__ import annotations
 
@@ -51,6 +53,24 @@ def cmd_seed(reset: bool, as_of: str | None) -> dict:
     print("\nDemo logins: nusrat (owner), rafiq (accountant), mitu (viewer). Passwords: see .env.example "
           "(DEMO_*_PASSWORD).")
     return res
+
+
+def cmd_market(setup: bool, district: str, business_type: str) -> int:
+    from sme_copilot.market import forecast, prices, service
+    if setup:
+        try:
+            print("prices:", "downloaded" if prices.refresh(force=True, explicit=True) else "unchanged")
+        except Exception as e:
+            print(f"prices: download failed ({e}); the bundled snapshot stays in use")
+        name = forecast.download_model()
+        print("forecast model:", name or "unavailable (install requirements-forecast.txt); statistical estimate in use")
+    engine = forecast.forecaster(wait=True)
+    r = service.overview(district, business_type, _as_of(None))
+    print(f"{r['district']} / {r['business_type']}: engine {engine.name}, data to {r['latest_observation']} "
+          f"({r['source']['origin']}), forecast for {r['target_month']}")
+    for item in r["items"]:
+        print("  " + service.summary_line(item))
+    return 0
 
 
 def cmd_warmup(profile: str | None) -> int:
@@ -114,8 +134,14 @@ def main(argv: list[str] | None = None) -> int:
     ft.add_argument("--include-unrated", action="store_true")
     wu = sub.add_parser("warmup", help="prime the local model so the first chat answer is fast")
     wu.add_argument("--profile", default=None, help="provider profile (default: LLM_PROFILE / default_profile)")
+    mk = sub.add_parser("market", help="show market prices and forecasts for the Home price drawer")
+    mk.add_argument("--setup", action="store_true", help="download the latest prices and the forecast model now")
+    mk.add_argument("--district", default="Dhaka")
+    mk.add_argument("--type", default="retail", help="business type, e.g. retail, restaurant_food")
 
     args = parser.parse_args(argv)
+    if args.cmd == "market":
+        return cmd_market(args.setup, args.district, args.type)
     if args.cmd == "serve":
         import uvicorn
         uvicorn.run("sme_copilot.api.main:app", host=args.host, port=args.port, reload=args.reload)

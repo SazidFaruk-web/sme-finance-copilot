@@ -1,4 +1,4 @@
-"""Detect the user's language so the copilot replies in kind: English, Bangla, or Banglish."""
+"""Detect the user's language so the copilot replies in kind: English, Bangla, Banglish or Chinese."""
 from __future__ import annotations
 
 import re
@@ -18,10 +18,17 @@ BANGLISH_MARKERS = {
 }
 
 
+CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+
+
 def detect_language(text: str) -> str:
-    """'bn' (Bangla script), 'banglish' (Bangla in Latin script) or 'en'."""
+    """'bn' (Bangla script), 'banglish' (Bangla in Latin script), 'zh' (Chinese) or 'en'."""
     if not text:
         return "en"
+    letters = [c for c in text if c.isalpha()]
+    cjk = len(CJK.findall(text))
+    if cjk >= 2 and cjk / len(letters) >= 0.2:  # product names stay Latin: "iPhone 12 价格"
+        return "zh"
     if bangla_ratio(text) >= 0.3:
         return "bn"
     # Code-switched Bangla ("next 30 days এর cash flow দেখাও"): English nouns carry most of the letters, but
@@ -42,4 +49,5 @@ def detect_language(text: str) -> str:
 
 
 LANGUAGE_NAMES = {"en": "English", "bn": "Bangla (Bengali script)", "banglish": "Banglish (Bangla written in "
-                                                                              "Latin letters)"}
+                                                                              "Latin letters)",
+                  "zh": "Simplified Chinese (简体中文)"}

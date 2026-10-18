@@ -1,0 +1,3 @@
+# Optional: the Chronos-Bolt price forecasting model for the Home price drawer (CPU is enough).
+# Without it the drawer uses a statistical estimate. Installs PyTorch (CPU build on Windows from PyPI).
+chronos-forecasting>=2.0

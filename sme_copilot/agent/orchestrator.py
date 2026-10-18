@@ -210,5 +210,6 @@ class Agent:
 
 def _fallback_text(lang: str) -> str:
     return {"bn": "দুঃখিত, এই মুহূর্তে উত্তর তৈরি করতে পারছি না। একটু পরে আবার চেষ্টা করুন।",
-            "banglish": "Dukkhito, ekhon uttor dite parchi na. Ektu pore abar chesta korun."}.get(
+            "banglish": "Dukkhito, ekhon uttor dite parchi na. Ektu pore abar chesta korun.",
+            "zh": "抱歉，现在无法完成。请稍后再试。"}.get(
         lang, "Sorry, I couldn't complete that right now. Please try again.")

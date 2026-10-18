@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     allow_illustrative_guidance: bool = False  # isolated demos/tests only; never enable for a real pilot
     pilot_help_contact: str = ""  # operator-supplied facilitator phone/office; never invent a helpline
 
+    # --- Market prices (Home price drawer) ----------------------------------------------
+    market_prices_enabled: bool = True
+    market_refresh: bool = True  # weekly download of the public WFP/HDX file; never in local_only_mode
+    market_refresh_days: int = 7
+    market_data_url: str = ""  # override the HDX CSV location (operator setting)
+    market_forecast_model: str = "amazon/chronos-bolt-small"  # "" = statistical estimate only
+
     @property
     def db_url(self) -> str:
         if self.database_url:

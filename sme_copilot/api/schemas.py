@@ -23,7 +23,7 @@ class ChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     conversation_id: int | None = None
     profile: str | None = Field(None, max_length=60, description="provider profile override from providers.yaml")
-    language: Literal["en", "bn", "banglish"] | None = None
+    language: Literal["en", "bn", "banglish", "zh"] | None = None
 
 
 class FeedbackIn(BaseModel):
@@ -74,4 +74,4 @@ class DeleteDataIn(BaseModel):
 class SettingsIn(BaseModel):
     number_style: Literal["lakh", "intl"] | None = None
     low_balance_threshold: float | None = Field(None, ge=0, le=1e9)
-    language: Literal["en", "bn", "banglish"] | None = None
+    language: Literal["en", "bn", "banglish", "zh"] | None = None

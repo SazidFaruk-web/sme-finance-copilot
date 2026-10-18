@@ -140,7 +140,60 @@ The app is one stateless container plus a data volume (SQLite by default; set `D
 3. Put it behind HTTPS (the platform's TLS or a reverse proxy). HSTS is sent automatically over HTTPS.
 4. For a demo deployment, run `python -m sme_copilot.cli seed --reset` once, or use the compose `demo` command.
 
+**Before real owners use it** (security review, October 2026):
+
+- Never run real data with `APP_ENV=demo`: `/api/health` then lists the demo logins, and the demo passwords are
+  published in this README. Use `APP_ENV=production`, which also refuses to start without `FIELD_ENCRYPTION_KEY`.
+- `scripts\start_website.ps1` listens on every network interface (`0.0.0.0`) so phones on the same Wi-Fi can open
+  the demo. Pass `-HostAddress 127.0.0.1` to keep it on this computer, or put it behind HTTPS before sharing it.
+- Set `COOKIE_SECURE=true` behind a TLS proxy, and `ALLOW_SIGNUP=false` for a closed pilot.
+- Without `FIELD_ENCRYPTION_KEY` a development key is generated next to the database, so copying the data folder
+  copies the key too. Generate a real key (see `.env.example`) and keep it outside the data folder.
+
 **Deployment link:** _add the public URL here after deploying._
+
+---
+
+## Market prices near you (Home price drawer)
+
+Home has a minimised **Prices** tab on its right edge. It opens a half-width drawer with public prices of items
+that the owner's kind of business buys or sells, near the business's district, and a one-line outlook for next
+month with its possible range. It stays closed until the owner opens it, so Home keeps its two cards.
+
+- **Data:** World Food Programme "Bangladesh - Food Prices" on HDX ([CC BY-IGO](https://data.humdata.org/dataset/wfp-food-prices-for-bangladesh)):
+  monthly retail prices of about 60 everyday items (rice, lentils, oils, sugar, onion, potato, eggs, chicken,
+  soap, detergent, fuel…) in about 110 markets. The newest month trails today by one to two months, and the drawer
+  says which month each price is from. A snapshot (2022 onward) is bundled in `sme_copilot/market/snapshot/` so it
+  works offline; the server refreshes it weekly in the background unless `LOCAL_ONLY_MODE` is on. No business data
+  is sent.
+- **Nearest area:** the business's district, else its division, else the national average, always using a series
+  that reaches within three months of the newest data.
+- **Forecast:** [Amazon Chronos-Bolt](https://github.com/amazon-science/chronos-forecasting) (`chronos-bolt-small`,
+  48M parameters, Apache-2.0) reads up to three years of monthly prices on CPU and returns a median and a 10-90%
+  range. Without it, a damped-trend and month-of-year statistical estimate is used. Language models are not used
+  for prices: they have no reliable local price history and would invent numbers.
+- **How good is it?** `scripts/backtest_market.py` hides the last three months of 170 real market/item series and
+  forecasts them. Both engines' 10-90% ranges contained the real price about 8 times in 10 (79% model, 78%
+  statistical; ideal 80%). Point forecasts did not beat "no change" (prices are sticky), and the direction of moves
+  over 2% was right about 6 times in 10. The drawer therefore leads with the range and says "likely steady" for
+  small moves.
+
+Install the model and fetch the newest data once (allowed even in `LOCAL_ONLY_MODE`; after that it runs offline):
+
+```bash
+.venv/Scripts/pip install -r requirements-forecast.txt
+.venv/Scripts/python -m sme_copilot.cli market --setup
+```
+
+`python -m sme_copilot.cli market --district Gazipur --type restaurant_food` prints what the drawer would show.
+
+## Languages
+
+The interface is available in English, বাংলা and 中文 (Simplified Chinese), chosen on the login screen or in the
+top bar. Chinese text lives in [frontend/i18n-zh.js](frontend/i18n-zh.js), keyed by the English source text, so
+each English/Bangla pair gains Chinese without a third argument at its call site. The Copilot answers in Chinese
+when a language model is available; the offline rules engine answers in English. Letters and SMS to customers stay
+in English or Bangla because their recipients are in Bangladesh.
 
 ---
 
@@ -170,6 +223,10 @@ Secrets come **only** from the environment (`.env` is git-ignored). See [.env.ex
 | `AS_OF_DATE` | today (Asia/Dhaka) | Pin "today" for reproducible demos and benchmarks |
 | `DIGEST_SCHEDULER` | `false` | Refresh every business's alerts hourly in the background |
 | `DEMO_OWNER_PASSWORD` etc. | see `.env.example` | Passwords for the seeded demo users |
+| `MARKET_PRICES_ENABLED` | `true` | Show the Home price drawer |
+| `MARKET_REFRESH` / `MARKET_REFRESH_DAYS` | `true` / 7 | Weekly background download of the public WFP prices (never in `LOCAL_ONLY_MODE`) |
+| `MARKET_DATA_URL` | HDX | Override the price file location |
+| `MARKET_FORECAST_MODEL` | `amazon/chronos-bolt-small` | Price forecasting model; empty = statistical estimate only |
 
 ---
 

@@ -1,4 +1,5 @@
 import { localDrafts, saveLocal, removeLocal, numericInput } from "./pilot-store.js?v=14";
+import { zh } from "./i18n-zh.js?v=2";
 
 // Unsubmitted edits survive language changes in memory. Explicit offline drafts use IndexedDB.
 const edits = new Map();
@@ -28,8 +29,11 @@ const METRICS = {
 
 export async function renderPilot(host, ctx, initialKind = "") {
   const { h, api, S } = ctx;
-  const bn = S.ui === "bn", say = (en, bangla) => bn ? bangla : en;
-  const txt = x => typeof x === "object" && x ? x[S.ui] || x.en || "" : String(x ?? "");
+  const bn = S.ui === "bn", cn = S.ui === "zh", say = (en, bangla) => bn ? bangla : cn ? zh(en) : en;
+  // The server keeps task text in English and Bangla (customer drafts stay in those languages); Chinese is
+  // shown from the shared dictionary, so requests send "en" while Chinese is selected.
+  const apiLang = bn ? "bn" : "en";
+  const txt = x => typeof x === "object" && x ? (cn ? zh(x.en || "") : x[S.ui] || x.en || "") : String(x ?? "");
   const word = code => WORDS[code] ? say(...WORDS[code]) : say("Saved", "সেভ হয়েছে");
   const number = n => new Intl.NumberFormat(bn ? "bn-BD" : "en-BD", { maximumFractionDigits: 2 }).format(n);
   const taka = n => n == null ? say("Not known", "জানা নেই") : "৳" + number(n);
@@ -77,7 +81,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     drawCase();
   }
   async function start(kind) {
-    const c = await api("/api/pilot/cases", { body: { kind, language: S.ui, request_key: crypto.randomUUID() } });
+    const c = await api("/api/pilot/cases", { body: { kind, language: apiLang, request_key: crypto.randomUUID() } });
     location.hash = `#${here}?case=${c.id}`;
   }
   function heading(title, sub) { body.replaceChildren(h("h1", { tabindex: "-1" }, title), ...(sub ? [h("p", { class: "pilot-intro" }, sub)] : [])); }
@@ -120,7 +124,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     const unusual = h("details", { class: "pilot-help" }, h("summary", {}, say("Something else?", "অন্য কিছু?")));
     const note = h("textarea", { rows: 2, maxlength: 500, "aria-label": say("Describe the problem", "সমস্যাটি বলুন") });
     unusual.append(h("p", {}, say("Describe it in your own words, including Banglish. We’ll suggest a starting task.", "নিজের ভাষায় বা বাংলিশে বলুন। শুরু করার জন্য একটি কাজ দেখাব।")), note, button(say("Find a starting point", "কোথা থেকে শুরু করব"), async () => {
-      const res = await api("/api/pilot/suggest", { body: { text: note.value, language: S.ui } });
+      const res = await api("/api/pilot/suggest", { body: { text: note.value, language: apiLang } });
       unusual.append(choices(catalog.workflows.filter(x => res.kinds.includes(x.id)), x => start(x.id)));
     })); body.append(unusual);
   }
@@ -141,7 +145,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   }
   async function saveAnswer(q, value) {
     const key = ownerKey + current.id + ":" + q.id;
-    const pending = { version: current.version, question_id: q.id, value, language: S.ui };
+    const pending = { version: current.version, question_id: q.id, value, language: apiLang };
     try {
       const c = await api(`/api/pilot/cases/${current.id}/answer`, { body: pending });
       await remember(c); await removeLocal(`pending-${current.id}`).catch(() => {}); edits.delete(key); editing = ""; drawCase();
@@ -206,7 +210,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
       if (q.suggestion != null) form.append(h("div", { class: "pilot-fact" }, h("p", {}, say("Your records show ", "হিসাবে আছে ") + taka(q.suggestion)), button(say("Use this amount", "এই পরিমাণ ব্যবহার"), () => { input.value = q.suggestion; edits.set(key, input.value); }), h("small", {}, say("Check cash, bank and wallets. This is not a live balance.", "নগদ, ব্যাংক ও ওয়ালেট মিলিয়ে দেখুন। এটি সরাসরি ব্যাংকের ব্যালেন্স নয়।"))));
       if (q.type === "text" && (window.SpeechRecognition || window.webkitSpeechRecognition)) form.append(button(say("Use voice", "কথা বলে লিখুন"), () => {
         if (!navigator.onLine) { message.textContent = say("Voice may need a connection. You can type instead.", "কথা লিখতে সংযোগ লাগতে পারে। টাইপ করতে পারেন।"); return; }
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)(); recognition.lang = bn ? "bn-BD" : "en-US";
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)(); recognition.lang = bn ? "bn-BD" : cn ? "zh-CN" : "en-US";
         recognition.onresult = e => { input.value = e.results[0][0].transcript; edits.set(key, input.value); message.textContent = say("Check names, amounts and dates before continuing.", "এগোনোর আগে নাম, টাকা ও তারিখ মিলিয়ে নিন।"); };
         recognition.onerror = () => { message.textContent = say("Voice was unavailable. Please type your answer.", "কথা লেখা যায়নি। উত্তর টাইপ করুন।"); };
         recognition.start();
@@ -288,7 +292,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     if (current.kind === "shortfall") body.append(link(say("Explore a real loan quote", "আসল ঋণের প্রস্তাব যাচাই"), "#chat?start=loan"));
   }
   async function makePreview(action, text) {
-    await remember(await api(`/api/pilot/cases/${current.id}/preview`, { body: { version: current.version, action, language: S.ui, text } })); drawCase();
+    await remember(await api(`/api/pilot/cases/${current.id}/preview`, { body: { version: current.version, action, language: apiLang, text } })); drawCase();
   }
   function documents(docs) {
     const panel = h("details", { class: "pilot-documents", open: docs.length > 0 }, h("summary", {}, say("Documents and receipts", "কাগজপত্র ও রসিদ")));
@@ -333,7 +337,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     const phone = h("input", { type: "tel", value: p.phone, autocomplete: "tel", "aria-label": say("Your mobile number", "আপনার মোবাইল নম্বর") });
     const consent = h("input", { type: "checkbox", checked: p.consent });
     const hour = h("select", { "aria-label": say("Time in Bangladesh", "বাংলাদেশের সময়") }, Array.from({ length: 15 }, (_, i) => h("option", { value: i + 7, selected: p.send_hour === i + 7 }, `${number(i + 7)}:00`)));
-    body.append(h("section", { class: "pilot-card" }, h("label", { class: "field" }, say("Your mobile number", "আপনার মোবাইল নম্বর"), phone), h("label", { class: "pilot-checkbox" }, consent, say("Send me important deadline reminders by SMS", "জরুরি তারিখ এসএমএসে মনে করিয়ে দিন")), h("label", { class: "field" }, say("Preferred time (Bangladesh)", "সুবিধার সময় (বাংলাদেশ)"), hour), h("p", {}, say("At most one grouped SMS a day. Amounts and customer names stay out of messages. Uncheck this box to unsubscribe.", "দিনে সর্বোচ্চ একটি একসঙ্গে দেওয়া এসএমএস। টাকার পরিমাণ ও ক্রেতার নাম থাকবে না। বন্ধ করতে টিক তুলে দিন।")), button(say("Save preferences", "পছন্দ সেভ"), async () => { await api("/api/pilot/notifications", { method: "PUT", body: { phone: phone.value, consent: consent.checked, send_hour: Number(hour.value), language: S.ui } }); await notifications(); message.textContent = say("Preferences saved.", "পছন্দ সেভ হয়েছে।"); }, true), h("p", { class: "pilot-note" }, p.configured && p.verified ? say("Provider is configured and your number is verified. Delivery is tracked separately.", "সেবা প্রস্তুত ও নম্বর যাচাই করা। পৌঁছানো আলাদাভাবে দেখা হয়।") : say("SMS is not active until provider setup and phone ownership verification are complete. Your pilot facilitator can help.", "সেবার সেটআপ ও নম্বরের মালিকানা যাচাই শেষ না হওয়া পর্যন্ত এসএমএস চালু হবে না। পাইলট সহায়তাকারী সাহায্য করবেন।"))));
+    body.append(h("section", { class: "pilot-card" }, h("label", { class: "field" }, say("Your mobile number", "আপনার মোবাইল নম্বর"), phone), h("label", { class: "pilot-checkbox" }, consent, say("Send me important deadline reminders by SMS", "জরুরি তারিখ এসএমএসে মনে করিয়ে দিন")), h("label", { class: "field" }, say("Preferred time (Bangladesh)", "সুবিধার সময় (বাংলাদেশ)"), hour), h("p", {}, say("At most one grouped SMS a day. Amounts and customer names stay out of messages. Uncheck this box to unsubscribe.", "দিনে সর্বোচ্চ একটি একসঙ্গে দেওয়া এসএমএস। টাকার পরিমাণ ও ক্রেতার নাম থাকবে না। বন্ধ করতে টিক তুলে দিন।")), button(say("Save preferences", "পছন্দ সেভ"), async () => { await api("/api/pilot/notifications", { method: "PUT", body: { phone: phone.value, consent: consent.checked, send_hour: Number(hour.value), language: apiLang } }); await notifications(); message.textContent = say("Preferences saved.", "পছন্দ সেভ হয়েছে।"); }, true), h("p", { class: "pilot-note" }, p.configured && p.verified ? say("Provider is configured and your number is verified. Delivery is tracked separately.", "সেবা প্রস্তুত ও নম্বর যাচাই করা। পৌঁছানো আলাদাভাবে দেখা হয়।") : say("SMS is not active until provider setup and phone ownership verification are complete. Your pilot facilitator can help.", "সেবার সেটআপ ও নম্বরের মালিকানা যাচাই শেষ না হওয়া পর্যন্ত এসএমএস চালু হবে না। পাইলট সহায়তাকারী সাহায্য করবেন।"))));
     if (p.deliveries.length) body.append(h("details", {}, h("summary", {}, say("Delivery history", "পৌঁছানোর ইতিহাস")), p.deliveries.map(d => h("p", {}, d.date + " · " + (d.status === "accepted" ? say("Provider accepted; delivery unconfirmed", "সেবা গ্রহণ করেছে; পৌঁছানো নিশ্চিত নয়") : word(d.status))))));
   }
   async function offline() {
@@ -344,9 +348,9 @@ export async function renderPilot(host, ctx, initialKind = "") {
         const d = row.value;
         if (d.answer) { await api(`/api/pilot/cases/${d.case_id}/answer`, { body: d.answer }); await removeLocal(row.id); location.hash = `#${here}?case=${d.case_id}`; }
         else {
-          let c = await api("/api/pilot/cases", { body: { kind: "record", language: S.ui, request_key: row.id } });
+          let c = await api("/api/pilot/cases", { body: { kind: "record", language: apiLang, request_key: row.id } });
           for (const [question_id, value] of Object.entries({ record_type: d.kind, date: d.date, amount: d.amount, description: d.note })) {
-            if (c.answers[question_id] == null) c = await api(`/api/pilot/cases/${c.id}/answer`, { body: { version: c.version, question_id, value, language: S.ui } });
+            if (c.answers[question_id] == null) c = await api(`/api/pilot/cases/${c.id}/answer`, { body: { version: c.version, question_id, value, language: apiLang } });
           }
           await removeLocal(row.id); location.hash = `#${here}?case=${c.id}`;
         }

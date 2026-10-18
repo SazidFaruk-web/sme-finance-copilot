@@ -1,5 +1,7 @@
 // Deterministic, record-backed guidance. No model call or financial calculation here.
 // Keep priority and permission decisions independently testable from the DOM.
+import { zh, zhCopy } from "./i18n-zh.js?v=2";
+
 const COPY = {
   en: {
     low_balance: ["Plan for a money shortfall", "Your recorded activity suggests money may run low. Check expected payments before taking on a new cost.", ["Check which customers still need to pay you.", "Check the bills due before the expected shortfall.", "Ask Copilot to compare what can wait before deciding."]],
@@ -44,10 +46,12 @@ const COPY = {
     question: "আমার ব্যবসার হিসাব দিয়ে এই কাজে সাহায্য করুন। কী করব, কেন করব এবং সর্বোচ্চ তিনটি সহজ ধাপ বলুন: ",
   },
 };
+COPY.zh = zhCopy(COPY.en);
 const KIND_ORDER = ["low_balance", "overdue_invoice", "payable_due", "obligation_due", "custom", "stock_out", "stock_cash", "stock_low", "compliance_due", "unusual_spending", "spending_spike", "seasonal_prep"];
 
 export function buildGuidance({ alerts = [], recordCount = 0, asOf, canWrite = false, language = "en" }) {
   const c = COPY[language] || COPY.en;
+  const pick = (en, bn) => language === "bn" ? bn : language === "zh" ? zh(en) : en;
   const unique = [...new Map(alerts.map(a => [a.id, a])).values()];
   const active = unique.filter(a => ["open", "scheduled"].includes(a.status || "open"));
   const reminders = active.filter(a => a.kind === "custom" && a.due_date > asOf)
@@ -68,10 +72,10 @@ export function buildGuidance({ alerts = [], recordCount = 0, asOf, canWrite = f
     const st = a.data?.suggested_tool;
     if (canWrite && a.kind === "overdue_invoice" && st?.name === "create_payment_reminder") action = { label: c.reminder, tool: st.name, args: st.args };
     if (a.kind === "custom") action = { label: c.note, details: true };
-    if (a.data?.case_id) action = { label: language === "bn" ? "কাজ খুলুন" : "Open task", href: `#chat?case=${a.data.case_id}` };
+    if (a.data?.case_id) action = { label: pick("Open task", "কাজ খুলুন"), href: `#chat?case=${a.data.case_id}` };
     if (a.data?.reconciliation) {
-      title = language === "bn" ? "আগে টাকার হিসাব মিলিয়ে নিন" : "Check the money records first";
-      why = language === "bn" ? "গুনে পাওয়া টাকা হিসাবের সঙ্গে মেলেনি। সিদ্ধান্তের আগে বাদ পড়া বা ভুল হিসাব ঠিক করুন।" : "Your counted money differs from the records. Check missing or incorrect entries before relying on a money decision.";
+      title = pick("Check the money records first", "আগে টাকার হিসাব মিলিয়ে নিন");
+      why = pick("Your counted money differs from the records. Check missing or incorrect entries before relying on a money decision.", "গুনে পাওয়া টাকা হিসাবের সঙ্গে মেলেনি। সিদ্ধান্তের আগে বাদ পড়া বা ভুল হিসাব ঠিক করুন।");
       steps = [];
     }
     return { id: a.id, kind: a.kind, title: a.data?.reconciliation ? title : a.kind === "custom" ? a.data?.task_title?.[language] || a.title : title, why, steps, action, source: a,

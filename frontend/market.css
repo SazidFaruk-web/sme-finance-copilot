@@ -1,0 +1,76 @@
+/* Home price drawer (market.js). An edge tab that opens a half-width panel from the right.
+   Sits below navigation, dialogs and the onboarding wizard; uses the theme's semantic tokens only. */
+.market-tab {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 27;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 44px; min-height: 112px; padding: 14px 8px;
+  border: 1px solid var(--border); border-right: 0; border-radius: 14px 0 0 14px;
+  background: var(--surface-1); color: var(--accent-ink, var(--accent)); box-shadow: var(--shadow);
+  font: inherit; font-size: 13px; font-weight: 650; cursor: pointer;
+}
+.market-tab span { writing-mode: vertical-rl; letter-spacing: .02em; }
+:root[lang="zh-CN"] .market-tab span { writing-mode: vertical-rl; letter-spacing: .2em; }
+.market-tab:hover { background: var(--accent-soft); }
+.market-tab:focus-visible, .market-close:focus-visible, .market-row:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.market-drawer.open .market-tab { right: min(420px, calc(100vw - 16px)); }
+
+.market-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 28; width: min(420px, calc(100vw - 16px));
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px 20px 28px; background: var(--surface-1); color: var(--text-primary);
+  border-left: 1px solid var(--border); border-radius: var(--radius, 20px) 0 0 var(--radius, 20px);
+  box-shadow: -12px 0 40px rgba(40, 25, 15, .12);
+}
+.market-panel[hidden] { display: none; }
+.market-head { display: flex; align-items: flex-start; gap: 12px; }
+.market-head h2 { flex: 1; margin: 0; font-size: 20px; line-height: 1.3; }
+.market-head h2:focus { outline: none; }
+.market-close {
+  flex-shrink: 0; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--btn-radius, 12px);
+  background: var(--surface-2); color: var(--text-secondary); font-size: 16px; cursor: pointer;
+}
+.market-intro, .market-note { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
+.market-note { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.market-status { margin: 12px 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
+
+.market-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.market-item { border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); overflow: hidden; }
+.market-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; width: 100%; min-height: 44px;
+  padding: 12px 14px; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.market-row:hover { background: var(--surface-2); }
+.market-name { font-weight: 650; font-size: 15px; }
+.market-price { font-weight: 650; font-size: 15px; text-align: end; white-space: nowrap; }
+.market-price small { display: block; font-weight: 400; font-size: 12px; color: var(--text-muted); }
+.market-outlook { grid-column: 1 / -1; font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+.market-outlook.tone-up { color: var(--out); }
+.market-outlook.tone-down { color: var(--in); }
+.market-range { grid-column: 1 / -1; font-size: 13px; color: var(--text-muted); }
+
+.market-detail { padding: 4px 14px 14px; border-top: 1px solid var(--border); }
+.market-chart { margin: 10px 0 6px; color: var(--series-1, var(--accent)); }
+.market-spark { display: block; width: 100%; height: 48px; }
+.market-meta { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+.market-facts { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 8px 0 0; font-size: 13px; }
+.market-facts dt { color: var(--text-secondary); }
+.market-facts dd { margin: 0; text-align: end; font-weight: 600; }
+
+.market-more { align-self: flex-start; min-height: 44px; }
+.market-how { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+.market-how summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; color: var(--text-primary); }
+.market-how p { margin: 6px 0; }
+.market-how a { color: var(--accent-ink, var(--accent)); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .market-panel.entering { animation: market-slide .22s var(--ease, ease-out); }
+  .market-tab { transition: right .22s var(--ease, ease-out), background .15s; }
+}
+@keyframes market-slide { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Phones: the tab sits above the bottom navigation; the open panel leaves the navigation visible. */
+@media (max-width: 800px) {
+  .market-tab { top: auto; bottom: 84px; transform: none; min-height: 96px; }
+  .market-drawer.open .market-tab { display: none; }
+  .market-panel { bottom: 72px; width: calc(100vw - 16px); border-radius: var(--radius, 20px) 0 0 var(--radius, 20px); }
+}

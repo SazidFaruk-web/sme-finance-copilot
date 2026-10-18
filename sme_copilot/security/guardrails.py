@@ -36,17 +36,19 @@ REFUSALS = {
     "banglish": ("Dukkhito, eta te help korte parbo na: eta {what}, ja beaini ebong apnar byabshar khoti korte pare. "
                  "Borong ami boidho vabe help korte pari: ashol hisab gochano, licensed tax adviser er sathe boidho "
                  "chhar neya, ba apnar loan-readiness score ashole barano."),
+    "zh": ("我无法帮助您做这件事：这涉及{what}，属于违法行为，可能会严重损害您和您的生意。我可以用合法的方式帮助您："
+           "整理真实的记录、在持牌税务顾问的指导下利用允许的扣除项减少税款，或切实提高您的贷款准备度评分。"),
 }
 WHAT = {
     "fake_documents": {"en": "creating or altering documents", "bn": "জাল কাগজপত্র তৈরি বা পরিবর্তন",
-                       "banglish": "jal kagojpotro toiri ba bodlano"},
+                       "banglish": "jal kagojpotro toiri ba bodlano", "zh": "制作或篡改文件"},
     "inflate_for_loan": {"en": "misrepresenting your numbers to a lender", "bn": "ঋণদাতার কাছে ভুল তথ্য দেওয়া",
-                         "banglish": "lender ke vul tottho deya"},
-    "tax_evasion": {"en": "tax evasion", "bn": "কর ফাঁকি", "banglish": "tax fanki"},
+                         "banglish": "lender ke vul tottho deya", "zh": "向贷款机构虚报数据"},
+    "tax_evasion": {"en": "tax evasion", "bn": "কর ফাঁকি", "banglish": "tax fanki", "zh": "逃税"},
     "two_books": {"en": "keeping a second set of books to mislead authorities", "bn": "দুই সেট হিসাব রাখা",
-                  "banglish": "dui set hisab rakha"},
-    "laundering": {"en": "money laundering", "bn": "অর্থ পাচার / মানি লন্ডারিং", "banglish": "money laundering"},
-    "bribery": {"en": "bribery", "bn": "ঘুষ", "banglish": "ghush"},
+                  "banglish": "dui set hisab rakha", "zh": "做两套账来误导有关部门"},
+    "laundering": {"en": "money laundering", "bn": "অর্থ পাচার / মানি লন্ডারিং", "banglish": "money laundering", "zh": "洗钱"},
+    "bribery": {"en": "bribery", "bn": "ঘুষ", "banglish": "ghush", "zh": "行贿"},
 }
 
 
