@@ -340,5 +340,5 @@ tests/               unit, schema, permission, injection, API and end-to-end tes
 | Assumptions | [ASSUMPTIONS.md](ASSUMPTIONS.md) |
 | Third-party licences (data, libraries, models) | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | Price-forecast backtest | [scripts/backtest_market.py](scripts/backtest_market.py), results in [docs/TEST_REPORT.md](docs/TEST_REPORT.md) |
-| Presentation deck (≤ 10 min) | [docs/SME_Finance_Copilot_Deck.pptx](docs/SME_Finance_Copilot_Deck.pptx) |
+| Presentation deck (≤ 10 min, 12 slides with speaker notes) | Submitted with the entry as PPTX/PDF; slide-by-slide plan in [docs/PRESENTATION_OUTLINE.md](docs/PRESENTATION_OUTLINE.md) |
 | App documentation (editable Word file) | [docs/SME_Finance_Copilot_Documentation.docx](docs/SME_Finance_Copilot_Documentation.docx) |
