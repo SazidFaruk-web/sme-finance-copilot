@@ -111,9 +111,10 @@ With `LLM_SHARED_ONLY=true`, the server blocks alternate model profiles and the 
 The offline rules engine remains a labelled fallback if the shared service is unavailable. To restore model
 switching, set `LLM_SHARED_ONLY=false`. Restart the website after changing `.env`.
 
-Open `http://127.0.0.1:8000` on this computer, or `http://<this-computer-LAN-IP>:8000` on another device that
-can reach it. Windows Firewall must allow the website port for LAN access. Ollama stays on loopback; only
-the website backend needs access to it. `Start SME Copilot.bat` now launches only the website and opens it.
+`Start SME Copilot.bat` launches only the website and opens `http://127.0.0.1:8000`; only this computer can reach
+it. To show it on phones or other computers on the same Wi-Fi, use `Start SME Copilot (Wi-Fi).bat` instead (or
+`scripts\start_website.ps1 -Network`): it prints the address to open on the other device. Windows Firewall must
+allow the website port. Ollama stays on loopback; only the website backend needs access to it.
 
 ### Docker (one command)
 
@@ -144,8 +145,9 @@ The app is one stateless container plus a data volume (SQLite by default; set `D
 
 - Never run real data with `APP_ENV=demo`: `/api/health` then lists the demo logins, and the demo passwords are
   published in this README. Use `APP_ENV=production`, which also refuses to start without `FIELD_ENCRYPTION_KEY`.
-- `scripts\start_website.ps1` listens on every network interface (`0.0.0.0`) so phones on the same Wi-Fi can open
-  the demo. Pass `-HostAddress 127.0.0.1` to keep it on this computer, or put it behind HTTPS before sharing it.
+- The launchers and `docker compose` keep the website on this computer by default. `Start SME Copilot (Wi-Fi).bat`
+  shares it with the whole network (and, in demo mode, its demo logins); put it behind HTTPS with real passwords
+  before sharing real data.
 - Set `COOKIE_SECURE=true` behind a TLS proxy, and `ALLOW_SIGNUP=false` for a closed pilot.
 - Without `FIELD_ENCRYPTION_KEY` a development key is generated next to the database, so copying the data folder
   copies the key too. Generate a real key (see `.env.example`) and keep it outside the data folder.
