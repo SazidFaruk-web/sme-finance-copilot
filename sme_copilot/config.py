@@ -65,8 +65,23 @@ class Settings(BaseSettings):
     pilot_sms_sid: str = ""
     pilot_source_checks: bool = False
     pilot_question_model: bool = False  # optional shared LLM ordering; deterministic fallback always available
-    allow_illustrative_guidance: bool = False  # isolated demos/tests only; never enable for a real pilot
+    # Illustrative loan terms and generic compliance dates. Unset = on only for APP_ENV=demo (the seeded demo
+    # business, e.g. for judges); never enable for a real pilot. "false" turns it off even in demo.
+    allow_illustrative_guidance: bool | None = None
     pilot_help_contact: str = ""  # operator-supplied facilitator phone/office; never invent a helpline
+
+    # --- Market prices (Home price drawer) ----------------------------------------------
+    market_prices_enabled: bool = True
+    market_refresh: bool = True  # weekly download of the public WFP/HDX file; never in local_only_mode
+    market_refresh_days: int = 7
+    market_data_url: str = ""  # override the HDX CSV location (operator setting)
+    market_forecast_model: str = "amazon/chronos-bolt-small"  # "" = statistical estimate only
+
+    @property
+    def illustrative_guidance(self) -> bool:
+        if self.allow_illustrative_guidance is not None:
+            return self.allow_illustrative_guidance
+        return self.app_env == "demo"
 
     @property
     def db_url(self) -> str:

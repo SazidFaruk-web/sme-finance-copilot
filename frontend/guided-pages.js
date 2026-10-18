@@ -1,5 +1,6 @@
 import { icon } from "./icons.js?v=12";
-import { buildGuidance, upcomingItems } from "./guidance.js?v=12";
+import { buildGuidance, upcomingItems } from "./guidance.js?v=13";
+import { zh, zhCopy } from "./i18n-zh.js?v=2";
 
 const COPY = {
   en: {
@@ -9,6 +10,10 @@ const COPY = {
     greeting: "স্বাগতম", intro: "একবারে একটি কাজ।", recorded: "আপনার হিসাবে থাকা টাকা", source: "আপনার লেখা হিসাব অনুযায়ী; সরাসরি ব্যাংকের ব্যালেন্স নয়।", asOf: "হিসাবের তারিখ", income: "টাকা এসেছে", expense: "টাকা গেছে", calc: "কীভাবে হিসাব করা হয়েছে?", ask: "কোপাইলটকে জিজ্ঞাসা", next: "আপনার পরের কাজ", how: "কীভাবে করবেন", remind: "মনে করিয়ে দিন", based: "আপনার হিসাব অনুযায়ী পরামর্শ। সিদ্ধান্ত আপনার।", details: "মূল তথ্য", due: "সময়সীমা", done: "সম্পন্ন", more: "আরও দেখুন", tasks: "কাজ", taskIntro: "একটি কাজ বেছে নিন। সুবিধামতো বিস্তারিত দেখুন।", todo: "করণীয়", reminders: "রিমাইন্ডার", upcoming: "সামনে যা আছে", reminderIntro: "অ্যাপে ফিরলে সেভ করা রিমাইন্ডার এখানে দেখবেন। ফোনে নোটিফিকেশন যাবে না।", newReminder: "রিমাইন্ডার যোগ", emptyReminders: "এখনও কোনো রিমাইন্ডার নেই।", emptyReminderCopy: "কাজ ও তারিখ সেভ করুন। অ্যাপে ফিরলে এখানে পাবেন।", upcomingIntro: "আগামী ১৪ দিনের সম্ভাব্য লেনদেন। এগুলো অনুমান; সম্পন্ন পেমেন্ট নয়।", emptyUpcoming: "আসন্ন কোনো পেমেন্ট হিসাবে নেই।", expectedIn: "টাকা আসার কথা", expectedOut: "টাকা যাওয়ার কথা", inApp: "অ্যাপের রিমাইন্ডার", money: "টাকা", moneyIntro: "দরকার হলে টাকার বিস্তারিত হিসাব দেখুন।", overview: "এই মাসে", forecast: "সামনের টাকার ধারণা", forecastIntro: "আপনার হিসাব অনুযায়ী একটি অনুমান। আসল টাকা ভিন্ন হতে পারে।", estimate: "সম্ভাব্য টাকা", range: "সম্ভাব্য সীমা", emptyForecast: "সামনের টাকার ধারণা পেতে আগে হিসাব যোগ করুন।", add: "হিসাব যোগ", readonly: "শুধু দেখার অনুমতি", tabs: "তথ্য বেছে নিন", noTasks: "বর্তমান হিসাবে অন্য কোনো জরুরি কাজ পাওয়া যায়নি।",
   },
 };
+
+COPY.zh = zhCopy(COPY.en);
+const say = (S, en, bn) => S.ui === "bn" ? bn : S.ui === "zh" ? zh(en) : en;
+const localeOf = S => ({ bn: "bn-BD", zh: "zh-CN" })[S.ui] || "en-GB";
 
 function guideUI(ctx, d) {
   const { h, S, money, fmtDate, canWrite, onAsk, onReminder, onTool, onTrace, onDone, reload } = ctx;
@@ -87,21 +92,21 @@ export async function renderGuidedTasks(v, ctx, selected = "todo") {
   if (tab === "todo") {
     const saved = await api("/api/pilot/cases");
     const active = saved.filter(x => x.status !== "completed");
-    if (active.length) body.appendChild(h("div", { class: "pilot-saved" }, h("h2", {}, ctx.S.ui === "bn" ? "বাকি থাকা কাজ" : "Continue a saved task"),
+    if (active.length) body.appendChild(h("div", { class: "pilot-saved" }, h("h2", {}, say(ctx.S, "Continue a saved task", "বাকি থাকা কাজ")),
       pagedList(h, active, x => h("a", { class: "pilot-saved-row", href: `#chat?case=${x.id}` }, x.title[ctx.S.ui] || x.title.en), c.more)));
-    body.appendChild(h("a", { class: "text-link", href: "#chat" }, ctx.S.ui === "bn" ? "সব কাজ ও পর্যালোচনা" : "All tasks and reviews"));
+    body.appendChild(h("a", { class: "text-link", href: "#chat" }, say(ctx.S, "All tasks and reviews", "সব কাজ ও পর্যালোচনা")));
     body.appendChild(pagedList(h, g.tasks, task => h("details", { class: "task-row guide-task" },
       h("summary", {}, h("span", { class: "task-row-icon" }, icon(task.kind === "custom" ? "bell" : "check", 19)),
         h("span", { class: "task-row-copy" }, h("strong", {}, task.title), task.source ? h("span", {}, task.source.title) : null)), taskBody(task)), c.more));
   } else if (tab === "reminders") {
-    if (ctx.S.user.role === "owner") body.appendChild(h("a", { class: "text-link", href: "#chat?tab=notifications" }, ctx.S.ui === "bn" ? "এসএমএস ও রিমাইন্ডার সেটিংস" : "SMS and reminder settings"));
+    if (ctx.S.user.role === "owner") body.appendChild(h("a", { class: "text-link", href: "#chat?tab=notifications" }, say(ctx.S, "SMS and reminder settings", "এসএমএস ও রিমাইন্ডার সেটিংস")));
     // Include both future and overdue personal reminders, but never resolved/dismissed entries.
     const reminders = [...new Map([...g.reminders, ...g.tasks.filter(t => t.kind === "custom").map(t => t.source)].map(a => [a.id, a])).values()]
       .sort((a, b) => (a.due_date || "9999").localeCompare(b.due_date || "9999") || a.id - b.id);
     body.appendChild(h("div", { class: "tab-intro" }, h("p", {}, c.reminderIntro), canWrite() ? h("button", { class: "btn primary", onclick: () => onReminder(null, d.as_of) }, icon("plus", 17), c.newReminder) : null));
     body.appendChild(reminders.length ? pagedList(h, reminders, a => h("article", { class: "reminder-row" },
       h("div", { class: "reminder-heading" }, icon("bell", 19), h("div", { class: "record-copy" }, h("strong", {}, a.title), h("span", {}, a.due_date ? fmtDate(a.due_date) : c.inApp)), canWrite() ? doneButton(a.id) : null),
-      a.data?.case_id ? h("a", { class: "text-link", href: `#chat?case=${a.data.case_id}` }, ctx.S.ui === "bn" ? "কাজ খুলুন / তারিখ বদলান" : "Open task / change date") : null,
+      a.data?.case_id ? h("a", { class: "text-link", href: `#chat?case=${a.data.case_id}` }, say(ctx.S, "Open task / change date", "কাজ খুলুন / তারিখ বদলান")) : null,
       a.message ? h("details", { class: "reminder-note" }, h("summary", {}, c.details), h("p", {}, a.message)) : null), c.more)
       : h("div", { class: "home-panel quiet-empty" }, h("h2", {}, c.emptyReminders), h("p", {}, c.emptyReminderCopy)));
   } else {
@@ -122,7 +127,7 @@ export async function renderGuidedMoney(v, ctx, selected = "overview") {
   const { c, balance } = guideUI(ctx, d);
   const body = h("section", { class: "tab-content", "aria-label": c[tab] });
   if (tab === "overview") {
-    const month = new Date(d.as_of + "T12:00:00Z").toLocaleDateString(S.ui === "bn" ? "bn-BD" : "en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+    const month = new Date(d.as_of + "T12:00:00Z").toLocaleDateString(localeOf(S), { month: "long", year: "numeric", timeZone: "UTC" });
     const metric = (label, value, direction) => h("div", { class: "money-stat" }, h("span", { class: "stat-label" }, icon(direction, 17), label), h("strong", { class: "num" }, money(value)));
     body.appendChild(h("div", { class: "money-overview" }, balance(), h("section", { class: "home-panel month-panel" }, h("h2", {}, month),
       h("div", { class: "money-pair" }, metric(c.income, d.kpis.income_this_month, "in"), metric(c.expense, d.kpis.expense_this_month, "out")))));
@@ -136,7 +141,7 @@ export async function renderGuidedMoney(v, ctx, selected = "overview") {
   }
   v.replaceChildren(h("div", { class: "guided-page money-page" }, h("h1", {}, c.money), h("p", { class: "page-intro" }, c.moneyIntro),
     pageTabs(h, c, "money", tab, [["overview", c.overview], ["forecast", c.forecast]]), body,
-    h("a", { class: "text-link", href: tab === "forecast" ? "#chat?start=shortfall" : "#chat?start=stock" }, S.ui === "bn" ? (tab === "forecast" ? "একটি পেমেন্টের পরিকল্পনা" : "পণ্য কেনার পরিকল্পনা") : (tab === "forecast" ? "Plan an upcoming payment" : "Plan a product purchase"))));
+    h("a", { class: "text-link", href: tab === "forecast" ? "#chat?start=shortfall" : "#chat?start=stock" }, tab === "forecast" ? say(S, "Plan an upcoming payment", "একটি পেমেন্টের পরিকল্পনা") : say(S, "Plan a product purchase", "পণ্য কেনার পরিকল্পনা"))));
 }
 
 function canWriteOrReadLink(ctx, c) {

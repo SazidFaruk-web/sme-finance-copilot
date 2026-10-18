@@ -4,7 +4,7 @@ This is the product design contract for contributors and agents. Read it before 
 
 ## Who we are designing for
 
-Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. English, Bangla, and Banglish are first-class ways to communicate. The app must remain useful without an available language model.
+Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. English, Bangla, and Banglish are first-class ways to communicate; the interface is also available in Simplified Chinese. The app must remain useful without an available language model.
 
 Success means the owner can answer, without interpretation:
 
@@ -24,6 +24,7 @@ Use this hierarchy and calm visual language as inspiration. Build an original bu
 - Default to the guided Home, including for first-time visitors. Keep five primary navigation choices: Home, Tasks, Money, Records, and More. Use small sets of page tabs to organize related information.
 - **Home has a strict two-card budget: recorded money and one next step.** Include a short greeting, the balance's as-of date and source, one primary action, and an optional “How to do it” disclosure. Home is an entry point, not a dashboard of everything the app can do.
 - Do not add secondary recommendations, monthly totals, action shortcuts, recent activity, upcoming payments, reminder lists, approval queues, forecast previews, or duplicate Copilot invitations to Home. Collapsing those feeds on Home still adds choices; give them a destination instead.
+- **Agreed exception (owner decision, 2026-10-19): the market price drawer.** Home may show one minimised edge tab, **Prices**, that opens a half-width drawer from the right with public market prices for the owner's kind of business and a one-line next-month outlook. It is not a third card: it starts closed, stays closed until the owner opens it, remembers that choice, and never pushes Home's two cards aside. Each outlook names the month, shows its possible range, and is written in words with a sign (never colour or arrow alone). Prices state their month and source and are labelled as market averages, not live shop prices. Do not add other content to the drawer or other drawers to Home.
 - Tasks has separate To do, Reminders, and Coming up tabs. Keep task instructions collapsed until a row is opened. Show a short first batch and let users request more. Keep all issues and reminders retrievable.
 - Money has separate This month and Money ahead tabs. Show money in/out together with an explicit month on This month. Forecasts belong only in Money ahead and retain their uncertainty range. Records owns entry and transaction history. More provides Copilot, customers/suppliers, bills, prepared actions, reports, and specialist tools.
 - Home's one recommendation has a short reason and one concrete action. Its supporting evidence, instructions, and “Remind me” control are disclosed only when requested. Do not duplicate that action in multiple places on the same screen.
@@ -48,9 +49,9 @@ Every recommendation follows **what → why → how → next action**. For examp
 
 Use “money in,” “money out,” “customers owe you,” “bills to pay,” “money may run short,” and “next step.” Introduce accounting terms only when needed and explain them next to the term. Prefer short sentences and specific verbs: Add record, Check bill, Review reminder, Ask Copilot. Avoid vague buttons such as Do it, operational logs, tool names, tiers, and model settings in everyday flows.
 
-Localize new guidance and navigation in English and Bangla. Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
+Localize new guidance and navigation in English and Bangla, and add its Chinese to [frontend/i18n-zh.js](../frontend/i18n-zh.js) (keyed by the English text). Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
 
-Authentication uses **one active language at a time**. Provide an explicit English / বাংলা selector and remember the selection through login and subsequent visits. Translate the heading, labels, placeholders, instructions, validation, service errors, loading state, demo-role labels, and account-creation flow together. The language selector itself and user-entered names or credentials are exceptions. Never clear a form just because its language changes, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
+Authentication uses **one active language at a time**. Provide an explicit English / বাংলা / 中文 selector and remember the selection through login and subsequent visits. Translate the heading, labels, placeholders, instructions, validation, service errors, loading state, demo-role labels, and account-creation flow together. The language selector itself and user-entered names or credentials are exceptions. Never clear a form just because its language changes, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
 
 ## Visual system
 
@@ -96,7 +97,7 @@ Before implementing a feature, write down its audience, single user goal, hierar
 Before shipping, ask:
 
 - Can a person with no finance training understand the screen and choose a next action?
-- Does Home still contain exactly its two essential cards and one primary action? Has supporting information been placed in its own tab instead of adding another choice to Home?
+- Does Home still contain exactly its two essential cards and one primary action, with the price drawer minimised by default? Has supporting information been placed in its own tab instead of adding another choice to Home?
 - Are every number, date, recommendation, and success claim supported by actual state?
 - Do reminders persist, and is their delivery channel described honestly?
 - Can keyboard, mobile, Bangla, read-only, and offline users complete the relevant flow?

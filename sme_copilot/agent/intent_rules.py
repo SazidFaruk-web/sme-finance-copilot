@@ -349,11 +349,21 @@ HELP = {
 }
 
 
+# The deterministic engine writes English, Bangla and Banglish. Other interface languages (Chinese) get its
+# English text; a language model answers in them when one is available.
+RULE_LANGUAGES = ("en", "bn", "banglish")
+
+
+def _rules_lang(context: dict[str, Any]) -> str:
+    lang = context.get("language", "en")
+    return lang if lang in RULE_LANGUAGES else "en"
+
+
 class RuleIntentEngine:
     def plan(self, user_text: str, tools: list[ToolSpec], context: dict[str, Any]) -> list[ToolCall] | str:
         names = {t.name for t in tools}
         t = normalize(user_text)
-        lang = context.get("language", "en")
+        lang = _rules_lang(context)
         for intent, words, builder in _intents():
             if words and not _has(t, words):
                 continue
@@ -373,7 +383,7 @@ class RuleIntentEngine:
         return HELP.get(lang, HELP["en"])
 
     def compose(self, user_text: str, tool_results: list[tuple[str, dict[str, Any]]], context: dict[str, Any]) -> str:
-        lang = context.get("language", "en")
+        lang = _rules_lang(context)
         style = context.get("number_style", "lakh")
         if not tool_results:
             return HELP.get(lang, HELP["en"])

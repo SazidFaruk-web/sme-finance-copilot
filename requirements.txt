@@ -13,3 +13,4 @@ bcrypt>=4.1
 python-multipart>=0.0.9
 matplotlib>=3.8
 rapidfuzz>=3.0
+defusedxml>=0.7

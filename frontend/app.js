@@ -5,10 +5,12 @@
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
-import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=12";
-import { renderAuth } from "./auth.js?v=13";
-import { renderPilot } from "./pilot.js?v=15";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=13";
+import { renderAuth } from "./auth.js?v=14";
+import { renderPilot } from "./pilot.js?v=16";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
+import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=2";
+import { createMarketDrawer } from "./market.js?v=2";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -68,6 +70,8 @@ const T = {
     sec_recs: "পরামর্শ", qa: "দ্রুত কাজ", pa: "বাকি কাজ", tip: "টিপস",
     home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান", account: "অ্যাকাউন্ট", show_me: "দেখান", got_it: "বুঝেছি" },
 };
+T.zh = zhCopy(T.en);  // Chinese comes from the shared dictionary keyed by the English text
+const LANGS = [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]];
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const S = {
@@ -87,9 +91,13 @@ function applyPrefs() {
   root.dataset.style = S.look;
   const theme = (S.look === "general" || S.look === "sky") ? S.theme : "light";  // Classic is light-only
   if (theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
-  root.lang = S.ui === "bn" ? "bn" : "en";
+  root.lang = { bn: "bn", zh: "zh-CN" }[S.ui] || "en";
   document.body.classList.toggle("simple", S.mode === "simple");
+  setChineseFallback(S.ui === "zh");
 }
+// Locale for dates and speech; English-only literals pass through L() so Chinese still applies to them.
+const locale = () => ({ bn: "bn-BD", zh: "zh-CN" })[S.ui] || "en-GB";
+const L = s => S.ui === "zh" ? zh(s) : s;
 applyPrefs();
 
 // ------------------------------------------------------------------ helpers
@@ -142,7 +150,7 @@ function countUp(root) {
   });
 }
 const pct = v => (v === null || v === undefined) ? "–" : `${v}%`;
-const fmtDate = s => { const d = new Date(s + "T12:00:00Z"); return d.toLocaleDateString(S.ui === "bn" ? "bn-BD" : "en-GB", { day: "numeric", month: "short", timeZone: "UTC" }); };
+const fmtDate = s => { const d = new Date(s + "T12:00:00Z"); return d.toLocaleDateString(locale(), { day: "numeric", month: "short", timeZone: "UTC" }); };
 
 function toast(msg, tone = "", ms = 3500) {
   if (typeof tone === "number") { ms = tone; tone = ""; }
@@ -372,6 +380,7 @@ async function deleteTxn(r, onDone, tr) {
 let loginRender = 0;
 async function renderLogin(err, startTab = "login") {
   const renderId = ++loginRender;
+  closeMarketDrawer();
   S.user = null; S.conv = null; window.onhashchange = null;
   sessionStorage.removeItem("pilot-profile"); setDraftOwner(null);
   document.body.classList.add("auth-open");
@@ -398,7 +407,7 @@ const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parti
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
   .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
-const plain = (en, bn) => S.ui === "bn" ? bn : en;
+const plain = (en, bn) => S.ui === "bn" ? bn : L(en);
 const simpleLabel = r => ({ tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
@@ -420,7 +429,7 @@ function prefControls() {
   if (S.look === "classic") { theme.disabled = true; theme.title = t("theme_note"); }
   return [
     field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
-    field(t("language"), sel(S.ui, [["en", "English"], ["bn", "বাংলা"]], v => setPref("ui", v))),
+    field(t("language"), sel(S.ui, LANGS, v => setPref("ui", v))),
     field(t("theme"), theme),
     field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
     field(t("numbers"), sel(S.style, [["lakh", "৳1,00,000 (lakh)"], ["intl", "৳100,000"]], async v => {
@@ -531,7 +540,8 @@ function renderShell() {
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
         simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
         h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
-        simple ? h("button", { class: "btn language-toggle", onclick: () => setPref("ui", S.ui === "bn" ? "en" : "bn"), "aria-label": plain("Switch to Bangla", "ইংরেজিতে দেখুন") }, S.ui === "bn" ? "English" : "বাংলা") : settingsMenu(), avatar),
+        simple ? h("select", { class: "btn language-toggle", "aria-label": t("language"), onchange: e => setPref("ui", e.target.value) },
+          LANGS.map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : settingsMenu(), avatar),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }
@@ -561,6 +571,7 @@ function route() {
     const active = a.id === "nav-" + (S.mode === "simple" && !SIMPLE_ROUTES.includes(name) ? "more" : name);
     a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
+  marketDrawer(name === "dashboard");
   // A detached route container prevents a slow previous request replacing a newer screen.
   const v = h("div", { class: "route-content" }); $("#view").replaceChildren(v);
   v.replaceChildren(h("div", { class: "skeleton-block", role: "status", "aria-label": plain("Loading", "লোড হচ্ছে") }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
@@ -574,6 +585,16 @@ function route() {
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
     h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
 }
+
+// Home's price drawer: an edge tab outside the two Home cards. The instance keeps its data between Home visits;
+// logging out discards it so the next account never sees another business's prices.
+let market = null;
+function marketDrawer(show) {
+  if (S.health.market_prices === false) return;
+  if (show) { market ??= createMarketDrawer({ h, api, S }); market.mount(); market.redraw(); }
+  else market?.unmount();
+}
+function closeMarketDrawer() { market?.unmount(); market = null; }
 
 // ------------------------------------------------------------------ invoices
 const STATUS_TONE = { draft: "", sent: "info", partial: "warn", paid: "ok", overdue: "bad", written_off: "" };
@@ -901,8 +922,8 @@ async function viewDashboard(v) {
   const mChart = barChart({ categories: months.map(m => m.month), series: [
     { name: "Income", color: "var(--series-1)", values: months.map(m => m.income) },
     { name: "Expenses", color: "var(--series-2)", values: months.map(m => m.expense) }],
-    yfmt: (v, axis) => money(v, axis), xfmt: m => new Date(m + "-01").toLocaleDateString("en-GB", { month: "short" }),
-    xfmtLong: m => new Date(m + "-01").toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+    yfmt: (v, axis) => money(v, axis), xfmt: m => new Date(m + "-01").toLocaleDateString(locale(), { month: "short" }),
+    xfmtLong: m => new Date(m + "-01").toLocaleDateString(locale(), { month: "long", year: "numeric" }),
     extraRows: i => [["Net", money(months[i].net)]] });
   const costs = hbarChart(d.expense_breakdown.map(c => ({ label: c.category.replace(/_/g, " "), value: c.amount,
     sub: [["Share", c.share_pct + "%"], ["Previous period", money(c.previous_amount)]] })), { fmt: v => money(v) });
@@ -1071,13 +1092,15 @@ const SIMPLE_SUGGESTIONS = {
 async function viewChat(v) {
   const log = h("div", { class: "log", id: "chatlog", "aria-live": "polite" });
   const input = h(S.mode === "simple" ? "textarea" : "input", { ...(S.mode === "simple" ? { rows: 2, class: "chat-question" } : { type: "text" }), placeholder: t("ask"), "aria-label": "Message", maxlength: 2000 });
-  const send = async text => {
+  // A suggestion chip shows its translated label but asks the English question it stands for,
+  // so the offline rules engine still recognises it; the reply language follows the UI.
+  const send = async (text, asked) => {
     text = (text ?? input.value).trim(); if (!text) return;
     input.value = "";
     log.appendChild(h("div", { class: "msg user" }, text));
-    const bot = h("div", { class: "msg bot" }, h("div", { class: "typing" }, "Thinking…"));
+    const bot = h("div", { class: "msg bot" }, h("div", { class: "typing" }, L("Thinking…")));
     log.appendChild(bot); log.scrollTop = log.scrollHeight;
-    try { await streamChat(text, bot, log); } catch (e) { bot.replaceChildren(h("div", { class: "notice warn" }, e.message)); }
+    try { await streamChat(asked || text, bot, log); } catch (e) { bot.replaceChildren(h("div", { class: "notice warn" }, e.message)); }
   };
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
   const mic = voiceButton(input, send);
@@ -1085,22 +1108,22 @@ async function viewChat(v) {
   if (S.mode === "simple") {
     input.placeholder = t("s_ask_ph");
     const chips = h("div", { class: "row", style: "margin-top:10px" }, SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"]
-      .map(s => h("button", { class: "btn sm", onclick: () => send(s) }, s)));
+      .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
     v.replaceChildren(h("h1", {}, plain("Let’s work through it together", "একসঙ্গে সহজ করে বুঝি")), h("p", { class: "muted" }, plain("Ask a question, or review the suggested question below and press Send.", "প্রশ্ন করুন, অথবা নিচের প্রশ্ন দেখে পাঠান।")), h("div", { class: "chat chat-simple" }, h("div", { class: "card panel" }, log, chips,
       h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))))));
-    log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, S.ui === "bn"
-      ? "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।"
-      : "Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.")));
+    log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, plain(
+      "Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
+      "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।"))));
     input.focus();
     return;
   }
   const panel = h("div", { class: "card panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))));
-  const side = h("div", { class: "card suggest" }, h("h2", {}, "Try"), SUGGESTIONS.map(s => h("button", { class: "btn sm", onclick: () => send(s) }, s)),
+  const side = h("div", { class: "card suggest" }, h("h2", {}, "Try"), SUGGESTIONS.map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))),
     h("p", { class: "small muted" }, "Every number comes from a deterministic tool - open “Show calculation” under any answer. Money moves only in the sandbox and only after you confirm."));
   v.replaceChildren(h("div", { class: "chat" }, panel, side));
   log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" },
-    "Assalamu alaikum! I'm your finance copilot. Ask about sales, costs, cash flow, loans - in English, বাংলা or Banglish. I can also record entries, draft reminders and prepare loan reports.")));
+    L("Assalamu alaikum! I'm your finance copilot. Ask about sales, costs, cash flow, loans - in English, বাংলা or Banglish. I can also record entries, draft reminders and prepare loan reports."))));
   input.focus();
 }
 
@@ -1111,7 +1134,7 @@ function voiceButton(input, send) {
   let rec = null;
   b.addEventListener("click", () => {
     if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = S.ui === "bn" ? "bn-BD" : "en-US"; rec.interimResults = false;
+    rec = new SR(); rec.lang = { bn: "bn-BD", zh: "zh-CN" }[S.ui] || "en-US"; rec.interimResults = false;
     rec.onresult = e => { input.value = e.results[0][0].transcript; send(); };
     rec.onend = () => { rec = null; b.classList.remove("on"); };
     b.classList.add("on"); rec.start();
@@ -1121,7 +1144,7 @@ function voiceButton(input, send) {
 
 async function streamChat(text, bot, log) {
   const r = await fetch("/api/chat/stream", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf() },
-    body: JSON.stringify({ message: text, conversation_id: S.conv, profile: S.profile || null }) });
+    body: JSON.stringify({ message: text, conversation_id: S.conv, profile: S.profile || null, language: S.ui === "zh" ? "zh" : null }) });
   if (r.status === 401) { logout(true); return; }
   if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
   const reader = r.body.getReader(); const dec = new TextDecoder();
@@ -1917,22 +1940,32 @@ const TIPS = {
   actions: ["is where you approve payments and reminders the copilot prepared.", "কোপাইলটের তৈরি পেমেন্ট ও রিমাইন্ডার এখানে অনুমোদন করুন।"],
   settings: ["lets you change style, language and your home layout any time.", "স্টাইল, ভাষা আর হোম লেআউট যেকোনো সময় বদলান।"],
 };
+// Guided (simple) mode shows the same help, keyed to its own five destinations.
+const SIMPLE_TIPS = {
+  dashboard: ["shows your money and one practical next step for today.", "আপনার টাকা আর আজকের একটি করণীয় দেখায়।"],
+  tasks: ["keeps your to-do list, reminders and what's coming up.", "আপনার করণীয়, রিমাইন্ডার আর আসন্ন কাজ এক জায়গায় রাখে।"],
+  money: ["shows this month's totals and a simple cash-flow forecast.", "এই মাসের মোট হিসাব আর সহজ নগদ-প্রবাহ পূর্বাভাস দেখায়।"],
+  data: ["is where you add records: write “sold 12 shirts 6000 cash”, or upload a bank or bKash file.", "এখানে হিসাব যোগ করুন: “১২টা শার্ট বিক্রি ৬০০০ নগদ” লিখুন, বা ব্যাংক/বিকাশ ফাইল আপলোড করুন।"],
+  more: ["has Ask Copilot, baki khata, reports and all the other tools.", "এখানে Ask Copilot, বাকি খাতা, রিপোর্ট আর বাকি সব সুবিধা পাবেন।"],
+};
+const SIMPLE_TIP_ICONS = { dashboard: "▦", tasks: "✓", money: "৳", data: "⇪", more: "⋯" };
 const TIP_DAYS = 3, TIP_CHANCE = 1 / 3;
 function maybeShowTip() {
-  if (S.mode === "simple") return;
   const created = Date.parse((S.user.created_at || "") + "Z");
   if (!isFinite(created) || Date.now() - created > TIP_DAYS * 864e5 || Math.random() >= TIP_CHANCE) return;
+  const simple = S.mode === "simple", tips = simple ? SIMPLE_TIPS : TIPS;
   const key = "tips_seen:" + S.user.username;
   let seen = []; try { seen = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* private mode */ }
-  const pool = routes().filter(r => TIPS[r]);
+  const pool = routes().filter(r => tips[r]);
   const fresh = pool.filter(r => !seen.includes(r));
   const r = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))];
   if (!r) return;
   savePref(key, JSON.stringify([...seen.filter(x => x !== r), r]));
-  const label = t(S.mode === "simple" ? SIMPLE_LABELS[r] : r);
+  const label = simple ? simpleLabel(r) : t(r);
+  const routeIcon = simple ? (SIMPLE_TIP_ICONS[r] || "💡") : ICONS[r];
   const tip = animatedRemove(h("div", { class: "tip-pop", role: "status" },
     h("div", { class: "row" }, h("b", { class: "grow" }, "💡 " + t("tip")), h("button", { class: "btn ghost sm", "aria-label": t("got_it"), onclick: () => tip.remove() }, "✕")),
-    h("p", {}, h("span", { class: "tip-route" }, `${ICONS[r]} ${label}`), " ", TIPS[r][S.ui === "bn" ? 1 : 0]),
+    h("p", {}, h("span", { class: "tip-route" }, `${routeIcon} ${label}`), " ", S.ui === "bn" ? tips[r][1] : L(tips[r][0])),
     h("div", { class: "row", style: "justify-content:flex-end" },
       h("button", { class: "btn ghost sm", onclick: () => tip.remove() }, t("got_it")),
       h("button", { class: "btn primary sm", onclick: () => { tip.remove(); location.hash = "#" + r; } }, t("show_me")))), 240);
@@ -1946,7 +1979,7 @@ function homeLayoutCard() {
   const mode = { general: "Everything (general home)", simplified: "Simplified", custom: "Custom" }[hp.mode] || "–";
   if (S.mode === "simple") return h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, plain("Your guided Home", "আপনার সহজ হোম")),
     h("p", { class: "muted" }, plain("Home shows your recorded money and one next step. Find reminders in Tasks, totals in Money, and entries in Records.", "হোমে হিসাবের টাকা ও একটি পরের কাজ দেখবেন। রিমাইন্ডার কাজ মেনুতে, টাকার বিস্তারিত টাকা মেনুতে এবং লেনদেন হিসাব মেনুতে পাবেন।")),
-    h("p", {}, plain("Business type: ", "ব্যবসার ধরন: ") + type), h("button", { class: "btn", onclick: () => openWizard(false) }, plain("Change business setup", "ব্যবসার সেটআপ বদলান")));
+    h("p", {}, plain("Business type: ", "ব্যবসার ধরন: ") + L(type)), h("button", { class: "btn", onclick: () => openWizard(false) }, plain("Change business setup", "ব্যবসার সেটআপ বদলান")));
   return h("div", { class: "card", style: "margin-top:16px" },
     h("div", { class: "row" }, h("h2", { class: "grow" }, t("home_layout")), h("button", { class: "btn primary", onclick: () => openWizard(false) }, t("change_layout"))),
     h("p", { class: "small muted", style: "margin:0 0 8px" }, `Business type: ${type} · Layout: ${mode}`),

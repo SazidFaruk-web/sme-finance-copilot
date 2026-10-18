@@ -21,7 +21,7 @@ from sme_copilot.config import get_settings
 from sme_copilot.models import PendingAction, utcnow
 from sme_copilot.security import audit
 from sme_copilot.security.injection import neutralize
-from sme_copilot.security.permissions import authorize
+from sme_copilot.security.permissions import ROLE_MAX_TIER, authorize
 
 from .toolkit import REGISTRY, ToolContext, ToolDef, load_all_tools
 
@@ -179,7 +179,7 @@ def execute(ctx: ToolContext, name: str, raw_args: dict[str, Any] | None) -> Too
             ctx.session.commit()
             return out
     args_dict = args.model_dump(mode="json")
-    if (not get_settings().allow_illustrative_guidance and name in {
+    if (not get_settings().illustrative_guidance and name in {
             "match_financing", "loan_readiness_score", "get_financing_catalog", "generate_loan_report",
             "prepare_loan_checklist", "compliance_info"}):
         out = ToolOutcome(name, "blocked", tool.tier, args_dict,
@@ -265,6 +265,14 @@ def confirm_pending(ctx: ToolContext, pending_id: int, *, confirm_amount: float 
     tool = REGISTRY.get(pa.tool)
     if tool is None:
         raise ConfirmationError("tool no longer exists", "invalid")
+    # Role first: a lower role must not learn the expected amount or, by failing a later check, cancel the
+    # owner's request. The request stays pending for the owner.
+    if ROLE_MAX_TIER.get(ctx.user.role, -1) < pa.tier:
+        audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,
+                     event_type="permission_denied", action=pa.tool, tier=pa.tier,
+                     inputs={"pending_action_id": pa.id}, confirmation_status="rejected", request_id=pa.request_id)
+        raise ConfirmationError(f"role '{ctx.user.role}' cannot confirm tier-{pa.tier} actions; the owner must confirm",
+                                "forbidden")
     if pa.expires_at < utcnow():
         pa.status, pa.decided_at, pa.decided_by = "expired", utcnow(), ctx.user.username
         audit.record(ctx.session, actor=ctx.user.username, actor_role=ctx.user.role, business_id=ctx.business.id,

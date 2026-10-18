@@ -1,4 +1,6 @@
 // Authentication has one active interface language. Credentials and business names are user data.
+import { zhCopy } from "./i18n-zh.js?v=2";
+
 export const AUTH_COPY = {
   en: {
     brand: "SME Copilot", language: "Language", loginTitle: "Welcome back.", loginIntro: "A little clarity for your business starts here.",
@@ -43,6 +45,7 @@ export const AUTH_COPY = {
     invalidDetails: "কিছু তথ্য গ্রহণ করা যায়নি। ফর্মটি দেখে আবার চেষ্টা করুন।", generic: "এগোনো যায়নি। আবার চেষ্টা করুন।",
   },
 };
+AUTH_COPY.zh = zhCopy(AUTH_COPY.en);
 
 export function validateAuth(mode, values) {
   const errors = {};

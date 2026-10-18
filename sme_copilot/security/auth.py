@@ -39,12 +39,29 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+_dummy_hash: bytes | None = None
+
+
+def warm_up() -> None:
+    """Create the comparison hash at startup instead of during the first failed login."""
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = hash_password(secrets.token_urlsafe(16)).encode()
+
+
+def _equalise_timing(password: str) -> None:
+    """Check against a hash of the same cost as real ones, so an unknown username takes as long as a wrong
+    password and response times do not reveal which accounts exist."""
+    warm_up()
+    bcrypt.checkpw(password.encode("utf-8")[:72], _dummy_hash)
+
+
 def authenticate(session: Session, username: str, password: str) -> User:
     user = session.scalar(select(User).where(User.username == username.strip().lower()))
     now = utcnow()
-    # Same error for unknown user and wrong password (no user enumeration).
+    # Same error and the same work for an unknown user and a wrong password (no user enumeration).
     if user is None or not user.is_active:
-        bcrypt.checkpw(b"timing-equaliser", bcrypt.hashpw(b"x", bcrypt.gensalt(rounds=4)))
+        _equalise_timing(password)
         raise AuthError("invalid username or password")
     if user.locked_until and user.locked_until > now:
         raise AuthError("account temporarily locked after repeated failed logins; try again later")

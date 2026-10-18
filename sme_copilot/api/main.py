@@ -25,6 +25,8 @@ async def lifespan(app: FastAPI):
     if s.app_env == "production" and not s.field_encryption_key:
         raise RuntimeError("FIELD_ENCRYPTION_KEY must be set in production")
     init_db()
+    from sme_copilot.security.auth import warm_up
+    warm_up()  # the first failed login must not be slower than later ones
     stop = threading.Event()
     if s.digest_scheduler:
         threading.Thread(target=_digest_loop, args=(stop,), daemon=True, name="digest-scheduler").start()
@@ -64,7 +66,8 @@ def create_app() -> FastAPI:
     from . import routes_core, routes_data
     app.include_router(routes_core.router)
     app.include_router(routes_data.router)
-    for mod in ("routes_insights", "routes_actions", "routes_stock", "routes_books", "routes_home", "routes_pilot"):
+    for mod in ("routes_insights", "routes_actions", "routes_stock", "routes_books", "routes_home", "routes_pilot",
+                "routes_market"):
         try:
             m = __import__(f"sme_copilot.api.{mod}", fromlist=["router"])
             app.include_router(m.router)
@@ -76,7 +79,7 @@ def create_app() -> FastAPI:
     def health() -> dict:
         st = get_settings()
         out = {"status": "ok", "version": __version__, "env": st.app_env, "local_only_mode": st.local_only_mode,
-               "allow_signup": st.allow_signup}
+               "allow_signup": st.allow_signup, "market_prices": st.market_prices_enabled}
         if st.app_env == "demo":  # demo deployments only: show the seeded demo logins on the login screen
             import os
             out["demo_users"] = [

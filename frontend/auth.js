@@ -1,9 +1,9 @@
 import { icon } from "./icons.js?v=12";
-import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=13";
+import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=14";
 
 export function renderAuth(root, { h, language, health, api, onLanguage, onAuthenticated, initialError, startMode = "login" }) {
   const state = {
-    language: language === "bn" ? "bn" : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
+    language: ["bn", "zh"].includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
     allowSignup: health.allow_signup !== false, busy: false, error: initialError ? authErrorKey(initialError) : "", fields: {},
     drafts: { login: { username: "", password: "" }, signup: { business: "", name: "", username: "", password: "", confirm: "" } },
     visible: {}, demoOpen: false,
@@ -16,7 +16,7 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
 
   function draw(focusId) {
     const c = AUTH_COPY[state.language], signup = state.mode === "signup", values = state.drafts[state.mode];
-    document.documentElement.lang = state.language;
+    document.documentElement.lang = state.language === "zh" ? "zh-CN" : state.language;
     document.title = `${signup ? c.signup : c.login} · ${c.brand}`;
     const field = (key, label, placeholder, props = {}, hint = "") => {
       const id = `auth-${key}`, errorId = `${id}-error`, hintId = `${id}-hint`, password = ["password", "confirm"].includes(key);
@@ -79,7 +79,7 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
       h("button", { class: "auth-submit", type: "submit", disabled: state.busy }, state.busy ? h("span", { class: "auth-spinner", "aria-hidden": "true" }) : null,
         state.busy ? (signup ? c.creating : c.loggingIn) : (signup ? c.signup : c.login), state.busy ? null : icon("arrow", 18)));
     const switchMode = mode => { if (state.busy) return; captureDraft(); state.mode = mode; state.error = ""; state.fields = {}; state.visible = {}; draw("auth-heading"); };
-    const languages = h("div", { class: "auth-languages", role: "group", "aria-label": c.language }, [["en", "English"], ["bn", "বাংলা"]].map(([code, text]) => h("button", {
+    const languages = h("div", { class: "auth-languages", role: "group", "aria-label": c.language }, [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]].map(([code, text]) => h("button", {
       type: "button", id: `auth-lang-${code}`, lang: code, "aria-pressed": String(state.language === code), disabled: state.busy,
       onclick: () => { captureDraft(); state.language = code; onLanguage(code); draw(`auth-lang-${code}`); },
     }, text)));

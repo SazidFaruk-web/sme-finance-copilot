@@ -11,11 +11,11 @@ trader in Dhaka), then drives the **real HTTP API** (the same endpoints the web 
 owner, accountant and viewer. Money moves only inside the **sandbox account**. Every action is
 written to the hash-chained operation log, which is exported here.
 
-- Generated (UTC): 2026-10-14T09:46:06+00:00 · business date (as of): 2026-10-14
+- Generated (UTC): 2026-10-18T21:19:06+00:00 · business date (as of): 2026-10-14
 - Model profile: `rules-offline` (offline deterministic engine; switch with `LLM_PROFILE`)
-- **Steps passed: 33 / 33**
-- Operation-log rows exported: 22 · total audit events: 59
-- Audit chain head hash: `30bcb8d558cd22c29e5add5eba1fe6b99ce5137bfea3ba74cebaa7a7ac342c3f`
+- **Steps passed: 35 / 35**
+- Operation-log rows exported: 24 · total audit events: 62
+- Audit chain head hash: `a5fee49f721cf26fdb108a5f29cc0013e0983eab1ee0a816d0e83d472cadcdc1`
 
 ## Evidence files
 
@@ -48,7 +48,7 @@ written to the hash-chained operation log, which is exported here.
 | 14 | Loan-readiness score | ✅ |
 | 15 | Loan-readiness PDF generated and downloaded | ✅ |
 | 16 | Loan application checklist prepared | ✅ |
-| 17 | Payment reminder scheduled (sandbox outbox) | ✅ |
+| 17 | Payment reminder prepared, then saved to the sandbox outbox on the owner's OK | ✅ |
 | 18 | Accountant drafts a Bangla follow-up letter (Tier 1 allowed) | ✅ |
 | 19 | Transfer request queued, nothing moved yet (Tier 2) | ✅ |
 | 20 | Mistyped confirmation amount rejected | ✅ |
@@ -64,16 +64,18 @@ written to the hash-chained operation log, which is exported here.
 | 30 | Injection row from the bKash statement is flagged and neutralised as data | ✅ |
 | 31 | Fraud request refused (deterministic guardrail, no model call) | ✅ |
 | 32 | Tax-evasion request refused in Bangla | ✅ |
-| 33 | Audit hash chain verified | ✅ |
+| 33 | Fraud request refused in Chinese (zh interface language) | ✅ |
+| 34 | Market prices near the business with a next-month range (public WFP data) | ✅ |
+| 35 | Audit hash chain verified | ✅ |
 
 ## Operation log: confirmation statuses
 
 | confirmation_status | rows |
 |---|---|
-| not_required | 13 |
-| rejected | 4 |
-| pending | 2 |
-| confirmed | 2 |
+| not_required | 12 |
+| rejected | 5 |
+| pending | 3 |
+| confirmed | 3 |
 | blocked | 1 |
 
 ## Operation log: actions
@@ -81,12 +83,12 @@ written to the hash-chained operation log, which is exported here.
 | action | rows |
 |---|---|
 | import_file | 6 |
-| sandbox_transfer | 4 |
+| sandbox_transfer | 5 |
 | add_transaction | 3 |
+| create_payment_reminder | 2 |
 | pay_supplier_invoice | 2 |
 | generate_loan_report | 1 |
 | prepare_loan_checklist | 1 |
-| create_payment_reminder | 1 |
 | draft_invoice_followup | 1 |
 | confirm_amount_mismatch | 1 |
 | suspicious_user_input | 1 |
@@ -96,15 +98,16 @@ written to the hash-chained operation log, which is exported here.
 
 | id | timestamp (UTC) | actor | action | tier | confirmation | result (truncated) |
 |---|---|---|---|---|---|---|
-| 34 | 2026-10-14T09:46:06 | nusrat (owner) | generate_loan_report | T1 | not_required | {"status": "ok", "message": "", "data": {"report_id": 1, "filename": "loan_readiness_b1_1_ |
-| 38 | 2026-10-14T09:46:06 | nusrat (owner) | create_payment_reminder | T1 | not_required | {"status": "ok", "message": "", "data": {"reminder_id": 1, "invoice_id": 111, "invoice_no" |
-| 41 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
-| 44 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 1, "status": "executed", "recipien |
-| 45 | 2026-10-14T09:46:06 | nusrat (owner) | pay_supplier_invoice | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
-| 47 | 2026-10-14T09:46:06 | nusrat (owner) | pay_supplier_invoice | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 2, "status": "executed", "recipien |
-| 48 | 2026-10-14T09:46:06 | nusrat (owner) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Amount 250,000 exceeds the per-transaction limit of 200,0 |
-| 49 | 2026-10-14T09:46:06 | rafiq (accountant) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Your role 'accountant' allows up to Tier 1 - drafts, remi |
-| 55 | 2026-10-14T09:46:06 | nusrat (owner) | execute_real_bank_transfer | T3 | blocked | {"status": "blocked", "message": "'execute_real_bank_transfer' is a blocked action (Tier 3 |
+| 34 | 2026-10-18T21:19:05 | nusrat (owner) | generate_loan_report | T1 | not_required | {"status": "ok", "message": "", "data": {"report_id": 1, "filename": "loan_readiness_b1_1_ |
+| 38 | 2026-10-18T21:19:05 | nusrat (owner) | create_payment_reminder | T1 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
+| 40 | 2026-10-18T21:19:05 | nusrat (owner) | create_payment_reminder | T1 | confirmed | {"status": "ok", "message": "", "data": {"reminder_id": 1, "invoice_id": 111, "invoice_no" |
+| 42 | 2026-10-18T21:19:05 | nusrat (owner) | sandbox_transfer | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
+| 45 | 2026-10-18T21:19:05 | rafiq (accountant) | sandbox_transfer | T2 | rejected | {} |
+| 46 | 2026-10-18T21:19:05 | nusrat (owner) | sandbox_transfer | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 1, "status": "executed", "recipien |
+| 47 | 2026-10-18T21:19:05 | nusrat (owner) | pay_supplier_invoice | T2 | pending | {"status": "pending_confirmation", "message": "Waiting for the owner's confirmation in the |
+| 49 | 2026-10-18T21:19:05 | nusrat (owner) | pay_supplier_invoice | T2 | confirmed | {"status": "ok", "message": "", "data": {"transfer_id": 2, "status": "executed", "recipien |
+| 50 | 2026-10-18T21:19:05 | nusrat (owner) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Amount 250,000 exceeds the per-transaction limit of 200,0 |
+| 51 | 2026-10-18T21:19:05 | rafiq (accountant) | sandbox_transfer | T2 | rejected | {"status": "denied", "message": "Your role 'accountant' allows up to Tier 1 - drafts, remi |
 
 ## How to verify independently
 

@@ -85,7 +85,7 @@ def confirm(pending_id: int, body: ConfirmIn, user: User = Depends(require_tier(
     except ConfirmationError as e:
         db.commit()
         code = {"not_found": 404, "expired": 410, "amount_mismatch": 409, "not_pending": 409,
-                "step_up_required": 403}.get(e.code, 400)
+                "step_up_required": 403, "forbidden": 403}.get(e.code, 400)
         raise HTTPException(code, {"code": e.code, "message": str(e)} if e.code == "step_up_required"
                             else str(e)) from e
     if out.status == "denied":
