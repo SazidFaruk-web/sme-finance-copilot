@@ -15,6 +15,7 @@ MAX_AHEAD = 6  # no forecast further than this past the last observation
 UNCERTAIN_SPREAD = 30  # percentage points between the 10% and 90% outcomes
 HISTORY_MONTHS = 24  # the sparkline shows two years
 CACHE_LIMIT = 256
+BIG_MOVE_PCT = 10  # a change this large since the month before is called out at the top of the drawer
 
 _cache: dict[tuple, dict] = {}
 _cache_lock = threading.Lock()
@@ -61,14 +62,17 @@ def _pct(new: float, old: float) -> float | None:
     return round((new / old - 1) * 100, 1) if old else None
 
 
-def overview(district: str | None, business_type: str | None, today: date) -> dict:
+def overview(district: str | None, business_type: str | None, today: date, items: list[str] | None = None) -> dict:
+    """Prices for ``items`` (the owner's own list) or, when None, the business type's basket."""
     data = prices.load()
     prices.refresh_in_background()
-    bt, items = catalog.basket(business_type)
+    bt, basket = catalog.basket(business_type)
+    own = items is not None
+    items = items if own else basket
     district = district or "Dhaka"
     engine = forecast.forecaster()
     target = pd.Period(today, freq="M") + 1  # "next month" from the owner's point of view
-    key = (data.version, catalog.district_key(district), bt, str(target), engine.name)
+    key = (data.version, catalog.district_key(district), bt, str(target), engine.name, tuple(items))
     with _cache_lock:
         if key in _cache:
             return _cache[key]
@@ -103,6 +107,8 @@ def overview(district: str | None, business_type: str | None, today: date) -> di
                 "id": commodity, "label": catalog.label(commodity), "unit": catalog.unit_label(area["unit"]),
                 "pricetype": area["pricetype"].lower(), "price": round(last, 2), "observed": str(s.index[-1]),
                 "change_1m_pct": _pct(last, float(s.iloc[-2])) if len(s) > 1 else None,
+                "change_1m_abs": round(last - float(s.iloc[-2]), 2) if len(s) > 1 else None,
+                "previous_month": str(s.index[-2]) if len(s) > 1 else None,
                 "change_12m_pct": _pct(last, float(s.iloc[-13])) if len(s) > 12 else None,
                 "area": {"level": area["level"], "name": area["name"], "markets": area["markets"]},
                 "forecast": outlook,
@@ -115,7 +121,9 @@ def overview(district: str | None, business_type: str | None, today: date) -> di
         "latest_observation": data.latest[:7],
         "engine": {"name": engine.name, "kind": engine.kind},
         "source": {**prices.SOURCE, "origin": data.origin, "fetched_at": data.fetched_at},
-        "note": catalog.NOTES.get(bt), "items": out_items,
+        "note": None if own else catalog.NOTES.get(bt), "items": out_items,
+        "big_moves": sum(1 for i in out_items if abs(i["change_1m_pct"] or 0) >= BIG_MOVE_PCT),
+        "big_move_pct": BIG_MOVE_PCT,
     }
     with _cache_lock:
         if len(_cache) >= CACHE_LIMIT:

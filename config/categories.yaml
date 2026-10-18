@@ -33,7 +33,7 @@ categories:
     direction: in
     behavior: revenue
     keywords:
-      en: [sold, sale, sales, revenue, customer payment, received from customer, order payment, invoice paid, payment received, received payment]
+      en: [sold, sale, sales, revenue, customer payment, received from customer, order payment, invoice paid, payment received, received payment, biryani order, food order, cake order, lunch order, order delivered]
       bn: [বিক্রি, বিক্রয়, বেচা, বেচলাম, বিক্রি করলাম, পেমেন্ট পেলাম]
       banglish: [bikri, bikroy, becha, bechlam, bechechi, bikri korlam, taka pelam]
   other_income:
@@ -76,7 +76,7 @@ categories:
     direction: out
     behavior: cogs
     keywords:
-      en: [purchase, purchased, bought stock, stock, inventory, raw material, fabric, buttons, zipper, zippers, thread, label, labels, trims, accessories purchase, supplier payment, wholesale, goods, restock]
+      en: [purchase, purchased, bought stock, stock, inventory, raw material, fabric, buttons, zipper, zippers, thread, label, labels, trims, accessories purchase, supplier payment, wholesale, goods, restock, books from, publishers, publications, prokashoni, guide books stock, ingredients, chicken and meat, rice, oil and spices, spices, vegetables, flour and sugar, groceries for orders]
       bn: [মাল কেনা, মাল কিনলাম, ক্রয়, কাঁচামাল, কাপড়, বোতাম, চেইন, সুতা, স্টক]
       banglish: [mal kinlam, mal kena, kinlam, kacha mal, kapor, botam, chain kinlam, suta]
   rent:

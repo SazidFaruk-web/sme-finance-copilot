@@ -1,4 +1,4 @@
-"""Detect the user's language so the copilot replies in kind: English, Bangla, Banglish or Chinese."""
+"""Detect the user's language so the AI Assistant replies in kind: English, Bangla, Banglish or Chinese."""
 from __future__ import annotations
 
 import re

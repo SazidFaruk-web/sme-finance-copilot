@@ -4,7 +4,7 @@ This is the product design contract for contributors and agents. Read it before 
 
 ## Who we are designing for
 
-Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. English, Bangla, and Banglish are first-class ways to communicate; the interface is also available in Simplified Chinese. The app must remain useful without an available language model.
+Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. The app speaks plain English (owner decision 2026-10-19: Bangla and Chinese are switched off in the interface and in AI replies). The app must remain useful without an available language model.
 
 Success means the owner can answer, without interpretation:
 
@@ -21,17 +21,21 @@ Use this hierarchy and calm visual language as inspiration. Build an original bu
 
 ## Information hierarchy and disclosure
 
-- Default to the guided Home, including for first-time visitors. Keep five primary navigation choices: Home, Tasks, Money, Records, and More. Use small sets of page tabs to organize related information.
+- Default to the guided Home, including for first-time visitors. Keep six primary navigation choices: Home, AI Assistant, Tasks, Money, Records, and More (owner decision 2026-10-19: the assistant sits directly below Home). Use small sets of page tabs to organize related information. The assistant is called **AI Assistant** everywhere (formerly “Copilot”); the product name SME Finance Copilot is unchanged.
 - **Home has a strict two-card budget: recorded money and one next step.** Include a short greeting, the balance's as-of date and source, one primary action, and an optional “How to do it” disclosure. Home is an entry point, not a dashboard of everything the app can do.
-- Do not add secondary recommendations, monthly totals, action shortcuts, recent activity, upcoming payments, reminder lists, approval queues, forecast previews, or duplicate Copilot invitations to Home. Collapsing those feeds on Home still adds choices; give them a destination instead.
+- Do not add secondary recommendations, monthly totals, action shortcuts, recent activity, upcoming payments, reminder lists, approval queues, forecast previews, or duplicate AI Assistant invitations to Home. Collapsing those feeds on Home still adds choices; give them a destination instead.
 - **Agreed exception (owner decision, 2026-10-19): the market price drawer.** Home may show one minimised edge tab, **Prices**, that opens a half-width drawer from the right with public market prices for the owner's kind of business and a one-line next-month outlook. It is not a third card: it starts closed, stays closed until the owner opens it, remembers that choice, and never pushes Home's two cards aside. Each outlook names the month, shows its possible range, and is written in words with a sign (never colour or arrow alone). Prices state their month and source and are labelled as market averages, not live shop prices. Do not add other content to the drawer or other drawers to Home.
+- **Price drawer additions (owner decision, 2026-10-19).** On first open the AI Assistant picks the items from the business name and the owner's own description (only from published series; keyword rules when no model is available, and the owner's words always add obvious items such as flour for a cake shop). Each item has a remove (×) control and an “Add an item” search; the list is saved per user and says who picked it. Items are ordered by the biggest change since the previous month. Each shows that change as a signed taka amount and percentage in words (“+৳2 (+22%) since April”); rises are green and falls red, always with the sign, plus an approximate dollar figure labelled “approx.”. Changes of 10% or more are counted in a small badge on the closed tab and a one-line notice at the top of the drawer. The tab glows softly as the app's forecasting feature: a light circles its edge for 5 seconds, then rests for 5 seconds; it never glows while the drawer is open and is a still ring with reduced motion. This is the one agreed looping effect.
+- **Agreed exception (owner decision, 2026-10-19): Home's occasional note.** About one app open in ten, one quiet line appears under Home's two cards for 10 seconds (closable at once). It names one unusual fact from the owner's records — an overdue or due-soon bill, spending above money in, customers late with more than came in this month, or sales well up or down on the same days last month — with every number calculated by the server. Each note is shown at most three times; with nothing unusual it shows a business tip. It is labelled “AI Assistant · from your records” or “business tip” and is never a third card. “#dashboard?note=1” shows one immediately for demos.
 - Tasks has separate To do, Reminders, and Coming up tabs. Keep task instructions collapsed until a row is opened. Show a short first batch and let users request more. Keep all issues and reminders retrievable.
-- Money has separate This month and Money ahead tabs. Show money in/out together with an explicit month on This month. Forecasts belong only in Money ahead and retain their uncertainty range. Records owns entry and transaction history. More provides Copilot, customers/suppliers, bills, prepared actions, reports, and specialist tools.
+- Money has separate This month and Money ahead tabs. Show money in/out together with an explicit month on This month. Forecasts belong only in Money ahead and retain their uncertainty range. Records owns entry and transaction history. More provides customers/suppliers, bills, prepared actions, reports, and specialist tools.
 - Home's one recommendation has a short reason and one concrete action. Its supporting evidence, instructions, and “Remind me” control are disclosed only when requested. Do not duplicate that action in multiple places on the same screen.
 - Rank immediate cash risks, overdue collections, and approaching payments ahead of optional analysis or borrowing. Consider due dates and urgency; do not recommend a loan merely because cash is low.
 - Show upcoming reminders separately from things needing action now. A future personal reminder must not displace an urgent business issue.
 - Put records, detailed calculations, forecasts, customization, financing, and technical settings behind intentional choices. Do not remove access to useful functionality.
 - Use one compact business-type setup with a recommended start. Never require a beginner to choose financial widgets or wait for an AI-generated layout to use the app.
+- Setup asks, in the owner's own words, what the business sells or does (owner decision 2026-10-19). The AI Assistant turns the answer into the business type, a short description (shown back to the owner and used as the assistant's business context) and the price list; the optional type list still wins when the owner picks one. Keyword rules give a usable result without a model. A new account starts in Simple from the first frame, so no Advanced screen shows behind the setup question.
+- **Agreed exception (owner decision, 2026-10-19): the first-visit tour.** After setup, a new account gets one short tour: a small card beside each tab and the main settings (price tab, language, account menu), with Back, Next and Skip tour on every step, Esc to leave, and a replay button in Settings. It runs once per account on this device and never interrupts later visits.
 
 ## Guidance and AI behavior
 
@@ -40,28 +44,29 @@ Every recommendation follows **what → why → how → next action**. For examp
 - Use deterministic tools for amounts, dates, prioritization, and calculations. The model explains and helps the owner; it does not invent evidence or silently make commitments.
 - Label Home suggestions as based on recorded information. Do not claim a model generated them when they came from rules. The guidance must still work when the LLM is slow or offline.
 - Prefer small, reversible next steps: check a bill, follow up with a customer, review spending, add a missing record. Explain tradeoffs before asking the user to decide.
-- Contextual Ask Copilot buttons should prepare a specific question the owner can review and send. Avoid making them start with a blank box or sending messages automatically.
+- Contextual Ask the AI Assistant buttons should prepare a specific question the owner can review and send. Avoid making them start with a blank box or sending messages automatically.
 - Acknowledge uncertainty and missing records. An empty business is “Add your first record,” never “Your money is fine.” Forecasts are estimates, not promises or available bank funds.
 - Personal reminders must persist on the server and appear when the owner returns. Say that they appear **in the app**; do not imply background push, SMS, email, or customer delivery that does not exist.
-- Group notifications and let owners inspect more when ready. Do not interrupt with random tutorials, repeated reassurance, or a wall of alerts.
+- Group notifications and let owners inspect more when ready. Do not interrupt with random tutorials, repeated reassurance, or a wall of alerts. The first-visit tour and Home's occasional note above are the agreed, rate-limited exceptions.
 
 ## Plain language
 
-Use “money in,” “money out,” “customers owe you,” “bills to pay,” “money may run short,” and “next step.” Introduce accounting terms only when needed and explain them next to the term. Prefer short sentences and specific verbs: Add record, Check bill, Review reminder, Ask Copilot. Avoid vague buttons such as Do it, operational logs, tool names, tiers, and model settings in everyday flows.
+Use “money in,” “money out,” “customers owe you,” “bills to pay,” “money may run short,” and “next step.” Introduce accounting terms only when needed and explain them next to the term. Prefer short sentences and specific verbs: Add record, Check bill, Review reminder, Ask the AI Assistant. Avoid vague buttons such as Do it, operational logs, tool names, tiers, and model settings in everyday flows.
 
-Localize new guidance and navigation in English and Bangla, and add its Chinese to [frontend/i18n-zh.js](../frontend/i18n-zh.js) (keyed by the English text). Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
+Write new guidance and navigation in plain English. Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
 
-Authentication uses **one active language at a time**. Provide an explicit English / বাংলা / 中文 selector and remember the selection through login and subsequent visits. Translate the heading, labels, placeholders, instructions, validation, service errors, loading state, demo-role labels, and account-creation flow together. The language selector itself and user-entered names or credentials are exceptions. Never clear a form just because its language changes, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
+Authentication is in English, with no language picker. Never clear a form on a redraw, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
 
 ## Visual system
 
 - General light theme: warm off-white page `#FAF8F5`, white cards, charcoal `#29292D`, muted text `#69635E`, subtle border `#EAE5DF`.
 - Main decorative accent: coral `#EC805B`; accessible action background/text uses darker terracotta `#A84227`. Muted green `#609D85` and red `#B75659` communicate money direction alongside signs and labels.
-- Use the existing system font stack with Bengali support; no required remote fonts or images. Body text is at least 15px in guided mode, supporting text normally 13–14px, line-height 1.5 or more. The recorded balance is the only oversized number.
+- Use the existing system font stack; no required remote fonts or images. Body text is at least 15px in guided mode, supporting text normally 13–14px, line-height 1.5 or more. The recorded balance is the only oversized number.
 - Use a 4px spacing rhythm, generous 24–32px section spacing, card corners around 20–24px, and rounded but practical controls. Avoid nesting cards inside cards unnecessarily.
 - Desktop: a quiet, narrow sidebar and a readable content width; only the balance and next action form Home's main row. Leave the space below empty. Mobile: one column with an accessible bottom navigation. Prioritize reading order over matching desktop composition. Do not fill empty space with optional features.
 - Retain readable dark, green, and blue preferences. Use semantic tokens rather than hardcoded light surfaces in components.
-- Motion is optional feedback, not content. Honor reduced motion. No compulsory count-up numbers, looping effects, or moving highlights in the guided UI.
+- In the General style, Advanced uses the same look as Simple (owner decision 2026-10-19): the light cream sidebar, quiet top bar, white cards and the soft balance-card wash replace the terracotta gradient sidebar and banner. Advanced keeps its own layout and longer navigation.
+- Motion is optional feedback, not content. Honor reduced motion. No compulsory count-up numbers, looping effects, or moving highlights in the guided UI, except the agreed soft glow on the price tab described above.
 
 ## Trust, permissions, and states
 
@@ -70,13 +75,13 @@ Authentication uses **one active language at a time**. Provide an explicit Engli
 - AI must never bypass write permissions or confirmation rules. Viewers see helpful read-only explanations instead of buttons they cannot use. Money movement requires the owner and existing confirmation checks.
 - Loading preserves context; errors explain what failed and offer retry. A secondary feed failing must not erase the balance or prevent adding a record. Disable a submitting button to prevent accidental repeats.
 - Empty states explain the first useful action. Save success appears only after the server confirms it. Updates and undo must keep visible records accurate.
-- Use semantic headings, labeled inputs, visible keyboard focus, usable dialogs, and tap targets at least 44px. Aim for WCAG AA contrast (4.5:1 for ordinary text). Test at 360px width, desktop width, English/Bangla, dark theme, and reduced motion.
+- Use semantic headings, labeled inputs, visible keyboard focus, usable dialogs, and tap targets at least 44px. Aim for WCAG AA contrast (4.5:1 for ordinary text). Test at 360px width, desktop width, dark theme, and reduced motion.
 
 ## Contributor review checklist
 
 ### Guided tasks and the Bangladesh pilot
 
-The agreed [Bangladesh product plan](PRODUCT_PLAN_BD.md) is shared implementation context. The first audience is small shops and traders in Dhaka South. Copilot opens a functional task, not a chat transcript: establish the goal, confirm facts, ask the next useful question, compare options, prepare an action, and review its outcome.
+The agreed [Bangladesh product plan](PRODUCT_PLAN_BD.md) is shared implementation context. The first audience is small shops and traders in Dhaka South. The AI Assistant opens a functional task, not a chat transcript: establish the goal, confirm facts, ask the next useful question, compare options, prepare an action, and review its outcome.
 
 - Show one question and at most three choices at a time. Prefer amounts, dates, selected records and short checklists. Offer “I don't know” and “Do this later.” Unknown values never silently become zero.
 - Reuse known facts as editable suggestions. After six new questions, offer an answer summary and the choice to continue deeper or pause. Preserve input on language switches and provide backtracking and resuming.
@@ -100,7 +105,7 @@ Before shipping, ask:
 - Does Home still contain exactly its two essential cards and one primary action, with the price drawer minimised by default? Has supporting information been placed in its own tab instead of adding another choice to Home?
 - Are every number, date, recommendation, and success claim supported by actual state?
 - Do reminders persist, and is their delivery channel described honestly?
-- Can keyboard, mobile, Bangla, read-only, and offline users complete the relevant flow?
+- Can keyboard, mobile, read-only, and offline users complete the relevant flow?
 - Have changed prioritization/business rules been tested and the rendered layout checked?
 
 Do not add a feature to Home just because it exists. Add it when it helps the owner decide what to do now.

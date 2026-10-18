@@ -655,9 +655,8 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
 :root[data-style="classic"] .tip-card .btn { background: #5fb98a; border-color: #5fb98a; color: #0d2e20; }
 :root[data-style="classic"] .qa-tile .qa-ico { background: #1f6b4a; }
 
-/* ======== General (login palette): gradient sidebar, welcome hero, icon-chip KPIs + progress bar, gradient quick actions */
+/* ======== General (login palette; guided chrome for both modes lives in guided.css): welcome hero, icon-chip KPIs + progress bar, gradient quick actions */
 :root[data-style="general"] .sidebar { border-right: 0; }
-:root[data-style="general"] body:not(.simple) .sidebar :focus-visible { outline-color: #fff; }
 :root[data-style="general"] body:not(.simple) .nav .badge { background: #fff; color: #7c2d1a; }
 :root[data-style="general"] .hero-banner { display: block; position: relative; overflow: hidden; border-radius: calc(var(--radius) + 4px);
   padding: 22px 24px; margin-bottom: 16px; color: #fff; background: linear-gradient(120deg, #a84227 0%, #b8543a 55%, #c97b52 100%); }

@@ -82,7 +82,7 @@ def authorize(session: Session, user: User, tool_name: str, tier: int, *, amount
     s = settings or get_settings()
     if tier >= 3:
         return Decision(False, False, tier, "blocked",
-                        f"'{tool_name}' is a blocked action ({TIER_NAMES[3]}). The copilot never performs it.")
+                        f"'{tool_name}' is a blocked action ({TIER_NAMES[3]}). The AI Assistant never performs it.")
     max_tier = ROLE_MAX_TIER.get(user.role, -1)
     if tier > max_tier:
         return Decision(False, False, tier, "role",

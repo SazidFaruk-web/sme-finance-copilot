@@ -172,5 +172,5 @@ routing:
     categorization: local-qwen7b
     advisory: claude-sonnet
   # Tried in order when the chosen profile errors or times out. rules-offline never fails,
-  # so the copilot always answers.
+  # so the AI Assistant always answers.
   fallback_chain: [shared-llm, claude-sonnet, claude-haiku, local-llamacpp, rules-offline]

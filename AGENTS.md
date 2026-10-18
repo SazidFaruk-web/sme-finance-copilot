@@ -6,9 +6,9 @@ The agreed pilot specification and dated source register are in [docs/PRODUCT_PL
 
 Before designing or implementing any feature, read [docs/DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md). It is the shared product and design context for every agent and contributor. Design for small-business owners with no finance background: a calm guided Home, one clear next step, plain explanations, persistent in-app reminders, and details on demand. Update that file when the user agrees to a new design principle.
 
-Home has a strict two-card limit: recorded money and one next step, with one primary action. Keep supporting information in its own destination: Tasks (To do / Reminders / Coming up), Money (This month / Money ahead), Records, or More. Do not add feed previews, secondary tasks, shortcuts, or charts to Home, even as collapsed sections. Empty space is intentional. The one agreed exception is the minimised market **Prices** edge tab and its drawer (see the design document); it starts closed and holds nothing else.
+Home has a strict two-card limit: recorded money and one next step, with one primary action. Keep supporting information in its own destination: Tasks (To do / Reminders / Coming up), Money (This month / Money ahead), Records, or More. Do not add feed previews, secondary tasks, shortcuts, or charts to Home, even as collapsed sections. Empty space is intentional. The agreed exceptions are the minimised market **Prices** edge tab and its drawer, and Home's occasional 10-second note under the cards (see the design document); the drawer starts closed and holds only prices.
 
-Authentication shows one active language at a time, selected with English / বাংলা / 中文 controls. Translate the entire login and account-creation flow, including errors and loading messages. Preserve in-progress input when switching language; never store passwords in browser storage.
+The app is English only (owner decision 2026-10-19; `APP_LANGUAGES` keeps the switched-off translations for later). Preserve in-progress input on the login and account-creation screens; never store passwords in browser storage.
 
 The user wants MengTo's design skills used whenever design changes are made in this project.
 

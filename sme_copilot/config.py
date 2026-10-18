@@ -72,10 +72,18 @@ class Settings(BaseSettings):
 
     # --- Market prices (Home price drawer) ----------------------------------------------
     market_prices_enabled: bool = True
+    # Interface and reply languages, comma separated (en, bn, zh). Owner decision 2026-10-19: English only;
+    # APP_LANGUAGES=en,bn,zh turns Bangla and Chinese back on (screens, AI replies and the language pickers).
+    app_languages: str = "en"
     market_refresh: bool = True  # weekly download of the public WFP/HDX file; never in local_only_mode
     market_refresh_days: int = 7
     market_data_url: str = ""  # override the HDX CSV location (operator setting)
     market_forecast_model: str = "amazon/chronos-bolt-small"  # "" = statistical estimate only
+
+    @property
+    def languages(self) -> list[str]:
+        out = [x.strip() for x in self.app_languages.split(",") if x.strip() in ("en", "bn", "zh")]
+        return out if "en" in out else ["en", *out]
 
     @property
     def illustrative_guidance(self) -> bool:

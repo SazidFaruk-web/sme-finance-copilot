@@ -34,18 +34,19 @@
 .market-status { margin: 12px 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
 
 .market-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.market-item { border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); overflow: hidden; }
+.market-item { position: relative; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); overflow: hidden; }
+.market-item.big { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .market-row {
   display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; width: 100%; min-height: 44px;
-  padding: 12px 14px; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
+  padding: 12px 52px 12px 14px; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
 }
 .market-row:hover { background: var(--surface-2); }
 .market-name { font-weight: 650; font-size: 15px; }
 .market-price { font-weight: 650; font-size: 15px; text-align: end; white-space: nowrap; }
 .market-price small { display: block; font-weight: 400; font-size: 12px; color: var(--text-muted); }
 .market-outlook { grid-column: 1 / -1; font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
-.market-outlook.tone-up { color: var(--out); }
-.market-outlook.tone-down { color: var(--in); }
+.market-outlook.tone-up, .market-change.tone-up { color: var(--in); }      /* owner decision 2026-10-19: rises green, falls red */
+.market-outlook.tone-down, .market-change.tone-down { color: var(--out); }
 .market-range { grid-column: 1 / -1; font-size: 13px; color: var(--text-muted); }
 
 .market-detail { padding: 4px 14px 14px; border-top: 1px solid var(--border); }
@@ -73,4 +74,64 @@
   .market-tab { top: auto; bottom: 84px; transform: none; min-height: 96px; }
   .market-drawer.open .market-tab { display: none; }
   .market-panel { bottom: 72px; width: calc(100vw - 16px); border-radius: var(--radius, 20px) 0 0 var(--radius, 20px); }
+}
+
+/* Owner's own list: remove (×) on each item, "Add an item" search, month-on-month change, sharp-move notice */
+.market-drawer .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.market-remove {
+  position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer;
+}
+.market-remove:hover { background: var(--surface-2); color: var(--text-primary); }
+.market-remove:focus-visible, .market-option:focus-visible, .market-add-input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.market-change { grid-column: 1 / -1; font-size: 14px; line-height: 1.45; }
+.market-change b { font-weight: 700; }
+.market-change small { color: var(--text-muted); font-size: 12px; }
+.market-change.tone-flat { color: var(--text-secondary); }
+.market-picked { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.market-alert { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); font-size: 14px; line-height: 1.5; font-weight: 600; }
+.market-adder { position: relative; display: grid; gap: 6px; }
+.market-add-label { font-size: 13px; font-weight: 650; color: var(--text-primary); }
+.market-add-input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--btn-radius, 12px);
+  background: var(--surface-1); color: var(--text-primary); font: inherit; font-size: 14px; }
+.market-suggest { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); box-shadow: var(--shadow); }
+.market-suggest[hidden] { display: none; }
+.market-option { width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--text-primary);
+  font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.market-option:hover { background: var(--accent-soft); }
+.market-none { padding: 10px; font-size: 13px; color: var(--text-muted); }
+
+/* Sharp moves since last month: a small count on the closed tab (the number is also in the tab's label) */
+.market-badge { position: absolute; top: -8px; left: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  display: grid; place-items: center; background: var(--accent); color: var(--surface-1); font-size: 12px; font-weight: 700;
+  box-shadow: 0 0 0 2px var(--page); }
+
+/* The price tab is the app's forecasting feature, so it glows softly: a light circles its edge for 5 seconds, then
+   rests for 5 seconds (owner decision 2026-10-19). Never while the drawer is open; a still ring with reduced motion. */
+@property --market-glow-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.market-tab.glow::before {
+  content: ""; position: absolute; inset: -2px -2px -2px -2px; border-radius: 15px 0 0 15px; padding: 2px; pointer-events: none;
+  background: conic-gradient(from var(--market-glow-angle), transparent 0deg, transparent 200deg,
+    color-mix(in srgb, var(--home-accent, var(--accent)) 85%, transparent) 300deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .market-tab.glow { animation: market-halo 10s ease-in-out infinite; }
+  .market-tab.glow::before { animation: market-orbit 10s linear infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .market-tab.glow { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+}
+@keyframes market-orbit {
+  0% { --market-glow-angle: 0deg; opacity: 0; }
+  6% { opacity: 1; }
+  44% { opacity: 1; }
+  50% { --market-glow-angle: 720deg; opacity: 0; }
+  100% { --market-glow-angle: 720deg; opacity: 0; }
+}
+@keyframes market-halo {
+  0%, 50%, 100% { box-shadow: var(--shadow); }
+  12%, 38% { box-shadow: var(--shadow), 0 0 18px 2px color-mix(in srgb, var(--home-accent, var(--accent)) 38%, transparent); }
 }

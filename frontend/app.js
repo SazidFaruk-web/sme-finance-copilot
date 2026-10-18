@@ -5,18 +5,20 @@
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
-import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=13";
-import { renderAuth } from "./auth.js?v=14";
-import { renderPilot } from "./pilot.js?v=16";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=16";
+import { renderAuth } from "./auth.js?v=17";
+import { renderPilot } from "./pilot.js?v=19";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
-import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=2";
-import { createMarketDrawer } from "./market.js?v=2";
+import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=4";
+import { createMarketDrawer } from "./market.js?v=5";
+import { startTour, tourDone } from "./tour.js?v=2";
+import { maybeShowHomeNote } from "./home-note.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
-  en: { dashboard: "Dashboard", chat: "Copilot", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
+  en: { dashboard: "Dashboard", chat: "AI Assistant", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
     parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices", reports: "Reports", profit_m: "Profit this month", costs_m: "Expenses by category (this month)", aging_t: "Customers owe you, by how late",
-    audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask in English, বাংলা or Banglish…",
+    audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask about your business…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
     net_last: "Net cash flow last month", gm: "Gross margin (3m)", ar_over: "Overdue from customers",
     fmin: "Lowest balance, next 30 days", runway: "Runway", forecast: "90-day cash-flow forecast",
@@ -43,7 +45,7 @@ const T = {
     search_ph: "Search records…", range: "Date range", welcome: "Welcome back", sec_work: "What's working", sec_alerts: "Alerts",
     sec_recs: "Recommendations", qa: "Quick actions", pa: "Pending actions", tip: "Tip",
     home_layout: "Business & home layout", change_layout: "Change layout", account: "Account", show_me: "Show me", got_it: "Got it" },
-  bn: { dashboard: "ড্যাশবোর্ড", chat: "কোপাইলট", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
+  bn: { dashboard: "ড্যাশবোর্ড", chat: "এআই সহকারী", data: "তথ্য", stock: "স্টক", financing: "অর্থায়ন", actions: "কাজসমূহ",
     parties: "ক্রেতা ও সরবরাহকারী", s_parties: "বাকি খাতা", invoices: "ইনভয়েস", reports: "রিপোর্ট", profit_m: "এই মাসের লাভ", costs_m: "খরচ ক্যাটাগরি অনুযায়ী (এই মাস)", aging_t: "ক্রেতাদের বকেয়া, কত দেরি",
     audit: "অডিট লগ", settings: "গোপনীয়তা ও সেটিংস", logout: "লগ আউট", model: "মডেল", ask: "ইংরেজি, বাংলা বা বাংলিশে প্রশ্ন করুন…",
     send: "পাঠান", cash: "নগদ ব্যালেন্স", income_m: "এই মাসের আয়", expense_m: "এই মাসের খরচ",
@@ -71,7 +73,11 @@ const T = {
     home_layout: "ব্যবসা ও হোম লেআউট", change_layout: "লেআউট বদলান", account: "অ্যাকাউন্ট", show_me: "দেখান", got_it: "বুঝেছি" },
 };
 T.zh = zhCopy(T.en);  // Chinese comes from the shared dictionary keyed by the English text
-const LANGS = [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]];
+// Languages the server switches on (APP_LANGUAGES; English only by owner decision 2026-10-19). With one language
+// the pickers are hidden and everything is English.
+const ALL_LANGS = [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]];
+const LANGS_ON = () => S.health.languages || ["en"];
+const langs = () => ALL_LANGS.filter(([code]) => LANGS_ON().includes(code));
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const S = {
@@ -87,6 +93,7 @@ const t = k => (T[S.ui] && T[S.ui][k]) || T.en[k] || k;
 // Styles renamed 2026-10 (Green -> Classic, Blue -> General); unknown values fall back to General.
 const lookOf = v => ({ green: "classic", blue: "general" })[v] || (["general", "sky", "classic"].includes(v) ? v : "general");
 function applyPrefs() {
+  if (!LANGS_ON().includes(S.ui)) S.ui = "en";
   const root = document.documentElement;
   root.dataset.style = S.look;
   const theme = (S.look === "general" || S.look === "sky") ? S.theme : "light";  // Classic is light-only
@@ -402,13 +409,13 @@ async function logout(expired) {
 
 // ------------------------------------------------------------------ shell
 const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
-const SIMPLE_ROUTES = ["dashboard", "tasks", "money", "data", "more"];
+const SIMPLE_ROUTES = ["dashboard", "chat", "tasks", "money", "data", "more"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties" };
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
   .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
 const plain = (en, bn) => S.ui === "bn" ? bn : L(en);
-const simpleLabel = r => ({ tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
+const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
 // Re-render everything after a preference change (language, theme, mode).
@@ -429,7 +436,7 @@ function prefControls() {
   if (S.look === "classic") { theme.disabled = true; theme.title = t("theme_note"); }
   return [
     field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
-    field(t("language"), sel(S.ui, LANGS, v => setPref("ui", v))),
+    langs().length > 1 ? field(t("language"), sel(S.ui, langs(), v => setPref("ui", v))) : null,
     field(t("theme"), theme),
     field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
     field(t("numbers"), sel(S.style, [["lakh", "৳1,00,000 (lakh)"], ["intl", "৳100,000"]], async v => {
@@ -480,6 +487,7 @@ function accountMenu(name) {
 
 async function boot() {
   registerOffline();
+  try { S.health = await (await fetch("/api/health")).json(); applyPrefs(); } catch { /* offline: defaults */ }
   try {
     const me = await fetch("/api/auth/me", { credentials: "same-origin" });  // cookie session, if any
     if (!me.ok) return renderLogin();
@@ -506,11 +514,22 @@ async function boot() {
     window.onhashchange = show; await show(); return;
   }
   if (S.models.shared_only || !S.profile || !S.models.profiles.some(p => p.name === S.profile && p.available)) S.profile = S.models.default;
+  // A new account always finishes setup in Simple, so it starts there: no Advanced screen behind the first
+  // question (the mode is remembered per device, so the previous account's choice would show otherwise).
+  if (!S.home.exists) { S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); }
   renderShell();
   window.onhashchange = route;
   route();
   if (!S.home.exists) openWizard(true);
-  else maybeShowTip();
+  else if (isNewAccount() && !tourDone(S.user.username)) launchTour();
+}
+
+// The tour is for new accounts (first 3 days); anyone can replay it from Settings.
+const TOUR_DAYS = 3;
+const isNewAccount = () => { const c = Date.parse((S.user.created_at || "") + "Z"); return isFinite(c) && Date.now() - c < TOUR_DAYS * 864e5; };
+function launchTour() {
+  if (location.hash && !location.hash.startsWith("#dashboard")) location.hash = "#dashboard";
+  setTimeout(() => startTour({ h, lang: S.ui, user: S.user.username }), 450);  // after Home and the price tab have drawn
 }
 
 let pendingCount = 0;
@@ -519,7 +538,7 @@ function renderShell() {
   document.title = plain("SME Copilot", "এসএমই কোপাইলট");
   const simple = S.mode === "simple";
   const nav = h("nav", { class: "nav", "aria-label": plain("Main navigation", "প্রধান মেনু") }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
-    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", tasks: "check", money: "bill", data: "book", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple ? simpleLabel(r) : t(r)),
+    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", chat: "chat", tasks: "check", money: "bill", data: "book", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple ? simpleLabel(r) : t(r)),
       r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null,
       r === "invoices" || r === "stock" ? h("span", { class: "badge hidden", id: "badge-" + r }, "0") : null)));
   const name = S.user.full_name || S.user.username;
@@ -540,8 +559,8 @@ function renderShell() {
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
         simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
         h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
-        simple ? h("select", { class: "btn language-toggle", "aria-label": t("language"), onchange: e => setPref("ui", e.target.value) },
-          LANGS.map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : settingsMenu(), avatar),
+        simple ? (langs().length > 1 ? h("select", { class: "btn language-toggle", "aria-label": t("language"), onchange: e => setPref("ui", e.target.value) },
+          langs().map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : null) : settingsMenu(), avatar),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }
@@ -591,6 +610,7 @@ function route() {
 let market = null;
 function marketDrawer(show) {
   if (S.health.market_prices === false) return;
+  if (!S.home?.exists) return;  // until setup says what the business sells, there is nothing to pick prices for
   if (show) { market ??= createMarketDrawer({ h, api, S }); market.mount(); market.redraw(); }
   else market?.unmount();
 }
@@ -820,7 +840,7 @@ function heroBanner(d) {
   return h("section", { class: "hero-banner", "aria-label": t("welcome") }, h("h1", {}, `${t("welcome")}, ${first}`),
     h("p", {}, `${d.business.name} · as of ${fmtDate(d.as_of)}`),
     h("div", { class: "hero-tiles" }, tile(t("s_cash_now"), k.cash_balance), tile(t("s_in"), k.income_this_month),
-      tile(t("s_out"), k.expense_this_month), tile(t("s_owed"), k.receivables_outstanding)));
+      tile(t("s_out"), k.expense_this_month), tile(t("s_owed"), k.receivables_overdue)));
 }
 function quickActions(d) {
   const w = canWrite();
@@ -949,9 +969,11 @@ async function viewDashboard(v) {
   };
   const order = S.home ? S.home.widgets : Object.keys(BLOCKS);
   const kpiCards = order.flatMap(id => KPI[id] || []);
-  v.replaceChildren(heroBanner(d), kpiCards.length ? h("div", { class: "grid g-kpi" }, kpiCards) : "",
+  const noteSlot = h("div", { class: "home-note-slot" });  // the occasional note sits right under the welcome banner
+  v.replaceChildren(heroBanner(d), noteSlot, kpiCards.length ? h("div", { class: "grid g-kpi" }, kpiCards) : "",
     ...layoutBlocks([...order.flatMap(id => BLOCKS[id] ? BLOCKS[id]() : []), half(tipCard())]));
   countUp(v);
+  homeNote(noteSlot);
   if (showWidget("todo_actions")) loadCounts().then(c => pending.replaceWith(pendingActions(c))).catch(() => {});
 }
 // Full-width blocks as they are; consecutive half-width cards paired in two-column grids.
@@ -1123,7 +1145,7 @@ async function viewChat(v) {
     h("p", { class: "small muted" }, "Every number comes from a deterministic tool - open “Show calculation” under any answer. Money moves only in the sandbox and only after you confirm."));
   v.replaceChildren(h("div", { class: "chat" }, panel, side));
   log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" },
-    L("Assalamu alaikum! I'm your finance copilot. Ask about sales, costs, cash flow, loans - in English, বাংলা or Banglish. I can also record entries, draft reminders and prepare loan reports."))));
+    L("Assalamu alaikum! I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
   input.focus();
 }
 
@@ -1218,7 +1240,7 @@ function feedbackRow(id) {
 }
 
 // ------------------------------------------------------------------ human-in-the-loop confirmation
-// Reminders and loan reports are only PROPOSED by the copilot or a button; nothing happens until this click.
+// Reminders and loan reports are only PROPOSED by the AI Assistant or a button; nothing happens until this click.
 async function proposeAndConfirm(pa, host) {
   const reminder = pa.tool === "create_payment_reminder";
   const ok = await confirmDialog({ title: reminder ? "Save this customer reminder to the demo outbox?" : "Create the loan report?",
@@ -1518,7 +1540,7 @@ async function viewData(v) {
 
   const panes = [
     h("div", {},
-      h("div", { class: "card hero-card" }, h("h2", {}, "Quick entry"), h("p", { class: "hint" }, "Write what happened in English, বাংলা or Banglish. We read the amount, type and category for you."),
+      h("div", { class: "card hero-card" }, h("h2", {}, "Quick entry"), h("p", { class: "hint" }, "Write what happened in your own words. We read the amount, type and category for you."),
         h("div", { class: "row" }, entry, record), preview),
       khataPhotoCard(canWrite, showReport, showError, confirmImport),
       h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Upload a file"),
@@ -1606,7 +1628,7 @@ async function viewActions(v) {
       body.replaceChildren(p.length ? h("div", {}, p.map(x => x.status === "pending" ? confirmCard(x) :
         h("div", { class: "alert-item" }, h("div", { class: "row" }, h("span", { class: "chip " + (x.status === "confirmed" ? "ok" : "bad") }, x.status), h("b", {}, money(x.amount)), h("span", {}, x.summary)),
           h("div", { class: "small muted" }, `${x.tool} · created ${x.created_at} · decided ${x.decided_at || "–"} by ${x.decided_by || "–"}${x.result && x.result.reason ? " · " + x.result.reason : ""}`))))
-        : emptyState("No money requests yet. Ask the copilot, e.g. “Transfer 25000 to Dhaka Zipper House”.", "Open Copilot", () => { location.hash = "#chat"; }));
+        : emptyState("No money requests yet. Ask the AI Assistant, e.g. “Transfer 25000 to Dhaka Zipper House”.", "Open AI Assistant", () => { location.hash = "#chat"; }));
     } else if (i === 1) {
       const r = await api("/api/reminders");
       body.replaceChildren(h("div", { class: "notice small" }, "Simulated outbox: messages are queued, not sent to real phones."),
@@ -1614,7 +1636,7 @@ async function viewActions(v) {
           r.map(x => h("tr", {}, h("td", {}, x.remind_on), h("td", {}, x.counterparty), h("td", {}, x.channel), h("td", { class: "r" }, money(x.amount)), h("td", { class: "small" }, x.message), h("td", {}, x.status)))));
     } else if (i === 2) {
       const r = await api("/api/drafts");
-      body.replaceChildren(...(r.length ? r : [null]).map(d => !d ? emptyState("No drafts yet. The copilot can write a payment reminder for you.", "Open Copilot", () => { location.hash = "#chat"; }) : h("div", { class: "card", style: "margin-bottom:10px" },
+      body.replaceChildren(...(r.length ? r : [null]).map(d => !d ? emptyState("No drafts yet. The AI Assistant can write a payment reminder for you.", "Open AI Assistant", () => { location.hash = "#chat"; }) : h("div", { class: "card", style: "margin-bottom:10px" },
         h("div", { class: "row" }, h("b", { class: "grow" }, d.subject), h("span", { class: "chip" }, `${d.kind} · ${d.language} · ${d.status}`)),
         h("pre", { style: "white-space:pre-wrap;font:inherit" }, d.body),
         S.user.max_tier >= 1 ? h("div", { class: "row" }, h("button", { class: "btn sm primary", onclick: async () => { await api(`/api/drafts/${d.id}`, { method: "PATCH", body: { status: "approved" } }); show(2); } }, "Approve"),
@@ -1675,7 +1697,7 @@ async function viewSettings(v) {
   const pw = h("input", { type: "password", placeholder: "your password" });
   const phrase = h("input", { type: "text", placeholder: "type: DELETE MY DATA" });
   const isOwner = S.user.role === "owner";
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), homeLayoutCard(), await privacyCard(),
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), businessCard(), homeLayoutCard(), await privacyCard(),
     h("div", { class: "grid g-2e", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", {}, "Alerts"), h("label", { class: "field" }, "Low-balance safety level (৳)", thr,
           h("span", { class: "hint" }, "We warn you when cash is expected to drop below this amount.")),
@@ -1724,13 +1746,52 @@ async function privacyCard() {
       : h("p", { class: "muted small" }, "Nothing yet."));
 }
 
+// Business details a lender asks for (owner decision 2026-10-19). Loan readiness, the cash balance and the price
+// drawer's district use them; only the owner can change them.
+function businessCard() {
+  const card = h("div", { class: "card", style: "margin-top:12px" }, h("h2", {}, plain("Business details", "ব্যবসার তথ্য")),
+    h("p", { class: "small muted" }, plain("Lenders ask for these. They also improve your loan readiness score and show prices for your district.",
+      "ঋণদাতারা এগুলো জানতে চায়।")));
+  const status = h("p", { class: "small", role: "status" });
+  api("/api/business").then(b => {
+    const owner = S.user.role === "owner";
+    const input = (label, attrs) => h("label", { class: "field" }, label, h("input", { ...attrs, disabled: !owner }));
+    const tick = (label, key) => h("label", { class: "row small", style: "gap:8px" },
+      h("input", { type: "checkbox", name: key, checked: !!b[key], disabled: !owner }), label);
+    const form = h("form", { class: "grid prefs-grid", onsubmit: async e => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget), body = {};
+      for (const k of ["district", "established_on", "opening_balance_date"]) if (fd.get(k)) body[k] = fd.get(k);
+      if (fd.get("opening_cash_balance") !== "") body.opening_cash_balance = Number(fd.get("opening_cash_balance"));
+      for (const k of ["has_trade_license", "has_tin", "has_bank_account", "vat_registered"]) body[k] = fd.get(k) === "on";
+      status.textContent = plain("Saving…", "সেভ হচ্ছে…");
+      try { await api("/api/business", { method: "PATCH", body }); status.textContent = plain("Saved.", "সেভ হয়েছে।"); closeMarketDrawer(); }
+      catch (err) { status.textContent = err.message; }
+    } },
+      input(plain("District", "জেলা"), { name: "district", value: b.district || "", maxlength: 80, list: "bd-districts" }),
+      h("datalist", { id: "bd-districts" }, ["Dhaka", "Chattogram", "Khulna", "Rajshahi", "Sylhet", "Barishal", "Rangpur", "Mymensingh",
+        "Gazipur", "Narayanganj", "Cumilla", "Bogura", "Jashore", "Cox's Bazar"].map(d => h("option", { value: d }))),
+      input(plain("Business started on", "ব্যবসা শুরুর তারিখ"), { name: "established_on", type: "date", value: b.established_on || "" }),
+      input(plain("Cash you started with (৳)", "শুরুর নগদ (৳)"), { name: "opening_cash_balance", type: "number", min: 0, step: "1", value: b.opening_cash_balance || "" }),
+      input(plain("Starting cash counted on", "শুরুর নগদ গোনার তারিখ"), { name: "opening_balance_date", type: "date", value: b.opening_balance_date || "" }),
+      h("div", { class: "grid", style: "gap:6px" }, tick(plain("Trade licence", "ট্রেড লাইসেন্স"), "has_trade_license"), tick(plain("TIN", "টিআইএন"), "has_tin"),
+        tick(plain("Business bank account", "ব্যবসার ব্যাংক হিসাব"), "has_bank_account"), tick(plain("VAT registered", "ভ্যাট নিবন্ধিত"), "vat_registered")),
+      owner ? h("button", { class: "btn primary", type: "submit" }, plain("Save business details", "ব্যবসার তথ্য সেভ করুন"))
+        : h("p", { class: "small muted" }, plain("Only the owner can change these.", "শুধু মালিক এগুলো বদলাতে পারেন।")), status);
+    card.appendChild(form);
+  }).catch(() => card.appendChild(h("p", { class: "small muted" }, plain("Business details could not load.", "ব্যবসার তথ্য আনা যায়নি।"))));
+  return card;
+}
+
 function prefsCard() {
   return h("div", { class: "card", style: "margin-top:12px" },
     h("div", { class: "row" }, h("h2", { class: "grow" }, t("prefs")),
       h("span", { class: "small muted" }, `${t("signed_in_as")} ${S.user.full_name || S.user.username} · ${S.user.role}`),
       h("button", { class: "btn danger", onclick: () => logout(false) }, "⎋ " + t("logout"))),
     h("div", { class: "grid prefs-grid" }, prefControls()),
-    h("p", { class: "small muted", style: "margin:10px 0 0" }, t("mode_hint")));
+    h("p", { class: "small muted", style: "margin:10px 0 0" }, t("mode_hint")),
+    h("button", { class: "btn", type: "button", style: "margin-top:12px", onclick: () => { location.hash = "#dashboard"; launchTour(); } },
+      plain("Take the app tour again", "অ্যাপ ট্যুরটি আবার দেখুন")));
 }
 
 // ------------------------------------------------------------------ simple mode
@@ -1756,7 +1817,9 @@ function guidedContext() {
   };
 }
 
-async function viewSimpleHome(v) { await renderGuidedHome(v, guidedContext()); }
+async function viewSimpleHome(v) { await renderGuidedHome(v, guidedContext()); homeNote(v); }
+// The occasional note under Home's cards; "#dashboard?note=1" shows one now (for demos and checking the wording).
+const homeNote = v => maybeShowHomeNote({ h, api, S, money, view: v, force: hashParam("note") === "1" });
 async function viewGuidedTasks(v) { await renderGuidedTasks(v, guidedContext(), hashParam("tab") || "todo"); }
 async function viewGuidedMoney(v) { await renderGuidedMoney(v, guidedContext(), hashParam("tab") || "overview"); }
 
@@ -1786,7 +1849,7 @@ function reminderDialog(task, asOf) {
 
 async function viewMore(v) {
   const items = [
-    ["chat", "chat", plain("Ask Copilot", "কোপাইলটকে জিজ্ঞাসা"), plain("Get help understanding your business and choosing a next step.", "ব্যবসা বুঝতে ও পরের কাজ বেছে নিতে সাহায্য নিন।")],
+    ["chat", "chat", plain("Ask AI Assistant", "এআই সহকারীকে জিজ্ঞাসা"), plain("Get help understanding your business and choosing a next step.", "ব্যবসা বুঝতে ও পরের কাজ বেছে নিতে সাহায্য নিন।")],
     ["parties", "people", plain("Customers & suppliers", "ক্রেতা ও সরবরাহকারী"), plain("Look up who owes you and whom you owe.", "কার কাছে পাওনা ও কাকে টাকা দিতে হবে দেখুন।")],
     ["invoices", "bill", plain("Bills & invoices", "বিল ও চালান"), plain("Track customer bills and what you owe suppliers.", "ক্রেতার বিল ও সরবরাহকারীর পাওনা দেখুন।")],
     ["stock", "book", plain("Stock", "পণ্যের হিসাব"), plain("Check products and what needs restocking.", "পণ্য ও নতুন করে কী কিনতে হবে দেখুন।")],
@@ -1924,52 +1987,7 @@ async function viewSimpleFinancing(v) {
 }
 
 async function viewSimpleSettings(v) {
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), homeLayoutCard(), await privacyCard());
-}
-
-// ------------------------------------------------------------------ first-days tips
-const TIPS = {
-  dashboard: ["shows your cash, money in and out, and what needs attention today.", "আপনার নগদ, আয়-ব্যয় আর আজ কী দেখা দরকার তা দেখায়।"],
-  chat: ["answers any question about your business, in English, বাংলা or Banglish. Try “How much profit last month?”", "ব্যবসা নিয়ে যেকোনো প্রশ্নের উত্তর দেয়, বাংলা বা ইংরেজিতে। যেমন: “গত মাসে লাভ কত?”"],
-  data: ["is where you add records: write “sold 12 shirts 6000 cash”, or upload a bank or bKash file.", "এখানে হিসাব যোগ করুন: “১২টা শার্ট বিক্রি ৬০০০ নগদ” লিখুন, বা ব্যাংক/বিকাশ ফাইল আপলোড করুন।"],
-  invoices: ["lets you bill a customer and record payments when they pay.", "ক্রেতাকে বিল দিন আর টাকা পেলে পেমেন্ট লিখে রাখুন।"],
-  parties: ["shows who owes you and whom you owe, with every payment.", "কে আপনার কাছে বাকি আর আপনি কার কাছে বাকি, সব পেমেন্টসহ দেখায়।"],
-  reports: ["gives profit & loss and cash flow for any period, as PDF or CSV.", "যেকোনো সময়ের লাভ-ক্ষতি ও নগদ প্রবাহ, PDF বা CSV হিসেবে।"],
-  stock: ["tracks your products so you know what is running low.", "পণ্যের হিসাব রাখে, কোনটা কমে যাচ্ছে জানায়।"],
-  financing: ["shows your loan-readiness score and loans that fit your numbers.", "আপনার ঋণ-প্রস্তুতি স্কোর আর আপনার জন্য মানানসই ঋণ দেখায়।"],
-  actions: ["is where you approve payments and reminders the copilot prepared.", "কোপাইলটের তৈরি পেমেন্ট ও রিমাইন্ডার এখানে অনুমোদন করুন।"],
-  settings: ["lets you change style, language and your home layout any time.", "স্টাইল, ভাষা আর হোম লেআউট যেকোনো সময় বদলান।"],
-};
-// Guided (simple) mode shows the same help, keyed to its own five destinations.
-const SIMPLE_TIPS = {
-  dashboard: ["shows your money and one practical next step for today.", "আপনার টাকা আর আজকের একটি করণীয় দেখায়।"],
-  tasks: ["keeps your to-do list, reminders and what's coming up.", "আপনার করণীয়, রিমাইন্ডার আর আসন্ন কাজ এক জায়গায় রাখে।"],
-  money: ["shows this month's totals and a simple cash-flow forecast.", "এই মাসের মোট হিসাব আর সহজ নগদ-প্রবাহ পূর্বাভাস দেখায়।"],
-  data: ["is where you add records: write “sold 12 shirts 6000 cash”, or upload a bank or bKash file.", "এখানে হিসাব যোগ করুন: “১২টা শার্ট বিক্রি ৬০০০ নগদ” লিখুন, বা ব্যাংক/বিকাশ ফাইল আপলোড করুন।"],
-  more: ["has Ask Copilot, baki khata, reports and all the other tools.", "এখানে Ask Copilot, বাকি খাতা, রিপোর্ট আর বাকি সব সুবিধা পাবেন।"],
-};
-const SIMPLE_TIP_ICONS = { dashboard: "▦", tasks: "✓", money: "৳", data: "⇪", more: "⋯" };
-const TIP_DAYS = 3, TIP_CHANCE = 1 / 3;
-function maybeShowTip() {
-  const created = Date.parse((S.user.created_at || "") + "Z");
-  if (!isFinite(created) || Date.now() - created > TIP_DAYS * 864e5 || Math.random() >= TIP_CHANCE) return;
-  const simple = S.mode === "simple", tips = simple ? SIMPLE_TIPS : TIPS;
-  const key = "tips_seen:" + S.user.username;
-  let seen = []; try { seen = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* private mode */ }
-  const pool = routes().filter(r => tips[r]);
-  const fresh = pool.filter(r => !seen.includes(r));
-  const r = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))];
-  if (!r) return;
-  savePref(key, JSON.stringify([...seen.filter(x => x !== r), r]));
-  const label = simple ? simpleLabel(r) : t(r);
-  const routeIcon = simple ? (SIMPLE_TIP_ICONS[r] || "💡") : ICONS[r];
-  const tip = animatedRemove(h("div", { class: "tip-pop", role: "status" },
-    h("div", { class: "row" }, h("b", { class: "grow" }, "💡 " + t("tip")), h("button", { class: "btn ghost sm", "aria-label": t("got_it"), onclick: () => tip.remove() }, "✕")),
-    h("p", {}, h("span", { class: "tip-route" }, `${routeIcon} ${label}`), " ", S.ui === "bn" ? tips[r][1] : L(tips[r][0])),
-    h("div", { class: "row", style: "justify-content:flex-end" },
-      h("button", { class: "btn ghost sm", onclick: () => tip.remove() }, t("got_it")),
-      h("button", { class: "btn primary sm", onclick: () => { tip.remove(); location.hash = "#" + r; } }, t("show_me")))), 240);
-  setTimeout(() => { document.body.appendChild(tip); setTimeout(() => tip.remove(), 20000); }, 1200);
+  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), businessCard(), homeLayoutCard(), await privacyCard());
 }
 
 // ------------------------------------------------------------------ onboarding wizard + home layout settings
@@ -1993,15 +2011,25 @@ function openWizard(first) {
   const kind = h("select", { id: "setup-business" }, h("option", { value: "other" }, plain("Not sure yet / other", "এখনও ঠিক করিনি / অন্য")),
     Object.entries(S.reg.business_types).filter(([id]) => id !== "other").map(([id, name]) => h("option", { value: id, selected: id === cur.business_type?.split(":")[0] }, name)));
   const status = h("p", { role: "status", class: "form-status" });
+  const working = h("p", { role: "status", class: "small muted setup-working", hidden: true },
+    plain("The AI Assistant is setting up your app…", "এআই সহকারী আপনার অ্যাপ সাজিয়ে দিচ্ছে…"));
+  const about = h("textarea", { id: "setup-about", rows: 2, maxlength: 200,
+    placeholder: plain("e.g. Birthday cakes and cupcakes made to order", "যেমন: অর্ডারে জন্মদিনের কেক ও কাপকেক বানাই") });
   const start = h("button", { class: "btn primary", type: "submit" }, plain("Start with the essentials", "সহজ হিসাব দিয়ে শুরু করুন"));
   const form = h("form", { class: "guided-setup", onsubmit: async e => {
-    e.preventDefault(); start.disabled = true;
+    e.preventDefault(); start.disabled = true; working.hidden = false; status.textContent = "";
     try {
-      S.home = await api("/api/home/prefs", { body: { business_type: kind.value, mode: "simplified", widgets: S.reg.simplified, nav: S.reg.nav, style: S.look } });
+      // The AI Assistant reads the answer: business type, a short description it will use, and prices to follow.
+      const out = await api("/api/home/setup", { body: { about: about.value.trim(), business_type: kind.value === "other" ? null : kind.value, style: S.look } });
+      S.home = out; closeMarketDrawer();  // the price list was just chosen: the drawer loads it fresh
       S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); bg.remove(); renderShell(); route();
-    } catch (err) { status.textContent = err.message; start.disabled = false; }
+      if (out.summary) toast(plain(`Set up for: ${out.summary}`, `আপনার ব্যবসা: ${out.summary}`), "ok", 5000);
+      if (first && !tourDone(S.user.username)) launchTour();
+    } catch (err) { status.textContent = err.message; start.disabled = false; working.hidden = true; }
   } }, h("p", { class: "setup-intro" }, plain("See your money, get one practical next step, and keep track of what is coming up. No finance knowledge needed.", "টাকার হিসাব দেখুন, পরের কাজ বুঝুন এবং আসন্ন কাজ মনে রাখুন। হিসাববিজ্ঞানের জ্ঞান লাগবে না।")),
-    h("label", { class: "field", for: "setup-business" }, plain("What kind of business do you run? (optional)", "কী ধরনের ব্যবসা করেন? (ইচ্ছা হলে বলুন)"), kind),
+    h("label", { class: "field", for: "setup-about" }, plain("What does your business sell or do?", "আপনার ব্যবসা কী বিক্রি করে বা কী কাজ করে?"), about,
+      h("span", { class: "small muted" }, plain("In your own words. The AI Assistant uses this to choose your prices and tips.", "নিজের ভাষায় লিখুন। এআই সহকারী এটি দেখে আপনার বাজারদর ও পরামর্শ বেছে নেবে।"))),
+    h("label", { class: "field", for: "setup-business" }, plain("What kind of business do you run? (optional)", "কী ধরনের ব্যবসা করেন? (ইচ্ছা হলে বলুন)"), kind), working,
     h("p", { class: "small muted" }, plain("You can change this or see more detailed tools in Settings at any time.", "যেকোনো সময় সেটিংস থেকে বদলাতে বা বিস্তারিত সুবিধা দেখতে পারবেন।")), status, start,
     !first ? h("button", { class: "text-link", type: "button", onclick: () => { bg.remove(); setPref("mode", "advanced"); openAdvancedWizard(false); } }, plain("Customize a detailed layout", "বিস্তারিত লেআউট সাজান")) : null);
   const bg = modal(plain("A simpler start for your business", "ব্যবসার হিসাব সহজে শুরু করুন"), form);
@@ -2035,6 +2063,7 @@ function openAdvancedWizard(first) {
       close();
       if (simple) { S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); }
       renderShell(); route(); toast("Home layout saved", "ok");
+      if (first && !tourDone(S.user.username)) launchTour();
     } catch (e) { toast(e.message, "bad"); }
   };
   const nextBtn = (label, onclick, disabled) => h("button", { class: "btn primary", onclick, disabled }, label);

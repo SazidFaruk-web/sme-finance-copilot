@@ -236,6 +236,43 @@ class AddTxnResult(BaseModel):
     reason: str = ""
     manual_form: bool = False
     stock: dict | None = None
+    credit: dict | None = None  # a credit sale (new customer bill) or a customer payment settling open bills
+
+
+def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResult | None:
+    """Credit sales become customer bills; payments from customers with open bills settle them (owner confirms)."""
+    from sme_copilot.tools import credit_entry as ce
+
+    money = lambda v: f"৳{v:,.0f}"  # noqa: E731
+    pay = ce.customer_payment(ctx.session, ctx.business.id, a.text)
+    if pay:
+        name, amount, invs = pay
+        owed = sum(float(i.amount) - float(i.amount_paid or 0) for i in invs)
+        info = {"kind": "payment", "customer": name, "amount": amount, "owed_before": round(owed, 2),
+                "bills": [i.invoice_no for i in invs]}
+        if not a.confirmed:
+            return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, credit=info,
+                                preview=f"Payment from {name}: {money(amount)}. It settles their open bills "
+                                        f"(they owed {money(owed)}). Save?", reason="customer payment")
+        t, applied = ce.apply_payment(ctx.session, ctx.business.id, invs, amount, ctx.as_of, e.channel, ctx.user.username)
+        ctx.session.commit()
+        return AddTxnResult(recorded=True, transaction_id=t.id, entry={**e.to_dict(), "amount": amount, "direction": "in",
+                            "category": "sales", "counterparty": name}, credit={**info, "applied": applied,
+                            "still_owed": round(owed - amount, 2)})
+    sale = ce.credit_sale(a.text)
+    if sale:
+        name, amount = sale
+        info = {"kind": "credit_sale", "customer": name, "amount": amount, "due_in_days": ce.CREDIT_DAYS}
+        if not a.confirmed:
+            return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, credit=info,
+                                preview=f"Credit sale: {name} will owe you {money(amount)}, due in {ce.CREDIT_DAYS} days. "
+                                        f"No cash is recorded until they pay. Save?", reason="credit sale")
+        inv = ce.record_credit_sale(ctx.session, ctx.business.id, name, amount, ctx.as_of, a.text)
+        ctx.session.commit()
+        return AddTxnResult(recorded=True, transaction_id=None, entry={**e.to_dict(), "amount": amount, "counterparty": name,
+                                                                      "direction": None, "category": "credit_sale"},
+                            credit={**info, "invoice_no": inv.invoice_no, "due_date": inv.due_date.isoformat()})
+    return None
 
 
 @tool("add_transaction", "Record a sale, expense or payment from a quick natural-language entry (English, "
@@ -245,6 +282,10 @@ def add_transaction(ctx: ToolContext, a: AddTxnArgs):
     e: ParsedEntry = parse_entry(a.text, ctx.as_of) if a.text else ParsedEntry(
         amount=None, direction=None, category="uncategorized", channel="cash", txn_date=ctx.as_of.isoformat())
     link = None
+    if a.text and a.amount is None and a.direction is None:
+        credit = _credit_entry(ctx, a, e)
+        if credit is not None:
+            return credit
     if a.text and a.amount is None and a.direction is None:
         # Free text: extraction (regex fast path or LLM) + Python-computed amount and sign.
         ex, _src = read_record(a.text)

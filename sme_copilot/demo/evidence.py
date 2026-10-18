@@ -330,8 +330,8 @@ written to the hash-chained operation log, which is exported here.
 | [evidence/operation_log.csv](evidence/operation_log.csv) | Sandbox operation log: timestamp, actor, role, action, tier, inputs, result, confirmation status, prev_hash, hash |
 | [evidence/operation_log.jsonl](evidence/operation_log.jsonl) | Same, as JSON lines |
 | [evidence/audit_log_full.jsonl](evidence/audit_log_full.jsonl) | Every audit event incl. agent decisions, logins and refusals |
-| [evidence/transcript.md](evidence/transcript.md) | Each request and the copilot's response |
-| [evidence/loan_readiness_report.pdf](evidence/loan_readiness_report.pdf) | The PDF the copilot generated |
+| [evidence/transcript.md](evidence/transcript.md) | Each request and the AI Assistant's response |
+| [evidence/loan_readiness_report.pdf](evidence/loan_readiness_report.pdf) | The PDF the AI Assistant generated |
 | [evidence/summary.json](evidence/summary.json) | Machine-readable results |
 
 ## Steps

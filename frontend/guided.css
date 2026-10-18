@@ -1,18 +1,18 @@
 /* Guided product system. See docs/DESIGN_PRINCIPLES.md before extending. */
-:root[data-style="general"]:has(body.simple) {
+/* General style: the guided palette for both Simple and Advanced (owner decision 2026-10-19) */
+:root[data-style="general"] {
   --page: #faf8f5; --surface-1: #fff; --surface-2: #f5f1ec;
   --text-primary: #29292d; --text-secondary: #57534f; --text-muted: #69635e;
   --border: #eae5df; --accent: #a84227; --accent-ink: #a84227; --accent-soft: #fbe9e0;
   --in: #28694f; --in-soft: #eaf3ee; --out: #a33e43; --out-soft: #f9edef;
   --series-1: #609d85; --band: rgba(96,157,133,.14);
   --sb-bg: #faf8f5; --sb-text: #69635e; --sb-active-bg: #fbe9e0; --sb-active-text: #a84227;
-  /* General's advanced sidebar is a terracotta gradient with white ink; the guided sidebar is light */
   --sb-hover: var(--surface-2); --sb-icon-bg: var(--surface-2); --sb-icon-active: var(--accent); --sb-bar: var(--accent); --sb-muted: var(--text-muted);
   --shadow: 0 3px 16px rgba(70,45,25,.025); --radius: 22px; --btn-radius: 12px;
   --home-wash: #fbe7db; --home-accent: #ec805b;
 }
 :root:has(body.simple) { --home-wash: var(--accent-soft); --home-accent: var(--accent); }
-:root[data-style="general"][data-theme="dark"]:has(body.simple) {
+:root[data-style="general"][data-theme="dark"] {
   --page: #1b1a18; --surface-1: #242320; --surface-2: #302d29;
   --text-primary: #f5f0e9; --text-secondary: #d1c7bc; --text-muted: #b6ada2;
   --border: #423d36; --accent: #f4ab8c; --accent-ink: #f4ab8c; --accent-soft: #3e2b23;
@@ -21,7 +21,7 @@
   --home-wash: #3e2b23; --shadow: none;
 }
 @media (prefers-color-scheme: dark) {
-  :root[data-style="general"]:not([data-theme="light"]):has(body.simple) {
+  :root[data-style="general"]:not([data-theme="light"]) {
     --page: #1b1a18; --surface-1: #242320; --surface-2: #302d29;
     --text-primary: #f5f0e9; --text-secondary: #d1c7bc; --text-muted: #b6ada2;
     --border: #423d36; --accent: #f4ab8c; --accent-ink: #f4ab8c; --accent-soft: #3e2b23;
@@ -56,6 +56,32 @@ body.simple .btn.primary { background: var(--accent); border-color: var(--accent
 body.simple .btn:hover, body.simple .card:hover { transform: none; }
 body.simple input:not([type="checkbox"]):not([type="radio"]), body.simple select, body.simple textarea { min-height: 44px; max-width: 100%; }
 body.simple button:focus-visible, body.simple a:focus-visible, body.simple summary:focus-visible, body.simple input:focus-visible, body.simple select:focus-visible, body.simple textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+/* Advanced in the General style wears the guided chrome too: light sidebar, quiet top bar, white cards.
+   Layout (grid, the eight-item nav, mobile behaviour) stays Advanced's own. */
+:root[data-style="general"] body:not(.simple) .sidebar { border-right: 1px solid var(--border); }
+:root[data-style="general"] body:not(.simple) .brand { color: var(--text-primary); text-decoration: none; font-weight: 700; letter-spacing: -.5px; }
+:root[data-style="general"] body:not(.simple) .brand span { color: var(--text-muted); text-decoration: none; font-weight: 400; letter-spacing: 0; }
+:root[data-style="general"] body:not(.simple) .nav a { border-radius: 13px; font-weight: 500; box-shadow: none; }
+:root[data-style="general"] body:not(.simple) .nav a.active { font-weight: 650; }
+:root[data-style="general"] body:not(.simple) .nav a::before, :root[data-style="general"] body:not(.simple) .glide-pill { display: none; }
+:root[data-style="general"] body:not(.simple) .nav a > span:first-child { background: transparent; color: inherit; }
+:root[data-style="general"] body:not(.simple) .nav a.active > span:first-child { background: transparent; color: var(--accent); }
+:root[data-style="general"] body:not(.simple) .nav .badge { background: var(--accent); color: var(--surface-1); }
+:root[data-style="general"] body:not(.simple) .topbar { background: var(--page); border-bottom: 1px solid var(--border); box-shadow: none; }
+:root[data-style="general"] body:not(.simple) .avatar { background: var(--accent-soft); color: var(--accent-ink); }
+:root[data-style="general"] body:not(.simple) h1 { font-weight: 650; letter-spacing: -.8px; }
+:root[data-style="general"] body:not(.simple) h2 { font-weight: 600; letter-spacing: -.35px; }
+:root[data-style="general"] body:not(.simple) .btn { box-shadow: none; }
+:root[data-style="general"] body:not(.simple) .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface-1); }
+:root[data-style="general"] body:not(.simple) .hero-banner { color: var(--text-primary); border: 1px solid var(--border);
+  background: linear-gradient(155deg, var(--surface-1) 35%, var(--home-wash)); }
+:root[data-style="general"] body:not(.simple) .hero-banner h1 { color: var(--text-primary); }
+:root[data-style="general"] body:not(.simple) .hero-banner p, :root[data-style="general"] body:not(.simple) .hero-tile .small { color: var(--text-secondary); }
+:root[data-style="general"] body:not(.simple) .hero-tile { background: var(--surface-1); border-color: var(--border); backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root[data-style="general"] body:not(.simple) .qa-tile { color: var(--text-primary); border: 1px solid var(--border); background: var(--surface-1); }
+:root[data-style="general"] body:not(.simple) .qa-tile .small { color: var(--text-muted); }
+:root[data-style="general"] body:not(.simple) .qa-tile .qa-ico { background: var(--accent-soft); color: var(--accent-ink); }
+
 .guided-home { display: grid; gap: 26px; }
 .home-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 4px; }
 .home-heading h1 { margin: 0; }
@@ -228,3 +254,27 @@ body.simple .route-enter, body.simple .panel-enter, body.simple .hello-h1 { anim
 @media (prefers-reduced-motion: reduce) {
   body.simple *, body.simple *::before, body.simple *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Home's occasional note (home-note.js): one quiet line under the two cards, gone after 10 seconds. */
+.home-note { display: flex; align-items: flex-start; gap: 12px; margin-top: 22px; padding: 14px 10px 14px 18px; max-width: 760px;
+  border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 16px; background: var(--surface-1); }
+.home-note.kind-good { border-left-color: var(--in); }
+.home-note.kind-warn { border-left-color: var(--out); }
+.home-note.kind-reminder { border-left-color: var(--warn, var(--accent)); }
+.home-note.kind-tip { border-left-color: var(--home-accent, var(--accent)); }
+.home-note-copy { flex: 1; min-width: 0; }
+.home-note-head { margin: 0 0 2px; font-size: 12.5px; color: var(--text-muted); }
+.home-note-head b { color: var(--text-primary); font-weight: 650; }
+.home-note.kind-good .home-note-head b { color: var(--in); }
+.home-note.kind-warn .home-note-head b { color: var(--out); }
+.home-note-text { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--text-secondary); overflow-wrap: anywhere; }
+.home-note-close { flex: none; width: 44px; height: 44px; margin: -8px 0 -8px; border: 0; border-radius: 12px; background: transparent;
+  color: var(--text-muted); font-size: 22px; cursor: pointer; }
+.home-note-close:hover { background: var(--surface-2); }
+.home-note-close:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.home-note-slot .home-note { margin: 0 0 16px; max-width: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .home-note { animation: note-in .3s ease-out; }
+  .home-note.leaving { opacity: 0; transform: translateY(4px); transition: opacity .3s ease, transform .3s ease; }
+}
+@keyframes note-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

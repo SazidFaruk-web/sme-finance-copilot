@@ -13,7 +13,7 @@ FinTechathon 2026, International Track, Topic E (SME Finance Copilot). Target ma
    limits, human confirmation for money, then a hash-chained audit entry.
 3. **Works offline, and the model is swappable.** One `LLMProvider` interface covers five vendor adapters plus a
    deterministic offline engine. Models switch per request, with automatic fallback.
-4. **Local relevance.** English, Bangla and Banglish input and replies, plus a Simplified Chinese interface;
+4. **Local relevance.** Plain-English interface and replies;
    lakh/crore formatting; bKash, Nagad and Rocket statements; Eid, Pohela Boishakh and harvest seasonality;
    Bangladesh SME financing types; VAT/TIN/trade licence awareness; public market prices near the shop.
 5. **Uncertainty is shown, not hidden.** Cash forecasts carry an 80% band and price outlooks a 10-90% range
@@ -60,7 +60,7 @@ flowchart LR
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Presentation | `frontend/` | SPA: guided Home/Tasks/Money/Records, Advanced dashboard, chat with SSE streaming, confirmations, audit viewer, Home price drawer (`market.js`); English/Bangla/Chinese (`i18n-zh.js`). No `innerHTML`, strict CSP |
+| Presentation | `frontend/` | SPA: guided Home/Tasks/Money/Records, Advanced dashboard, chat with SSE streaming, confirmations, audit viewer, Home price drawer (`market.js`); English only. No `innerHTML`, strict CSP |
 | API | `sme_copilot/api/` | Auth, chat, tools, data, insights, actions, privacy; Pydantic request validation |
 | Agent | `sme_copilot/agent/` | Language detection, guardrails, model loop, tool registry and executor, numeric grounding, offline intent engine |
 | Providers | `sme_copilot/llm_providers/` | Unified interface, 6 adapters, router, structured output and tool-call emulation |
@@ -237,6 +237,8 @@ profitability 15, DSCR 15, documentation 15, receivables health 10, collateral 5
 point-valued improvement tip.
 
 ### 5.10 Language detection
+Replies are English unless `APP_LANGUAGES` switches more languages on (default `en`); detection below only
+matters then.
 **Chinese** when at least two CJK characters make up ≥ 20% of the letters (so `iPhone 12 价格` counts but a
 single character in English text does not). **Bangla** when the share of Bangla script letters and vowel signs
 (excluding digits and ৳) among script characters is ≥ 0.3. **Banglish** when Latin text contains Banglish
@@ -277,7 +279,7 @@ The Home price drawer answers "will what I buy or sell cost more next month?" fo
    so the drawer leads with the range and calls moves under 2% "likely steady". Language models are not used
    for prices: they have no reliable local price history.
 
-### 5.12 Chinese interface (`frontend/i18n-zh.js`)
+### 5.12 Translations (switched off by default)
 About 1,180 translations keyed by the English source text, plus patterns for templated sentences. `t()`,
 `plain()`, the guided-task helpers, copy tables and server labels (`{en, bn}`) look up Chinese without a
 third argument at each call site. While Chinese is active, a MutationObserver translates remaining fixed
@@ -323,7 +325,7 @@ and row, flags, encrypted `account_ref`), `invoices` (encrypted phone), `obligat
 | Area | Endpoints |
 |---|---|
 | Auth | `POST /api/auth/login`, `/signup`, `/logout`, `GET /api/auth/me` (HttpOnly session cookie + CSRF header, or Bearer token for API clients) |
-| Copilot | `POST /api/chat`, `POST /api/chat/stream` (SSE: `tool`, `delta`, `done`), `POST /api/feedback`, `GET /api/models` |
+| AI Assistant | `POST /api/chat`, `POST /api/chat/stream` (SSE: `tool`, `delta`, `done`), `POST /api/feedback`, `GET /api/models` |
 | Tools | `GET /api/tools`, `POST /api/tools/{name}` (same pipeline as the agent) |
 | Data | `POST /api/data/upload`, `/paste`, `/entry`, `/entry/preview`; `GET /api/data/transactions` (`?ids=` for trace rows), `PATCH …/{id}`, `GET /api/data/invoices`, `/imports` |
 | Insights | `GET /api/dashboard`, `/forecast`, `/alerts`, `/digest`; `POST /api/whatif`, `/alerts/{id}/{action}`; `GET/PATCH /api/settings` |

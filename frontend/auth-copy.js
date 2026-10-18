@@ -1,5 +1,5 @@
 // Authentication has one active interface language. Credentials and business names are user data.
-import { zhCopy } from "./i18n-zh.js?v=2";
+import { zhCopy } from "./i18n-zh.js?v=4";
 
 export const AUTH_COPY = {
   en: {
