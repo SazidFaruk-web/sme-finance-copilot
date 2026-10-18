@@ -333,12 +333,9 @@ tests/               unit, schema, permission, injection, API and end-to-end tes
 | Technical documentation (architecture, algorithms, security design) | [docs/TECHNICAL_DOCUMENTATION.md](docs/TECHNICAL_DOCUMENTATION.md) |
 | Security self-assessment (permission tiers, known risks) | [docs/SECURITY_ASSESSMENT.md](docs/SECURITY_ASSESSMENT.md) |
 | Execution evidence (sandbox operation logs) | [docs/EXECUTION_EVIDENCE.md](docs/EXECUTION_EVIDENCE.md), [docs/evidence/](docs/evidence/) |
-| Demo script (< 5 min) | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) |
-| Presentation outline (< 10 min) | [docs/PRESENTATION_OUTLINE.md](docs/PRESENTATION_OUTLINE.md) |
 | Test report and coverage (443 + 19 tests, 90%) | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/coverage.txt](docs/coverage.txt) |
 | Model benchmark | [benchmarks/results/summary.md](benchmarks/results/summary.md) |
 | Assumptions | [ASSUMPTIONS.md](ASSUMPTIONS.md) |
 | Third-party licences (data, libraries, models) | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | Price-forecast backtest | [scripts/backtest_market.py](scripts/backtest_market.py), results in [docs/TEST_REPORT.md](docs/TEST_REPORT.md) |
-| Presentation deck (≤ 10 min, 12 slides with speaker notes) | Submitted with the entry as PPTX/PDF; slide-by-slide plan in [docs/PRESENTATION_OUTLINE.md](docs/PRESENTATION_OUTLINE.md) |
-| App documentation (editable Word file) | [docs/SME_Finance_Copilot_Documentation.docx](docs/SME_Finance_Copilot_Documentation.docx) |
+| Presentation deck and demo video | Submitted with the entry |
