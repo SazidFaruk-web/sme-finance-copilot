@@ -1917,22 +1917,32 @@ const TIPS = {
   actions: ["is where you approve payments and reminders the copilot prepared.", "কোপাইলটের তৈরি পেমেন্ট ও রিমাইন্ডার এখানে অনুমোদন করুন।"],
   settings: ["lets you change style, language and your home layout any time.", "স্টাইল, ভাষা আর হোম লেআউট যেকোনো সময় বদলান।"],
 };
+// Guided (simple) mode shows the same help, keyed to its own five destinations.
+const SIMPLE_TIPS = {
+  dashboard: ["shows your money and one practical next step for today.", "আপনার টাকা আর আজকের একটি করণীয় দেখায়।"],
+  tasks: ["keeps your to-do list, reminders and what's coming up.", "আপনার করণীয়, রিমাইন্ডার আর আসন্ন কাজ এক জায়গায় রাখে।"],
+  money: ["shows this month's totals and a simple cash-flow forecast.", "এই মাসের মোট হিসাব আর সহজ নগদ-প্রবাহ পূর্বাভাস দেখায়।"],
+  data: ["is where you add records: write “sold 12 shirts 6000 cash”, or upload a bank or bKash file.", "এখানে হিসাব যোগ করুন: “১২টা শার্ট বিক্রি ৬০০০ নগদ” লিখুন, বা ব্যাংক/বিকাশ ফাইল আপলোড করুন।"],
+  more: ["has Ask Copilot, baki khata, reports and all the other tools.", "এখানে Ask Copilot, বাকি খাতা, রিপোর্ট আর বাকি সব সুবিধা পাবেন।"],
+};
+const SIMPLE_TIP_ICONS = { dashboard: "▦", tasks: "✓", money: "৳", data: "⇪", more: "⋯" };
 const TIP_DAYS = 3, TIP_CHANCE = 1 / 3;
 function maybeShowTip() {
-  if (S.mode === "simple") return;
   const created = Date.parse((S.user.created_at || "") + "Z");
   if (!isFinite(created) || Date.now() - created > TIP_DAYS * 864e5 || Math.random() >= TIP_CHANCE) return;
+  const simple = S.mode === "simple", tips = simple ? SIMPLE_TIPS : TIPS;
   const key = "tips_seen:" + S.user.username;
   let seen = []; try { seen = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* private mode */ }
-  const pool = routes().filter(r => TIPS[r]);
+  const pool = routes().filter(r => tips[r]);
   const fresh = pool.filter(r => !seen.includes(r));
   const r = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))];
   if (!r) return;
   savePref(key, JSON.stringify([...seen.filter(x => x !== r), r]));
-  const label = t(S.mode === "simple" ? SIMPLE_LABELS[r] : r);
+  const label = simple ? simpleLabel(r) : t(r);
+  const routeIcon = simple ? (SIMPLE_TIP_ICONS[r] || "💡") : ICONS[r];
   const tip = animatedRemove(h("div", { class: "tip-pop", role: "status" },
     h("div", { class: "row" }, h("b", { class: "grow" }, "💡 " + t("tip")), h("button", { class: "btn ghost sm", "aria-label": t("got_it"), onclick: () => tip.remove() }, "✕")),
-    h("p", {}, h("span", { class: "tip-route" }, `${ICONS[r]} ${label}`), " ", TIPS[r][S.ui === "bn" ? 1 : 0]),
+    h("p", {}, h("span", { class: "tip-route" }, `${routeIcon} ${label}`), " ", tips[r][S.ui === "bn" ? 1 : 0]),
     h("div", { class: "row", style: "justify-content:flex-end" },
       h("button", { class: "btn ghost sm", onclick: () => tip.remove() }, t("got_it")),
       h("button", { class: "btn primary sm", onclick: () => { tip.remove(); location.hash = "#" + r; } }, t("show_me")))), 240);
