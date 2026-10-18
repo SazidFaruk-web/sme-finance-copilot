@@ -61,7 +61,7 @@ def _applies(rule: dict[str, Any], business: Business) -> bool:
 
 def compliance_due_dates(business: Business, as_of: date, window: int = 10) -> list[tuple[dict[str, Any], date]]:
     out = []
-    if not get_settings().allow_illustrative_guidance:
+    if not get_settings().illustrative_guidance:
         return out  # real deadlines come from scoped guided cases and owner documents
     for r in compliance_rules().get("rules", []):
         rec = r.get("recurrence")
