@@ -335,6 +335,10 @@ tests/               unit, schema, permission, injection, API and end-to-end tes
 | Execution evidence (sandbox operation logs) | [docs/EXECUTION_EVIDENCE.md](docs/EXECUTION_EVIDENCE.md), [docs/evidence/](docs/evidence/) |
 | Demo script (< 5 min) | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) |
 | Presentation outline (< 10 min) | [docs/PRESENTATION_OUTLINE.md](docs/PRESENTATION_OUTLINE.md) |
-| Test report and coverage | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/coverage.txt](docs/coverage.txt) |
+| Test report and coverage (443 + 19 tests, 90%) | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/coverage.txt](docs/coverage.txt) |
 | Model benchmark | [benchmarks/results/summary.md](benchmarks/results/summary.md) |
 | Assumptions | [ASSUMPTIONS.md](ASSUMPTIONS.md) |
+| Third-party licences (data, libraries, models) | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| Price-forecast backtest | [scripts/backtest_market.py](scripts/backtest_market.py), results in [docs/TEST_REPORT.md](docs/TEST_REPORT.md) |
+| Presentation deck (≤ 10 min) | [docs/SME_Finance_Copilot_Deck.pptx](docs/SME_Finance_Copilot_Deck.pptx) |
+| App documentation (editable Word file) | [docs/SME_Finance_Copilot_Documentation.docx](docs/SME_Finance_Copilot_Documentation.docx) |

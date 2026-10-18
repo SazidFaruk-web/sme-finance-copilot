@@ -13,9 +13,11 @@ FinTechathon 2026, International Track, Topic E (SME Finance Copilot). Target ma
    limits, human confirmation for money, then a hash-chained audit entry.
 3. **Works offline, and the model is swappable.** One `LLMProvider` interface covers five vendor adapters plus a
    deterministic offline engine. Models switch per request, with automatic fallback.
-4. **Local relevance.** English, Bangla and Banglish input and replies; lakh/crore formatting; bKash, Nagad and
-   Rocket statements; Eid, Pohela Boishakh and harvest seasonality; Bangladesh SME financing types; VAT/TIN/trade
-   licence awareness.
+4. **Local relevance.** English, Bangla and Banglish input and replies, plus a Simplified Chinese interface;
+   lakh/crore formatting; bKash, Nagad and Rocket statements; Eid, Pohela Boishakh and harvest seasonality;
+   Bangladesh SME financing types; VAT/TIN/trade licence awareness; public market prices near the shop.
+5. **Uncertainty is shown, not hidden.** Cash forecasts carry an 80% band and price outlooks a 10-90% range
+   whose reliability is measured on real data (section 5.11).
 
 ## 2. System architecture
 
@@ -44,6 +46,7 @@ flowchart LR
       FC[Forecast · What-if · Alerts]
       FIN[Financing matcher · Readiness]
       ACT[Sandbox actions · PDF]
+      MKT[Market prices · Chronos-Bolt outlook]
     end
     TOOLS --> DB[(SQLite / SQLAlchemy<br/>Fernet-encrypted fields)]
     AGENT --> TEL[Interaction dataset JSONL<br/>PII-masked]
@@ -52,15 +55,17 @@ flowchart LR
   ROUTER -- external, masked --> CLOUD[Anthropic · OpenAI · Gemini · OpenRouter · Groq · DeepSeek]
   ROUTER -- local --> LOCAL[Ollama · llama.cpp · vLLM]
   ROUTER -- offline --> RULES[Rules engine]
+  MKT -- weekly public download, no business data --> HDX[WFP prices on HDX]
 ```
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Presentation | `frontend/` | SPA: dashboard charts, chat with SSE streaming, confirmations, audit viewer. No `innerHTML`, strict CSP |
+| Presentation | `frontend/` | SPA: guided Home/Tasks/Money/Records, Advanced dashboard, chat with SSE streaming, confirmations, audit viewer, Home price drawer (`market.js`); English/Bangla/Chinese (`i18n-zh.js`). No `innerHTML`, strict CSP |
 | API | `sme_copilot/api/` | Auth, chat, tools, data, insights, actions, privacy; Pydantic request validation |
 | Agent | `sme_copilot/agent/` | Language detection, guardrails, model loop, tool registry and executor, numeric grounding, offline intent engine |
 | Providers | `sme_copilot/llm_providers/` | Unified interface, 6 adapters, router, structured output and tool-call emulation |
 | Domain tools | `tools/`, `forecasting/`, `financing_catalog/`, `sandbox/` | All financial computation and actions |
+| Market prices | `market/` | Public WFP price data (bundled snapshot + weekly refresh), nearest-area series, Chronos-Bolt or statistical outlook |
 | Security | `sme_copilot/security/` | Auth, permissions, audit chain, PII, crypto, injection defence, refusal guardrails, HTTP hardening |
 | Data | `models.py`, `db.py` | 17 tables; append-only audit table protected by SQLite triggers |
 | Ops | `benchmarks/`, `telemetry/`, `demo/`, `cli.py` | Benchmark harness, dataset export, seed, scripted evidence |
@@ -232,10 +237,52 @@ profitability 15, DSCR 15, documentation 15, receivables health 10, collateral 5
 point-valued improvement tip.
 
 ### 5.10 Language detection
-**Bangla** when the share of Bangla script letters and vowel signs (excluding digits and ৳) among script
-characters is ≥ 0.3. **Banglish** when Latin text contains Banglish marker words (`ami`, `koto`, `dilam`,
-`lagbe`, `tagada`, …). Otherwise **English**. Replies (both LLM prompts and offline templates) follow the
-detected language; Bangla uses Bangla digits and lakh grouping.
+**Chinese** when at least two CJK characters make up ≥ 20% of the letters (so `iPhone 12 价格` counts but a
+single character in English text does not). **Bangla** when the share of Bangla script letters and vowel signs
+(excluding digits and ৳) among script characters is ≥ 0.3. **Banglish** when Latin text contains Banglish
+marker words (`ami`, `koto`, `dilam`, `lagbe`, `tagada`, …). Otherwise **English**. LLM prompts ask for the
+detected (or UI-selected) language; the offline templates cover English, Bangla and Banglish, and answer
+Chinese in English rather than in Bangla. Bangla uses Bangla digits and lakh grouping.
+
+### 5.11 Market price outlook (`market/`)
+The Home price drawer answers "will what I buy or sell cost more next month?" for the owner's kind of business.
+
+1. **Data.** World Food Programme "Bangladesh - Food Prices" (HDX, CC BY-IGO): monthly retail prices of ~60
+   everyday items in ~110 markets. A filtered snapshot (2022-01 to 2026-08, 159 KB) is bundled; the server
+   refreshes it in the background at most weekly (never in `LOCAL_ONLY_MODE`), over HTTPS from HDX hosts only,
+   with a 60 MB cap, and replaces the file atomically only after it parses and has ≥ 1,000 usable rows.
+2. **Relevance.** Each business type has a basket (e.g. restaurant: rice, broiler chicken, soybean oil,
+   onion, …; pharmacy/grocery: staples plus toothpaste, soap, sanitary pads). Garment/trims businesses are told
+   that no public fabric or trims series exists and see running-cost items instead.
+3. **Nearest area.** The business's district (with spelling aliases such as Chattogram → Chittagong), else
+   its division, else all markets. A series qualifies only with ≥ 12 months in the last 36 and an observation
+   within 3 months of the newest data, so a stale district series never wins over a fresh division one.
+   Prices are the median across the area's markets per month; gaps of up to 2 months are interpolated.
+4. **Forecast.** Target = the next calendar month. Primary engine: Amazon Chronos-Bolt-small (48M parameters,
+   Apache-2.0, CPU, safetensors weights) reading up to 36 months and returning the 10th, 50th and 90th
+   percentiles. Fallback: damped trend (φ = 0.8 on the last 12 months of log prices) plus a month-of-year
+   offset (centred 12-month moving average, shrunk by 0.5), with σ of monthly log changes × √h for the range.
+   No forecast more than 6 months past the last observation. A 10-90% spread above 30 points is marked
+   uncertain; the drawer then says "hard to call" (or "likely up/down, but hard to say how much" when the
+   whole range has one sign).
+5. **Measured reliability** (`scripts/backtest_market.py`, 170 market/item series, 3 months held out):
+
+   | Engine | Median abs. error | Direction right (moves > 2%) | 10-90% range held the real price |
+   |---|---|---|---|
+   | No change | 1.98% | n/a | n/a |
+   | Statistical | 3.19% | 63.5% | 78.2% |
+   | Chronos-Bolt-small | 2.31% | 57.6% | 79.4% |
+
+   Ranges are well calibrated (ideal 80%), point forecasts do not beat "no change" because prices are sticky,
+   so the drawer leads with the range and calls moves under 2% "likely steady". Language models are not used
+   for prices: they have no reliable local price history.
+
+### 5.12 Chinese interface (`frontend/i18n-zh.js`)
+About 1,180 translations keyed by the English source text, plus patterns for templated sentences. `t()`,
+`plain()`, the guided-task helpers, copy tables and server labels (`{en, bn}`) look up Chinese without a
+third argument at each call site. While Chinese is active, a MutationObserver translates remaining fixed
+English (server report rows, category names) by exact dictionary match; it never touches the owner's input,
+their chat messages or the model's reply text. Customer letters and SMS stay in English or Bangla.
 
 ## 6. Action layer and human-in-the-loop
 
@@ -252,11 +299,13 @@ stateDiagram-v2
 ```
 
 - There is **no tool** for confirming. Confirmation is only possible through
-  `POST /api/actions/{id}/confirm`, which requires an owner session and the re-typed amount.
+  `POST /api/actions/{id}/confirm`. The confirming user's role is checked **first** (money = owner only), so a
+  lower role can neither learn the expected amount nor cancel the owner's request; then the re-typed amount,
+  then the password again for payments at or above `STEP_UP_AMOUNT` (৳50,000).
 - Tier-2 handlers raise `PermissionError` unless they are running inside `confirm_pending()`, as defence in
   depth.
 - Tier-1 actions:
-  - `create_payment_reminder` (simulated outbox),
+  - `create_payment_reminder` (prepared, then saved to the simulated outbox when confirmed),
   - `draft_invoice_followup` (deterministic EN/BN templates),
   - `generate_loan_report` (reportlab PDF with a forecast chart, SHA-256 recorded),
   - `prepare_loan_checklist`,
@@ -273,7 +322,7 @@ and row, flags, encrypted `account_ref`), `invoices` (encrypted phone), `obligat
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Auth | `POST /api/auth/login`, `/signup`, `/logout`, `GET /api/auth/me` (HttpOnly session cookie + CSRF header, or Bearer token for API clients) |
 | Copilot | `POST /api/chat`, `POST /api/chat/stream` (SSE: `tool`, `delta`, `done`), `POST /api/feedback`, `GET /api/models` |
 | Tools | `GET /api/tools`, `POST /api/tools/{name}` (same pipeline as the agent) |
 | Data | `POST /api/data/upload`, `/paste`, `/entry`, `/entry/preview`; `GET /api/data/transactions` (`?ids=` for trace rows), `PATCH …/{id}`, `GET /api/data/invoices`, `/imports` |
@@ -281,6 +330,7 @@ and row, flags, encrypted `account_ref`), `invoices` (encrypted phone), `obligat
 | Actions | `GET /api/actions/pending`, `POST /api/actions/{id}/confirm`, `/reject`; `GET /api/reminders`, `/drafts`, `/reports`, `/reports/{id}/download`, `/sandbox`, `/obligations`, `/compliance` |
 | Audit | `GET /api/audit`, `/audit/verify`, `/oplog`, `/oplog/export?fmt=csv\|jsonl` |
 | Privacy | `POST /api/privacy/delete`, `GET /api/privacy/export` |
+| Market | `GET /api/market/prices` (any role; public data chosen by the business's district and type) |
 
 Interactive OpenAPI docs are at `/api/docs` (disabled in production).
 
@@ -299,19 +349,22 @@ Full analysis: [SECURITY_ASSESSMENT.md](SECURITY_ASSESSMENT.md).
 - **Prompt injection.** Uploaded rows are scanned and flagged. Untrusted strings are neutralised before
   reaching the model. A system-prompt data-not-instructions rule is in place. Tier-3 tools are registered so
   attempts get audited. Suspicious user messages disable Tier-2 tools for that turn.
-- **Web.** bcrypt passwords, opaque tokens (hashed at rest), lockout after 5 failures, rate limits, strict
-  CSP, no `innerHTML`, `nosniff`, `X-Frame-Options: DENY`, HSTS over HTTPS, and upload type and size limits.
+- **Web.** bcrypt passwords with timing-equalised failures (no username enumeration), opaque tokens in an
+  HttpOnly SameSite=Strict cookie (hashed at rest) with a double-submit CSRF header, lockout after 5 failures,
+  rate limits, strict CSP, no `innerHTML`, `nosniff`, `X-Frame-Options: DENY`, HSTS over HTTPS, upload type
+  and size limits, and XML-bomb-safe spreadsheet parsing (defusedxml). The launchers keep the site on this
+  computer unless network sharing is chosen.
 - **Responsible AI.** A deterministic refusal guardrail for fraud, fake documents, tax evasion, laundering and
-  bribery in three languages. Disclaimers on advisory output. Forecast bands and "illustrative / verify" labels
+  bribery in English, Bangla, Banglish and Chinese. Disclaimers on advisory output. Forecast bands and "illustrative / verify" labels
   everywhere.
 
 ## 10. Quality and evaluation
 
-- **219 automated tests**, 91% line coverage: finance math against textbook values, analysis against
+- **443 automated tests**, 90% line coverage, plus 19 interface tests (Node): finance math against textbook values, analysis against
   hand-computed fixtures, mocked HTTP for every provider, schema tests for every tool, the permission matrix,
   audit tampering, injection and guardrail cases, API, SSE, and end-to-end action flows. See
   [TEST_REPORT.md](TEST_REPORT.md).
 - **Benchmark harness** with a 48-scenario golden set; ground truth always comes from the deterministic tools.
   See [benchmarks/results/summary.md](../benchmarks/results/summary.md).
-- **Execution evidence**: a scripted 33-step run with exported operation logs. See
+- **Execution evidence**: a scripted 35-step run (35/35 pass) with exported operation logs. See
   [EXECUTION_EVIDENCE.md](EXECUTION_EVIDENCE.md).
