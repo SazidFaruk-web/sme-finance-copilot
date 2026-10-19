@@ -379,13 +379,20 @@ def test_per_request_override_goes_first():
 
 
 def test_shipped_providers_yaml_is_valid():
-    reg = ProviderRegistry(settings=Settings())
-    names = {p.name for p in reg.list_profiles()}
-    assert {"rules-offline", "claude-sonnet", "openai-mini", "gemini-flash", "local-qwen7b",
-            "groq-llama70b", "local-llamacpp", "local-vllm"} <= names
-    for n in names:
-        assert reg.profiles[n]["adapter"] in {"anthropic", "openai", "gemini", "openai_compatible", "ollama", "rules"}
-    assert reg.get("local-llama8b").supports_tools is False  # emulated tool mode honoured
+    reg = ProviderRegistry(settings=Settings(llm_profile=""))
+    assert {p.name for p in reg.list_profiles()} == {"claude-sonnet", "rules-offline"}
+    assert reg.default_profile == "claude-sonnet"
+    assert reg.profiles["claude-sonnet"]["model"] == "claude-sonnet-5-5"
+    assert ModelRouter(reg).chain() == ["claude-sonnet", "rules-offline"]
+
+
+# The shipped file has only Claude; shared-server behaviour is tested against its own profiles.
+SHARED_CFG = {"profiles": {
+    "shared-llm": {"adapter": "ollama", "model": "sme-copilot", "base_url": "http://127.0.0.1:11434/v1", "external": False,
+                   "tools": "native", "extra": {"request_params": {"reasoning_effort": "none"}}},
+    "local-llamacpp": {"adapter": "openai_compatible", "model": "gemma", "base_url": "http://127.0.0.1:8080/v1", "external": False},
+    "claude-sonnet": {"adapter": "anthropic", "model": "claude-sonnet-5-5", "api_key_env": "ANTHROPIC_API_KEY", "external": True},
+    "rules-offline": {"adapter": "rules", "model": "rules-v1", "external": False}}}
 
 
 def test_shared_server_settings_from_dotenv_and_multiple_users(tmp_path, monkeypatch):
@@ -400,7 +407,7 @@ def test_shared_server_settings_from_dotenv_and_multiple_users(tmp_path, monkeyp
         return httpx.Response(200, json={"model": "team-model", "choices": [{"message": {"content": "ok"}}]})
 
     settings = Settings(_env_file=env_file, llm_profile="shared-llm", llm_shared_only=True)
-    reg = ProviderRegistry(settings=settings, transport=mock(handler))
+    reg = ProviderRegistry(SHARED_CFG, settings, transport=mock(handler))
     router = ModelRouter(reg)
     for user in ("first user", "second user"):
         result = router.chat([Message("user", user)], tools=[TOOL])
@@ -415,7 +422,7 @@ def test_shared_only_blocks_alternate_models_and_keeps_offline_fallback():
     from sme_copilot.llm_providers.base import ProviderBlockedError
 
     settings = Settings(llm_profile="shared-llm", llm_shared_only=True, local_only_mode=True)
-    reg = ProviderRegistry(settings=settings, transport=mock(lambda req: httpx.Response(503, text="offline")))
+    reg = ProviderRegistry(SHARED_CFG, settings, transport=mock(lambda req: httpx.Response(503, text="offline")))
     assert reg.info("shared-llm").available and reg.info("rules-offline").available
     assert not reg.info("local-llamacpp").available and not reg.info("claude-sonnet").available
     with pytest.raises(ProviderBlockedError, match="shared model"):

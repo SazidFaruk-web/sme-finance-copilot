@@ -1,47 +1,18 @@
 # LLM provider profiles.
 #
-# Switch the active model with LLM_PROFILE=<profile> in .env, the model dropdown in the UI,
-# or the `profile` field on POST /api/chat. No code changes needed.
+# The AI Assistant uses one model: Claude Sonnet 5.5 through the Anthropic API.
+# Set ANTHROPIC_API_KEY in .env (never put keys here). LOCAL_ONLY_MODE must be false, because
+# prompts go to Anthropic's servers; phone and account numbers are masked first (MASK_PII).
 #
 # adapter:    anthropic | openai | gemini | openai_compatible | ollama | rules
-# external:   true if prompts leave this machine. External profiles get PII masking and are
-#             refused entirely when LOCAL_ONLY_MODE=true.
-# api_key_env: NAME of the environment variable holding the key (never put keys here).
-# pricing:    USD per million tokens. ILLUSTRATIVE PLACEHOLDERS for benchmark cost estimates;
-#             verify against the vendor's current price page before quoting.
-# tools:      native | emulated  (emulated = strict-JSON tool calling for weak tool callers)
-# vision:     true if the model reads photos (khata photo import); auto = ask the llama.cpp server's /props
-#             whether a vision projector (--mmproj) is loaded. Missing = no photos.
+# external:   true if prompts leave this machine.
+# api_key_env: NAME of the environment variable holding the key.
+# pricing:    USD per million tokens, for benchmark cost estimates; verify against the vendor's price page.
+# vision:     true if the model reads photos (khata photo import).
 
-# The model used when a request does not pick one. Change this one line to switch:
-#   shared-llm      one independent Ollama service shared by every website user (default)
-#   claude-sonnet   cloud (needs ANTHROPIC_API_KEY)
-#   local-llamacpp  private: nothing leaves this PC (start it with scripts\start_local_llm.bat)
-#   rules-offline   no model at all; deterministic, works anywhere
-# LLM_PROFILE in .env overrides this per machine. A local default never falls back to a cloud model.
-default_profile: shared-llm
+default_profile: claude-sonnet
 
 profiles:
-  shared-llm:
-    adapter: ollama
-    model: sme-copilot
-    base_url: http://127.0.0.1:11434/v1
-    external: false
-    tools: native
-    vision: true
-    timeout: 180
-    max_retries: 0
-    label: "Shared Gemma 4 12B (Ollama server)"
-    extra:
-      json_mode: json_schema
-      request_params: {reasoning_effort: none}
-
-  rules-offline:
-    adapter: rules
-    model: rules-v1
-    external: false
-    label: "Offline rules engine (no model, deterministic)"
-
   claude-sonnet:
     adapter: anthropic
     model: claude-sonnet-5-5
@@ -52,125 +23,14 @@ profiles:
     label: "Claude Sonnet 5.5"
     pricing: {input_per_mtok: 3.0, output_per_mtok: 15.0}
 
-  claude-haiku:
-    adapter: anthropic
-    model: claude-haiku-5-5
-    api_key_env: ANTHROPIC_API_KEY
-    base_url: https://api.anthropic.com
-    external: true
-    vision: true
-    label: "Claude Haiku 5.5"
-    pricing: {input_per_mtok: 1.0, output_per_mtok: 5.0}
-
-  openai-mini:
-    adapter: openai
-    model: gpt-4.1-mini
-    api_key_env: OPENAI_API_KEY
-    external: true
-    vision: true
-    label: "OpenAI gpt-4.1-mini"
-    pricing: {input_per_mtok: 0.4, output_per_mtok: 1.6}
-
-  gemini-flash:
-    adapter: gemini
-    model: gemini-2.5-flash
-    api_key_env: GEMINI_API_KEY
-    external: true
-    vision: true
-    label: "Gemini 2.5 Flash"
-    pricing: {input_per_mtok: 0.3, output_per_mtok: 2.5}
-
-  groq-llama70b:
-    adapter: openai_compatible
-    model: llama-3.3-70b-versatile
-    base_url: https://api.groq.com/openai/v1
-    api_key_env: GROQ_API_KEY
-    external: true
-    label: "Groq Llama 3.3 70B"
-    pricing: {input_per_mtok: 0.59, output_per_mtok: 0.79}
-
-  openrouter-qwen72b:
-    adapter: openai_compatible
-    model: qwen/qwen-2.5-72b-instruct
-    base_url: https://openrouter.ai/api/v1
-    api_key_env: OPENROUTER_API_KEY
-    external: true
-    label: "OpenRouter Qwen2.5 72B"
-    pricing: {input_per_mtok: 0.35, output_per_mtok: 0.4}
-
-  deepseek-chat:
-    adapter: openai_compatible
-    model: deepseek-chat
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-    external: true
-    label: "DeepSeek Chat"
-    pricing: {input_per_mtok: 0.27, output_per_mtok: 1.1}
-
-  # ---- Local models: no data leaves the machine ---------------------------------
-  local-qwen7b:
-    adapter: ollama
-    model: qwen2.5:7b-instruct
-    base_url: http://localhost:11434/v1
+  # Not a model and not shown in the model picker: deterministic rules that answer only when the
+  # Claude API is unreachable (no key, no internet), so the assistant never goes silent.
+  rules-offline:
+    adapter: rules
+    model: rules-v1
     external: false
-    tools: native
-    label: "Local Qwen2.5 7B (Ollama)"
+    label: "Offline rules engine (no model, deterministic)"
 
-  local-llama8b:
-    adapter: ollama
-    model: llama3.1:8b
-    base_url: http://localhost:11434/v1
-    external: false
-    tools: emulated
-    label: "Local Llama 3.1 8B (Ollama)"
-
-  local-gemma9b:
-    adapter: ollama
-    model: gemma2:9b
-    base_url: http://localhost:11434/v1
-    external: false
-    tools: emulated
-    label: "Local Gemma 2 9B (Ollama)"
-
-  # Benchmarked on an RX 9060 XT 16 GB (benchmarks/results/local_models.md). Start the server with
-  # scripts\start_local_llm.bat (gemma) or scripts\start_local_llm.bat qwen14b. Only one runs at a time.
-  local-llamacpp:
-    adapter: openai_compatible
-    model: gemma-4-12b-it
-    base_url: http://127.0.0.1:8080/v1
-    external: false
-    tools: native          # Gemma ignores the emulated JSON format; its native tool calls are reliable
-    timeout: 120
-    max_retries: 0         # a local server is up or not; retrying only multiplies the wait
-    vision: auto           # photos work once the server runs with --mmproj (see scripts\start_local_llm.bat)
-    label: "Local Gemma 4 12B (llama.cpp, private)"
-
-  local-qwen14b:
-    adapter: openai_compatible
-    model: qwen3-14b
-    base_url: http://127.0.0.1:8080/v1
-    external: false
-    tools: emulated        # Qwen3-14B scored better with emulated (JSON) tools than native ones
-    timeout: 120
-    max_retries: 0
-    label: "Local Qwen3-14B (llama.cpp, private, backup)"
-
-  local-vllm:
-    adapter: openai_compatible
-    model: Qwen/Qwen2.5-7B-Instruct
-    base_url: http://localhost:8001/v1
-    external: false
-    tools: native
-    label: "vLLM server (OpenAI-compatible)"
-
-# Optional model router: a cheap/local model for narrow tasks, a stronger one for advice.
 routing:
   enabled: false
-  task_profiles:
-    classification: local-qwen7b
-    extraction: local-qwen7b
-    categorization: local-qwen7b
-    advisory: claude-sonnet
-  # Tried in order when the chosen profile errors or times out. rules-offline never fails,
-  # so the AI Assistant always answers.
-  fallback_chain: [shared-llm, claude-sonnet, claude-haiku, local-llamacpp, rules-offline]
+  fallback_chain: [claude-sonnet, rules-offline]

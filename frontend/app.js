@@ -7,7 +7,7 @@ import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=18";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=19";
-import { renderPilot } from "./pilot.js?v=21";
+import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
 import { createMarketDrawer } from "./market.js?v=5";
@@ -553,7 +553,7 @@ function renderShell() {
     [["", "▦ " + t("range")], ["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"]].map(([v, l]) => h("option", { value: v }, l)));
   const avatar = accountMenu(name);
   const modelSel = h("select", { id: "model-select", disabled: S.models.shared_only, title: S.models.shared_only ? "Shared model managed by the server" : "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
-    S.models.profiles.map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
+    S.models.profiles.filter(p => p.adapter !== "rules").map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
       `${p.label}${p.external ? " ☁" : " ⌂"}${p.available ? "" : " (" + p.reason + ")"}`)));
   const privacy = h("span", { class: "chip", title: "PII (phones, account numbers, NID/TIN) is masked before any external model call" },
     S.models.local_only_mode ? "⌂ Local-only mode" : (S.models.mask_pii ? "🔒 PII masked for cloud models" : "PII masking OFF"));
@@ -596,15 +596,17 @@ function route() {
     a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   marketDrawer(name === "dashboard");
+  if (name === "chat" && assistant && document.contains(assistant.side)) { redrawAssistantSide(); return; }
+  assistant = null;
   // A detached route container prevents a slow previous request replacing a newer screen.
   const v = h("div", { class: "route-content" }); $("#view").replaceChildren(v);
   v.replaceChildren(h("div", { class: "skeleton-block", role: "status", "aria-label": plain("Loading", "লোড হচ্ছে") }, h("span", { class: "skeleton-line" }), h("span", { class: "skeleton-line short" })));
   restartAnim(v, "route-enter");
   const views = S.mode === "simple"
-    ? { dashboard: viewSimpleHome, chat: viewPilot, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewPilotFunding, settings: viewSimpleSettings,
+    ? { dashboard: viewSimpleHome, chat: viewAssistant, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewPilotFunding, settings: viewSimpleSettings,
       invoices: viewInvoices, reports: viewReports, stock: viewStock, actions: viewActions, audit: viewAudit, more: viewMore,
       tasks: viewGuidedTasks, money: viewGuidedMoney }
-    : { dashboard: viewDashboard, chat: viewPilot, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewAssistant, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
     h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
@@ -1116,14 +1118,33 @@ const SIMPLE_SUGGESTIONS = {
   bn: ["আজ কোন কাজে মনোযোগ দেব?", "কোন ক্রেতার কাছে টাকা পাব?", "সামনের বিল দেওয়ার মতো টাকা আছে?"],
 };
 
-async function viewChat(v) {
+// The AI Assistant tab: a chat on the left, the task picker (pilot.js) in a panel on the right.
+// Picking a task only redraws the right panel, so the conversation stays on screen.
+let assistant = null;
+async function viewAssistant(v) {
+  const chat = h("section", { class: "assistant-chat", "aria-label": plain("Chat", "চ্যাট") });
+  const side = h("aside", { class: "card assistant-side", "aria-label": plain("Tasks", "কাজ") });
+  v.replaceChildren(h("div", { class: "assistant" }, chat, side));
+  assistant = { side };
+  viewChat(chat);
+  await renderPilot(side, { ...guidedContext(), embedded: true });
+}
+async function redrawAssistantSide() {
+  try { await renderPilot(assistant.side, { ...guidedContext(), embedded: true }); }
+  catch (e) { assistant.side.replaceChildren(h("div", { class: "notice warn", role: "alert" }, e.message)); }
+}
+
+function viewChat(v) {
+  const simple = S.mode === "simple";
   const log = h("div", { class: "log", id: "chatlog", "aria-live": "polite" });
-  const input = h(S.mode === "simple" ? "textarea" : "input", { ...(S.mode === "simple" ? { rows: 2, class: "chat-question" } : { type: "text" }), placeholder: t("ask"), "aria-label": "Message", maxlength: 2000 });
+  const input = h("textarea", { rows: 1, class: "chat-question", placeholder: simple ? t("s_ask_ph") : t("ask"), "aria-label": "Message", maxlength: 2000 });
+  const fit = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 200) + "px"; };
+  input.addEventListener("input", fit);
   // A suggestion chip shows its translated label but asks the English question it stands for,
   // so the offline rules engine still recognises it; the reply language follows the UI.
   const send = async (text, asked) => {
     text = (text ?? input.value).trim(); if (!text) return;
-    input.value = "";
+    input.value = ""; fit(); chips.remove();
     log.appendChild(h("div", { class: "msg user" }, text));
     const bot = h("div", { class: "msg bot" }, h("div", { class: "typing" }, L("Thinking…")));
     log.appendChild(bot); log.scrollTop = log.scrollHeight;
@@ -1132,25 +1153,16 @@ async function viewChat(v) {
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
   const mic = voiceButton(input, send);
   if (S.chatDraft) { input.value = S.chatDraft; delete S.chatDraft; }
-  if (S.mode === "simple") {
-    input.placeholder = t("s_ask_ph");
-    const chips = h("div", { class: "row", style: "margin-top:10px" }, SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"]
-      .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
-    v.replaceChildren(h("h1", {}, plain("Let’s work through it together", "একসঙ্গে সহজ করে বুঝি")), h("p", { class: "muted" }, plain("Ask a question, or review the suggested question below and press Send.", "প্রশ্ন করুন, অথবা নিচের প্রশ্ন দেখে পাঠান।")), h("div", { class: "chat chat-simple" }, h("div", { class: "card panel" }, log, chips,
-      h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))))));
-    log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, plain(
-      "Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
-      "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।"))));
-    input.focus();
-    return;
-  }
-  const panel = h("div", { class: "card panel" }, log,
-    h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))));
-  const side = h("div", { class: "card suggest" }, h("h2", {}, "Try"), SUGGESTIONS.map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))),
-    h("p", { class: "small muted" }, "Every number comes from a deterministic tool - open “Show calculation” under any answer. Money moves only in the sandbox and only after you confirm."));
-  v.replaceChildren(h("div", { class: "chat" }, panel, side));
-  log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" },
-    L("Assalamu alaikum! I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
+  const chips = h("div", { class: "chat-chips" }, (simple ? SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"] : SUGGESTIONS.slice(0, 4))
+    .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
+  log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, simple
+    ? plain("Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
+      "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।")
+    : L("Assalamu alaikum! I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
+  log.appendChild(chips);
+  v.replaceChildren(h("div", { class: "card panel chat-panel" }, log,
+    h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))),
+    h("p", { class: "small muted chat-foot" }, plain("Numbers come from your records. Nothing is sent or paid until you confirm.", "সংখ্যাগুলো আপনার হিসাব থেকে আসে। আপনি নিশ্চিত না করা পর্যন্ত কিছু পাঠানো বা দেওয়া হয় না।"))));
   input.focus();
 }
 
@@ -1808,7 +1820,6 @@ function askWithContext(text) {
   location.hash = target ? `#chat?start=${target}` : "#chat";
 }
 
-async function viewPilot(v) { await renderPilot(v, guidedContext()); }
 async function viewPilotFunding(v) { await renderPilot(v, guidedContext(), "loan"); }
 
 function guidedContext() {
