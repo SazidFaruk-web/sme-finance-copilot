@@ -1,7 +1,7 @@
 [project]
 name = "sme-finance-copilot"
 version = "0.1.0"
-description = "AI finance copilot for Bangladesh SMEs (FinTechathon 2026, Topic E)"
+description = "AI finance assistant for Bangladesh SMEs (FinTechathon 2026, Topic E)"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

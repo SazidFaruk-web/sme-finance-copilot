@@ -8,7 +8,7 @@ Supported layouts (auto-detected, or forced with ``doc_type``):
 * invoices (receivable or payable): invoice no, customer/supplier, amount, issue/due/paid date
 
 Every stored row keeps ``batch_id`` + ``source_row`` (1-based spreadsheet row) so any number
-the copilot reports can be traced back to the exact rows of the exact file.
+the AI Assistant reports can be traced back to the exact rows of the exact file.
 """
 from __future__ import annotations
 

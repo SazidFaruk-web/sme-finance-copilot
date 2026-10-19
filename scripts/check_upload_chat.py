@@ -1,4 +1,4 @@
-"""After uploading a fake statement, ask the copilot about it and check its numbers against code.
+"""After uploading a fake statement, ask the AI Assistant about it and check its numbers against code.
 
 For each statement: upload it into a fresh copy of the seeded DB through the API, ask the chat endpoint
 (English, Bangla and Banglish) for that month's income and expenses, then compute the truth with the

@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 import time
 import uuid
@@ -39,6 +40,29 @@ MAX_STEPS = 6
 MAX_HISTORY_MESSAGES = 8
 
 
+# A reply that says something was done ("I have prepared a reminder", "the reminder is set") is only allowed when a
+# tool in this turn actually did or queued it. The 2026-10-19 persona test caught the model claiming a reminder it never
+# prepared, and inventing customers when it answered from memory in a long chat.
+_CLAIM = re.compile(r"\bI(?:'ve| have)?\s+(?:now\s+|already\s+|just\s+)?(?:prepared|created|set up|sent|scheduled|drafted|"
+                    r"saved|recorded|added|queued)\b|\b(?:reminder|payment|transfer|letter|report|entry|record)s?\s+"
+                    r"(?:is|are|has been|have been)\s+(?:now\s+)?(?:set|sent|scheduled|created|prepared|saved|recorded)\b", re.I)
+_NO_ACTION = ("I have not prepared or saved anything yet, so nothing will be sent. Ask me again with the details, for "
+              "example \"Prepare a payment reminder for <customer>\", or open More, then Customers & suppliers.")
+_NO_FACTS = ("I need to look at your records before I give numbers, and I could not do that for this answer. "
+             "Please ask again, for example \"Who owes me money?\" or \"How much did I sell this month?\".")
+
+
+def _enforce_honesty(result: "AgentResult", outcomes: list[ToolOutcome]) -> None:
+    acted = any(o.status in ("ok", "pending_confirmation") and (o.tier or 0) >= 1 for o in outcomes)
+    if _CLAIM.search(result.reply or "") and not acted:
+        result.reply, result.blocked_claim = _NO_ACTION, "action"
+    elif not outcomes and result.ungrounded_numbers:  # numbers from nowhere: no tool ran and none were said before
+        result.reply, result.blocked_claim = _NO_FACTS, "numbers"
+    if result.blocked_claim:
+        result.ungrounded_numbers = []
+        log.warning("request %s: blocked an unsupported %s claim", result.request_id, result.blocked_claim)
+
+
 @dataclass
 class AgentResult:
     request_id: str
@@ -54,6 +78,7 @@ class AgentResult:
     traces: list[dict[str, Any]] = field(default_factory=list)
     pending_actions: list[dict[str, Any]] = field(default_factory=list)
     ungrounded_numbers: list[float] = field(default_factory=list)
+    blocked_claim: str = ""  # "action" | "numbers" when an unsupported reply was replaced
     refused: bool = False
     disclaimer: str = ""
     attempts: list[dict[str, Any]] = field(default_factory=list)
@@ -105,6 +130,9 @@ class Agent:
         rid = ctx.request_id or uuid.uuid4().hex[:16]
         ctx.request_id = rid
         lang = language or detect_language(user_text)
+        enabled = get_settings().languages  # Bangla script and Banglish both need Bangla switched on
+        if ("bn" if lang == "banglish" else lang) not in enabled:
+            lang = "en"
         ctx.language = lang
         result = AgentResult(request_id=rid, reply="", language=lang)
 
@@ -190,8 +218,10 @@ class Agent:
                                   if o.status == "pending_confirmation"]
         ok_data = [o.data for o in outcomes if o.status in ("ok", "pending_confirmation")] + \
             [o.message for o in outcomes if o.message]
-        result.ungrounded_numbers = ungrounded_numbers(result.reply, ok_data, user_text) if outcomes else \
-            ungrounded_numbers(result.reply, [], user_text)
+        # Earlier replies in this conversation were checked when they were given, so their numbers count too.
+        earlier = [m.content for m in (history or [])[-MAX_HISTORY_MESSAGES:] if m.role in ("assistant", "tool") and m.content]
+        result.ungrounded_numbers = ungrounded_numbers(result.reply, ok_data + earlier, user_text)
+        _enforce_honesty(result, outcomes)
         if any(REGISTRY[o.tool].advisory for o in outcomes if o.tool in REGISTRY and o.status == "ok"):
             result.disclaimer = DISCLAIMER.get(lang, DISCLAIMER["en"])
         result.latency_ms = (time.perf_counter() - start) * 1000

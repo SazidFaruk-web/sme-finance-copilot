@@ -36,15 +36,15 @@ Preserve five destinations:
 | Tasks | To do, Reminders, Coming up; saved guided cases and follow-ups. |
 | Money | This month and Money ahead; decision tools linked from the relevant context. |
 | Records | Add, review, correct, import and reconcile records. |
-| More | Guided Copilot, people, documents, stock, business details, support and specialist tools. |
+| More | Guided AI Assistant, people, documents, stock, business details, support and specialist tools. |
 
-Copilot is a guided task, not a chat transcript:
+The AI Assistant is a guided task, not a chat transcript:
 
 **Understand the goal → confirm known facts → ask the next useful question → compare options → prepare an action → review the outcome.**
 
 One question at a time; at most three choices shown. Use buttons, amounts, dates, selected records and document checklists. Offer “I don't know” and “Do this later.” Unknown is not zero. Reuse records as suggestions, and let the owner check or replace stale facts. After six new answers, show a summary and offer continuing or pausing. Backtracking, edits and resuming must retain progress. Explanations and calculations belong behind disclosure controls.
 
-Use one interface language at a time, English or Bangla. Accept Banglish and Bangla numerals; preserve original names. Prefer familiar words such as বাকি, বিক্রি, খরচ and কিস্তি. Changing language must preserve input. Optional speech produces editable input and never executes a command. Names, dates and amounts need review. Do not promise speech without its required connectivity.
+The interface is plain English; preserve original names. Optional speech produces editable input and never executes a command. Names, dates and amounts need review. Do not promise speech without its required connectivity.
 
 ## Financial requirements
 
@@ -123,7 +123,7 @@ The existing FastAPI app, SQLAlchemy database, role permissions, records, audit 
 
 | Capability | Current implementation |
 |---|---|
-| Six workflows | Business-scoped create/resume, answer, pause/checkpoint, preview and owner-confirmation APIs; single-question English/Bangla UI. |
+| Six workflows | Business-scoped create/resume, answer, pause/checkpoint, preview and owner-confirmation APIs; single-question UI. |
 | Financial calculation | Deterministic money validation, full quote schedules, slow-sales/delayed-receipt scenarios, shortfall and product calculations. Null/NaN/invalid dates rejected or handled as missing. |
 | Record actions | Cash/credit/partial sales and purchases; loans, split principal/charges, withdrawals, paired transfers, advances/refunds; reconciliation correction reminders. Product-cost gaps flagged. |
 | Persistence and stale state | Optimistic versions; answer edits invalidate previews; record/source fingerprints; transactional effects; repeated confirmed requests do not duplicate records/documents/reminders. |

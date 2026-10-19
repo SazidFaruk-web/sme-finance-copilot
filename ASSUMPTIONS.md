@@ -63,7 +63,7 @@ Decisions taken without explicit confirmation. Each one is easy to revisit.
     for step-up authentication; MFA is on the roadmap (see SECURITY_ASSESSMENT R5).
 23. **Reminders are not sent.** They go to a simulated outbox, and follow-ups are saved as drafts for the owner
     to approve. No SMS or WhatsApp provider is integrated.
-24. **Customer-facing text comes from deterministic templates** (English and Bangla), not free LLM text, so
+24. **Customer-facing text comes from deterministic templates** (English), not free LLM text, so
     tone and facts stay controlled.
 25. **The audit log keeps masked data after a deletion request.** It stores PII-masked inputs only, and
     keeping it proves the deletion happened. Everything else for that business is deleted.

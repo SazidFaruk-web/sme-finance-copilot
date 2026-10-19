@@ -1,16 +1,16 @@
 # SME Finance Copilot
 
-**An AI finance copilot for Bangladesh small and medium businesses.** Built for the 2026 Shenzhen International
+**An AI finance assistant for Bangladesh small and medium businesses.** Built for the 2026 Shenzhen International
 FinTech Competition (FinTechathon), International Track, **Topic E: SME Finance Copilot**.
 
 The default Home guides owners who have no finance background with just recorded money and one practical next step. Tasks has tabs for To do, Reminders, and Coming up; Money separates monthly totals from forecasts; Records holds entries and history. Other tools remain available through More. Contributors and agents must read the [design principles](docs/DESIGN_PRINCIPLES.md) and [contribution guide](CONTRIBUTING.md) before implementing features.
 
-The **Dhaka South shop/trader pilot** adds six resumable guided tasks: record/check money, collect a customer due, plan a payment, check real loan quotes, test a product and prepare paperwork. Open **More → Ask Copilot**. The flow asks one question at a time and prepares owner-confirmed actions, without a chat transcript. Documents, reminder settings and offline drafts have their own destinations. See the [agreed product plan, source register and operator runbook](docs/PRODUCT_PLAN_BD.md).
+The **Dhaka South shop/trader pilot** adds six resumable guided tasks: record/check money, collect a customer due, plan a payment, check real loan quotes, test a product and prepare paperwork. Open **AI Assistant**. The flow asks one question at a time and prepares owner-confirmed actions, without a chat transcript. Documents, reminder settings and offline drafts have their own destinations. See the [agreed product plan, source register and operator runbook](docs/PRODUCT_PLAN_BD.md).
 
 Owner SMS has a disabled-by-default provider adapter and an independent persistent worker: `scripts\start_reminder_worker.ps1`. It requires provider onboarding, opt-in and phone verification. In-app reminders work without SMS. The browser can keep local drafts and cached task progress through connection loss; reconnect to review and confirm them. Legacy illustrative financing tools and generic compliance dates are blocked by default. Current operational sources remain marked for human review, and the real-owner pilot study has not yet been conducted.
 
 Small shops, garment subcontractors, traders, food businesses and freelancers can upload their sales ledgers,
-bank statements and bKash/Nagad/Rocket statements, or simply type *"dokan bhara 15000 dilam"*. The copilot then:
+bank statements and bKash/Nagad/Rocket statements, or simply type *"paid shop rent 15000"*. The AI Assistant then:
 
 - **analyses the business**: margins, break-even, receivables and payables aging, cost drivers, Eid and
   Pohela Boishakh seasonality, and why the numbers changed;
@@ -18,11 +18,11 @@ bank statements and bKash/Nagad/Rocket statements, or simply type *"dokan bhara 
   for low balance, overdue invoices, rent/salary/EMI/VAT dates and unusual spending;
 - **checks actual financing quotes**: net proceeds, complete repayment schedules, essential costs and a chosen reserve,
   with slower-sales scenarios and separate funding enquiry routes. Legacy illustrative matching is disabled for the pilot;
-- **gets work done**: saved tasks, Bangla/English follow-up letters, editable paperwork, product experiments and
+- **gets work done**: saved tasks, follow-up letters, editable paperwork, product experiments and
   in-app reminders. Owner SMS requires setup and consent; **sandbox** payments need the owner's explicit confirmation. Every action
   lands in a hash-chained operation log.
 
-It works in **English, বাংলা and Banglish**, and replies in the language you write in. Every number comes
+It works in plain **English**. Every number comes
 from deterministic, tested code and can be traced back to the source rows.
 
 > Decision support only, not licensed financial advice. Financing data in this repository is **illustrative**
@@ -189,13 +189,10 @@ Install the model and fetch the newest data once (allowed even in `LOCAL_ONLY_MO
 
 `python -m sme_copilot.cli market --district Gazipur --type restaurant_food` prints what the drawer would show.
 
-## Languages
+## Language
 
-The interface is available in English, বাংলা and 中文 (Simplified Chinese), chosen on the login screen or in the
-top bar. Chinese text lives in [frontend/i18n-zh.js](frontend/i18n-zh.js), keyed by the English source text, so
-each English/Bangla pair gains Chinese without a third argument at its call site. The Copilot answers in Chinese
-when a language model is available; the offline rules engine answers in English. Letters and SMS to customers stay
-in English or Bangla because their recipients are in Bangladesh.
+The interface and the AI Assistant's replies are in English (owner decision 2026-10-19).
+`APP_LANGUAGES` (default `en`) keeps the switched-off translations available for a later pilot.
 
 ---
 

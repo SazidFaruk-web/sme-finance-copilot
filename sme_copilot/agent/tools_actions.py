@@ -235,12 +235,12 @@ class ChecklistResult(BaseModel):
 
 
 HOW = {"have": "Already on file - bring a copy.", "missing": "Not on file - obtain before applying.",
-       "can_generate": "The copilot can produce this from your records (loan-readiness report).",
+       "can_generate": "The AI Assistant can produce this from your records (loan-readiness report).",
        "to_prepare": "Prepare and bring the original."}
 
 
 @tool("prepare_loan_checklist", "Prepare a loan application checklist for a financing product: documents you have, "
-      "documents missing, and ones the copilot can generate.", ChecklistArgs, 1, category="action",
+      "documents missing, and ones the AI Assistant can generate.", ChecklistArgs, 1, category="action",
       result_model=ChecklistResult)
 def prepare_loan_checklist(ctx: ToolContext, a: ChecklistArgs):
     cat = load_catalog()
@@ -439,7 +439,7 @@ def _never(ctx: ToolContext, a):  # pragma: no cover - permission layer refuses 
     raise RuntimeError("blocked tool executed - permission layer bypassed")
 
 
-tool("execute_real_bank_transfer", "Move REAL money from the user's bank or mobile wallet. BLOCKED: this copilot "
+tool("execute_real_bank_transfer", "Move REAL money from the user's bank or mobile wallet. BLOCKED: this AI Assistant "
      "only operates a sandbox account.", RealTransferArgs, 3, category="blocked")(_never)
 
 

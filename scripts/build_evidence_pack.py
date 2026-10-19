@@ -379,7 +379,7 @@ def build_content(ev: dict, junit: Path, shots: Path) -> Doc:
     else:
         ok = sum(1 for r in uc if r["ok"])
         d.p(f"scripts/check_upload_chat.py (result file benchmarks/results/upload_chat_check.json): after uploading a fake "
-            f"statement, the copilot (Gemma 4 12B, local) was asked for May 2026 total income and total expenses in three "
+            f"statement, the AI Assistant (Gemma 4 12B, local) was asked for May 2026 total income and total expenses in three "
             f"languages. The expected values were computed by the deterministic get_financial_summary tool on the same "
             f"database. Result: {ok} of {len(uc)} answers quoted both numbers, with no fallback.")
         d.table(["File", "Language", "Expected income / expenses", "Both found", "Fallback", "Time", "Reply (start)"],

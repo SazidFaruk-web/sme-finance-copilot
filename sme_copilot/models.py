@@ -396,6 +396,19 @@ class RecurringInvoice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class MarketWatch(Base):
+    """The items one user follows in the price drawer: first picked by the AI Assistant (or rules), then the owner's."""
+    __tablename__ = "market_watch"
+    __table_args__ = (UniqueConstraint("user_id", "business_id", name="uq_market_watch_user_business"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    items: Mapped[list[str]] = mapped_column(JSON, default=list)  # WFP commodity names, owner's order
+    source: Mapped[str] = mapped_column(String(10), default="rules")  # ai | rules | owner
+    reason: Mapped[str] = mapped_column(String(200), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 class HomePrefs(Base):
     """Per-user home layout from onboarding: business type, chosen widgets/nav (registry ids) and UI style."""
     __tablename__ = "home_prefs"

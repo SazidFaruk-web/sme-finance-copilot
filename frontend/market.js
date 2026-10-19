@@ -26,6 +26,14 @@ const COPY = {
     tested: "Tested on 170 past price series, the range held the real price about 8 times in 10. Prices often stay the same, so treat this as a guide, not a promise.",
     source: (m) => `Source: World Food Programme market prices (HDX, CC BY-IGO). Latest data: ${m}. These are market averages, not live shop prices.`,
     sourceLink: "Open the source",
+    pickedAi: "Picked for your business by the AI Assistant.", pickedRules: "Picked from your kind of business.",
+    pickedOwner: "Your own list.", add: "Add an item", addPh: "Search items, e.g. flour or sugar",
+    addNone: q => `No public price for “${q}” yet.`, remove: n => `Remove ${n} from your list`,
+    big: (n, p) => `${n} price${n === 1 ? "" : "s"} moved ${p}% or more since the month before. Biggest changes are first.`,
+    badge: n => `${n} big price change${n === 1 ? "" : "s"}`, since: m => `since ${m}`,
+    rise: "Price went up", fall: "Price went down", same: "No change", approx: "approx.",
+    emptyOwn: "Your list is empty. Add an item to follow its price.", repick: "Ask the AI Assistant to pick again",
+    saving: "Saving…", saveError: "Couldn't save your list. Try again.",
   },
   bn: {
     tab: "বাজারদর", open: "বাজারদর খুলুন", close: "বাজারদর ছোট করুন", title: "আপনার এলাকার বাজারদর",
@@ -46,6 +54,14 @@ const COPY = {
     tested: "আগের ১৭০টি দামের ধারায় পরীক্ষায়, প্রতি ১০ বারে প্রায় ৮ বার আসল দাম এই সীমার মধ্যে ছিল। দাম প্রায়ই একই থাকে, তাই এটিকে নিশ্চয়তা নয়, দিকনির্দেশনা হিসেবে দেখুন।",
     source: (m) => `উৎস: বিশ্ব খাদ্য কর্মসূচির (WFP) বাজারদর (HDX, CC BY-IGO)। সর্বশেষ তথ্য: ${m}। এগুলো বাজারের গড় দাম, দোকানের সরাসরি দাম নয়।`,
     sourceLink: "উৎস দেখুন",
+    pickedAi: "এআই সহকারী আপনার ব্যবসার জন্য বেছে দিয়েছে।", pickedRules: "আপনার ব্যবসার ধরন দেখে বাছাই করা।",
+    pickedOwner: "আপনার নিজের তালিকা।", add: "পণ্য যোগ করুন", addPh: "পণ্য খুঁজুন, যেমন আটা বা চিনি",
+    addNone: q => `“${q}”-এর প্রকাশিত দাম এখনও নেই।`, remove: n => `${n} তালিকা থেকে বাদ দিন`,
+    big: (n, p) => `আগের মাসের তুলনায় ${n}টি পণ্যের দাম ${p}% বা তার বেশি বদলেছে। সবচেয়ে বেশি বদল আগে দেখানো হলো।`,
+    badge: n => `${n}টি বড় দাম পরিবর্তন`, since: m => `${m} থেকে`,
+    rise: "দাম বেড়েছে", fall: "দাম কমেছে", same: "দাম একই", approx: "প্রায়",
+    emptyOwn: "আপনার তালিকা খালি। দাম দেখতে একটি পণ্য যোগ করুন।", repick: "এআই সহকারীকে আবার বাছাই করতে বলুন",
+    saving: "সেভ হচ্ছে…", saveError: "তালিকা সেভ করা যায়নি। আবার চেষ্টা করুন।",
   },
   zh: {
     tab: "市场价", open: "打开市场价格", close: "收起市场价格", title: "您附近的市场价格",
@@ -66,6 +82,14 @@ const COPY = {
     tested: "在 170 组历史价格上测试时，实际价格大约每 10 次中有 8 次落在这个范围内。价格经常保持不变，请把它当作参考，而不是保证。",
     source: (m) => `来源：世界粮食计划署（WFP）市场价格（HDX，CC BY-IGO）。最新数据：${m}。这些是市场平均价，不是商店的实时价格。`,
     sourceLink: "打开来源",
+    pickedAi: "由 AI 助手为您的生意挑选。", pickedRules: "根据您的生意类型挑选。",
+    pickedOwner: "您自己的清单。", add: "添加商品", addPh: "搜索商品，例如面粉或白糖",
+    addNone: q => `“${q}”暂无公开价格。`, remove: n => `从清单中移除${n}`,
+    big: (n, p) => `与上个月相比，有 ${n} 种商品价格变动了 ${p}% 或更多。变化最大的排在最前面。`,
+    badge: n => `${n} 个较大的价格变化`, since: m => `自${m}以来`,
+    rise: "价格上涨", fall: "价格下跌", same: "价格不变", approx: "约",
+    emptyOwn: "您的清单是空的。添加商品即可关注其价格。", repick: "请 AI 助手重新挑选",
+    saving: "正在保存……", saveError: "无法保存清单，请重试。",
   },
 };
 
@@ -93,9 +117,14 @@ function sparkline(points) {
     svgEl("path", { d, fill: "none", stroke: "currentColor", "stroke-width": "2", "vector-effect": "non-scaling-stroke" }));
 }
 
+// The month-on-month change also shows in the viewer's other currency. Reference rates, approximate on purpose:
+// the drawer says "approx." and the taka figure stays the real one.
+const OTHER_CURRENCY = { en: { sign: "$", per: 122 }, zh: { sign: "¥", per: 17 } };
+
 export function createMarketDrawer({ h, api, S }) {
   let open = false, data = null, failed = false, loading = false, showAll = false, root = null, disabled = false;
   let entering = false;  // slide in only when the owner opens it, not on every redraw
+  let catalog = null, query = "", saving = false, saveFailed = false;
   const c = () => COPY[S.ui] || COPY.en;
   const locale = () => LOCALES[S.ui] || "en-GB";
   const num = (v, digits = 2) => new Intl.NumberFormat(locale(), { maximumFractionDigits: digits }).format(v);
@@ -108,6 +137,7 @@ export function createMarketDrawer({ h, api, S }) {
   const label = x => (x && (x[S.ui] || x.en)) || "";
   const remember = v => { try { localStorage.setItem(KEY, v ? "open" : "closed"); } catch { /* private mode */ } };
   const wasOpen = () => { try { return localStorage.getItem(KEY) === "open"; } catch { return false; } };
+  const moved = item => Math.abs(item.change_1m_pct || 0);
 
   function outlook(item) {
     const f = item.forecast, t = c();
@@ -125,14 +155,38 @@ export function createMarketDrawer({ h, api, S }) {
       sign: up ? "↑" : "↓", range: t.range(pct(f.low_pct), pct(f.high_pct)) };
   }
 
+  // "+৳20 (+12%) since August 2026 · approx. +$0.16": always a sign and words; colour only repeats them.
+  function changeLine(item) {
+    const t = c(), a = item.change_1m_abs, p = item.change_1m_pct;
+    if (a == null || p == null || !item.previous_month) return null;
+    const tone = a > 0 ? "up" : a < 0 ? "down" : "flat", sign = a > 0 ? "+" : a < 0 ? "−" : "";
+    const other = OTHER_CURRENCY[S.ui], converted = other ? Math.abs(a) / other.per : 0;
+    return h("span", { class: `market-change tone-${tone}` },
+      h("span", { class: "sr-only" }, (tone === "up" ? t.rise : tone === "down" ? t.fall : t.same) + ": "),
+      h("b", {}, `${sign}${taka(Math.abs(a))}`), ` (${pct(p)}) ${t.since(month(item.previous_month, true))}`,
+      converted >= 0.01 ? h("small", {}, ` · ${t.approx} ${sign}${other.sign}${num(converted, 2)}`) : null);
+  }
+
   function areaText(a) {
     const t = c();
     const where = a.level === "national" ? t.national : `${a.name} ${t[a.level]}`;
     return `${where} · ${t.markets(a.markets)}`;
   }
 
+  async function saveItems(items) {
+    saving = true; saveFailed = false; draw();
+    try {
+      const w = await api("/api/market/items", { method: "PUT", body: { items } });
+      data = { ...data, watch: w };
+      saving = false; await load(true);
+    } catch { saving = false; saveFailed = true; draw(); }
+  }
+  const ownIds = () => (data?.watch?.items || []);
+  const removeItem = id => saveItems(ownIds().filter(x => x !== id));
+  const addItem = id => { query = ""; saveItems([...ownIds().filter(x => x !== id), id]); };
+
   function row(item) {
-    const t = c(), o = outlook(item), id = `market-${item.id.replace(/[^a-z0-9]/gi, "-")}`;
+    const t = c(), o = outlook(item), id = `market-${item.id.replace(/[^a-z0-9]/gi, "-")}`, name = label(item.label);
     const detail = h("div", { class: "market-detail", id, hidden: true },
       item.history?.length > 2 ? h("figure", { class: "market-chart" }, sparkline(item.history),
         h("figcaption", { class: "market-meta" }, `${t.twoYears}: ${taka(Math.min(...item.history.map(p => p[1])))} – ${taka(Math.max(...item.history.map(p => p[1])))}`)) : null,
@@ -144,50 +198,86 @@ export function createMarketDrawer({ h, api, S }) {
         [h("dt", {}, t.observed), h("dd", {}, month(item.observed, true))]));
     const toggle = h("button", { class: "market-row", type: "button", "aria-expanded": "false", "aria-controls": id,
       onclick: e => { const on = detail.hidden; detail.hidden = !on; e.currentTarget.setAttribute("aria-expanded", String(on)); } },
-      h("span", { class: "market-name" }, label(item.label)),
+      h("span", { class: "market-name" }, name),
       h("span", { class: "market-price" }, taka(item.price), h("small", {}, ` ${label(item.unit)} · ${month(item.observed)}`)),
+      changeLine(item),
       h("span", { class: `market-outlook tone-${o.tone}` }, h("span", { "aria-hidden": "true" }, o.sign), " ", o.text),
       o.range ? h("span", { class: "market-range" }, o.range) : null);
-    return h("li", { class: "market-item" }, toggle, detail);
+    const remove = h("button", { class: "market-remove", type: "button", "aria-label": t.remove(name), title: t.remove(name),
+      disabled: saving, onclick: () => removeItem(item.id) }, "×");
+    return h("li", { class: moved(item) >= (data.big_move_pct || 10) ? "market-item big" : "market-item" }, toggle, remove, detail);
+  }
+
+  function adder() {
+    const t = c(), have = new Set(ownIds());
+    const list = h("ul", { class: "market-suggest", id: "market-suggest", "aria-label": t.add, hidden: true });
+    const fill = () => {
+      const q = query.trim().toLowerCase();
+      if (!q || !catalog) { list.replaceChildren(); list.hidden = true; return; }
+      const hits = catalog.filter(x => !have.has(x.id) && [x.id, x.label.en, x.label.bn, x.label.zh].some(v => (v || "").toLowerCase().includes(q))).slice(0, 6);
+      list.hidden = false;
+      list.replaceChildren(...(hits.length ? hits.map(x => h("li", {}, h("button", { type: "button", class: "market-option", disabled: saving,
+        onclick: () => addItem(x.id) }, "+ ", label(x.label)))) : [h("li", { class: "market-none" }, t.addNone(query.trim()))]));
+    };
+    const loadCatalog = async () => { if (catalog) return; try { catalog = (await api("/api/market/items")).items; } catch { catalog = []; } fill(); };
+    const input = h("input", { type: "search", id: "market-add", class: "market-add-input", placeholder: t.addPh, value: query,
+      "aria-controls": "market-suggest", autocomplete: "off", onfocus: loadCatalog,
+      oninput: e => { query = e.target.value; loadCatalog(); fill(); },
+      onkeydown: e => { if (e.key === "Enter") { e.preventDefault(); list.querySelector(".market-option")?.click(); } } });
+    fill();
+    return h("div", { class: "market-adder" }, h("label", { for: "market-add", class: "market-add-label" }, t.add), input, list,
+      saving ? h("p", { class: "market-meta", role: "status" }, t.saving) : null,
+      saveFailed ? h("p", { class: "market-meta form-status", role: "alert" }, t.saveError) : null);
   }
 
   function body() {
     const t = c();
     if (loading && !data) return h("p", { class: "market-status", role: "status" }, t.loading);
     if (failed && !data) return h("div", { class: "market-status", role: "alert" }, h("p", {}, t.error),
-      h("button", { class: "btn", type: "button", onclick: load }, t.retry));
-    if (!data?.items?.length) return h("p", { class: "market-status" }, t.empty);
-    const items = showAll ? data.items : data.items.slice(0, FIRST_BATCH);
+      h("button", { class: "btn", type: "button", onclick: () => load() }, t.retry));
+    const w = data?.watch || {};
+    const picked = h("p", { class: "market-picked" }, w.source === "ai" ? t.pickedAi : w.source === "owner" ? t.pickedOwner : t.pickedRules,
+      w.source === "ai" && w.reason ? h("span", { class: "market-meta" }, " " + w.reason) : null);
+    const repick = w.source === "owner" ? h("button", { class: "text-link", type: "button", disabled: saving, onclick: async () => {
+      saving = true; draw(); try { await api("/api/market/items/suggest", { method: "POST" }); } catch { /* list unchanged */ }
+      saving = false; await load(true); } }, t.repick) : null;
+    if (!data?.items?.length) return [picked, adder(), h("p", { class: "market-status" }, w.items?.length === 0 ? t.emptyOwn : t.empty), repick];
+    const sorted = [...data.items].sort((a, b) => moved(b) - moved(a));  // the biggest change since last month first
+    const items = showAll ? sorted : sorted.slice(0, FIRST_BATCH);
     const note = data.note ? h("p", { class: "market-note" }, label(data.note)) : null;
-    const more = data.items.length > FIRST_BATCH ? h("button", { class: "text-link market-more", type: "button",
+    const big = data.big_moves ? h("p", { class: "market-alert", role: "status" }, t.big(data.big_moves, data.big_move_pct)) : null;
+    const more = sorted.length > FIRST_BATCH ? h("button", { class: "text-link market-more", type: "button",
       onclick: () => { showAll = !showAll; draw("market-more"); }, id: "market-more" }, showAll ? t.less : t.more) : null;
     const engine = data.engine.kind === "model" ? t.model(data.engine.name) : t.stat;
     const how = h("details", { class: "market-how" }, h("summary", {}, t.sure),
       h("p", {}, engine), h("p", {}, t.tested),
       h("p", {}, t.source(month(data.latest_observation, true)), " ",
         h("a", { href: data.source.url, target: "_blank", rel: "noopener noreferrer" }, t.sourceLink)));
-    return [note, h("ul", { class: "market-list" }, items.map(row)), more, how];
+    return [picked, big, note, adder(), h("ul", { class: "market-list" }, items.map(row)), more, repick, how];
   }
 
   function draw(focusId) {
     if (!root) return;
-    const t = c();
+    const t = c(), n = data?.big_moves || 0;
     root.classList.toggle("open", open);
-    const tab = h("button", { class: "market-tab", type: "button", "aria-expanded": String(open), "aria-controls": "market-panel",
-      "aria-label": open ? t.close : t.open, onclick: () => setOpen(!open, true) }, trendIcon(), h("span", {}, t.tab));
+    const tab = h("button", { class: "market-tab" + (open ? "" : " glow"), type: "button", "aria-expanded": String(open), "aria-controls": "market-panel",
+      "aria-label": (open ? t.close : t.open) + (n ? `. ${t.badge(n)}` : ""), onclick: () => setOpen(!open, true) }, trendIcon(), h("span", {}, t.tab),
+      n && !open ? h("b", { class: "market-badge", "aria-hidden": "true" }, String(n)) : null);
     const panel = h("aside", { class: entering ? "market-panel entering" : "market-panel", id: "market-panel", "aria-labelledby": "market-title", hidden: !open },
       h("header", { class: "market-head" },
         h("h2", { id: "market-title", tabindex: "-1" }, t.title),
         h("button", { class: "market-close", type: "button", "aria-label": t.close, onclick: () => setOpen(false, true) }, "✕")),
       h("p", { class: "market-intro" }, t.intro), body());
+    const caret = document.activeElement?.id === "market-add" ? document.activeElement.selectionStart : null;
     root.replaceChildren(tab, panel);
     entering = false;
-    if (focusId) root.querySelector(`#${focusId}`)?.focus();
+    if (caret !== null) { const i = root.querySelector("#market-add"); i?.focus(); i?.setSelectionRange(caret, caret); }
+    else if (focusId) root.querySelector(`#${focusId}`)?.focus();
   }
 
-  async function load() {
-    if (loading) return;
-    loading = true; failed = false; draw();
+  async function load(force = false) {
+    if (loading || (data && !force)) return;
+    loading = true; failed = false; if (!data) draw();
     try { data = await api("/api/market/prices"); }
     catch (e) {
       if (e.status === 404) { disabled = true; loading = false; root?.remove(); root = null; return; }  // turned off on this server
@@ -214,6 +304,7 @@ export function createMarketDrawer({ h, api, S }) {
       document.body.appendChild(root);
       document.addEventListener("keydown", onKey);
       setOpen(wasOpen());
+      load();  // in the background, so the closed tab can say how many prices moved sharply
     },
     unmount() {
       document.removeEventListener("keydown", onKey);

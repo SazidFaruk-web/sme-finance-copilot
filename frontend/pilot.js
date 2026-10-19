@@ -1,5 +1,5 @@
 import { localDrafts, saveLocal, removeLocal, numericInput } from "./pilot-store.js?v=14";
-import { zh } from "./i18n-zh.js?v=2";
+import { zh } from "./i18n-zh.js?v=4";
 
 // Unsubmitted edits survive language changes in memory. Explicit offline drafts use IndexedDB.
 const edits = new Map();
@@ -123,7 +123,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     body.append(h("div", { class: "pilot-links" }, link(say("Saved on this device", "এই ডিভাইসে রাখা"), "#chat?tab=offline"), link(say("Documents", "কাগজপত্র"), "#chat?tab=documents"), S.user.role === "owner" ? link(say("Reminder settings", "রিমাইন্ডার সেটিংস"), "#chat?tab=notifications") : null, link(say("Get human help", "মানুষের সাহায্য নিন"), "#chat?tab=help")));
     const unusual = h("details", { class: "pilot-help" }, h("summary", {}, say("Something else?", "অন্য কিছু?")));
     const note = h("textarea", { rows: 2, maxlength: 500, "aria-label": say("Describe the problem", "সমস্যাটি বলুন") });
-    unusual.append(h("p", {}, say("Describe it in your own words, including Banglish. We’ll suggest a starting task.", "নিজের ভাষায় বা বাংলিশে বলুন। শুরু করার জন্য একটি কাজ দেখাব।")), note, button(say("Find a starting point", "কোথা থেকে শুরু করব"), async () => {
+    unusual.append(h("p", {}, say("Describe it in your own words. We’ll suggest a starting task.", "নিজের ভাষায় বা বাংলিশে বলুন। শুরু করার জন্য একটি কাজ দেখাব।")), note, button(say("Find a starting point", "কোথা থেকে শুরু করব"), async () => {
       const res = await api("/api/pilot/suggest", { body: { text: note.value, language: apiLang } });
       unusual.append(choices(catalog.workflows.filter(x => res.kinds.includes(x.id)), x => start(x.id)));
     })); body.append(unusual);

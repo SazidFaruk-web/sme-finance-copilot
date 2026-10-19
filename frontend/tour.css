@@ -1,0 +1,28 @@
+/* First-visit tour (tour.js): a ring around the current tab and a small card beside it. Theme tokens only. */
+.tour { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.tour-ring {
+  position: fixed; border-radius: 16px; pointer-events: none;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 0 9999px rgba(20, 14, 10, .32);
+}
+.tour-ring[hidden] { display: block; left: 50%; top: 50%; width: 0; height: 0; }
+.tour-card {
+  position: fixed; width: min(340px, calc(100vw - 24px)); padding: 18px 18px 14px; pointer-events: auto;
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); border-radius: 20px;
+  box-shadow: 0 14px 44px rgba(40, 25, 15, .18);
+}
+.tour-card.centred { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); }
+.tour-card:focus { outline: none; }
+.tour-card [hidden] { display: none !important; }
+.tour-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.tour-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.tour-count { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.tour-skip { min-height: 36px; font-size: 13px; }
+.tour-title { margin: 0 0 6px; font-size: 18px; line-height: 1.35; }
+.tour-text { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-secondary); }
+.tour-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.tour-actions .btn { min-height: 44px; min-width: 88px; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-card { animation: tour-in .18s ease-out; }
+}
+@keyframes tour-in { from { opacity: 0; } to { opacity: 1; } }
+@media (forced-colors: active) { .tour-ring { outline: 3px solid Highlight; box-shadow: none; } }

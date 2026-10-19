@@ -1,9 +1,9 @@
 import { icon } from "./icons.js?v=12";
-import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=14";
+import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=16";
 
 export function renderAuth(root, { h, language, health, api, onLanguage, onAuthenticated, initialError, startMode = "login" }) {
   const state = {
-    language: ["bn", "zh"].includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
+    language: ["bn", "zh"].includes(language) && (health.languages || ["en"]).includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
     allowSignup: health.allow_signup !== false, busy: false, error: initialError ? authErrorKey(initialError) : "", fields: {},
     drafts: { login: { username: "", password: "" }, signup: { business: "", name: "", username: "", password: "", confirm: "" } },
     visible: {}, demoOpen: false,
@@ -79,7 +79,7 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
       h("button", { class: "auth-submit", type: "submit", disabled: state.busy }, state.busy ? h("span", { class: "auth-spinner", "aria-hidden": "true" }) : null,
         state.busy ? (signup ? c.creating : c.loggingIn) : (signup ? c.signup : c.login), state.busy ? null : icon("arrow", 18)));
     const switchMode = mode => { if (state.busy) return; captureDraft(); state.mode = mode; state.error = ""; state.fields = {}; state.visible = {}; draw("auth-heading"); };
-    const languages = h("div", { class: "auth-languages", role: "group", "aria-label": c.language }, [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]].map(([code, text]) => h("button", {
+    const languages = h("div", { class: "auth-languages", role: "group", "aria-label": c.language }, [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]].filter(([code]) => (health.languages || ["en"]).includes(code)).map(([code, text]) => h("button", {
       type: "button", id: `auth-lang-${code}`, lang: code, "aria-pressed": String(state.language === code), disabled: state.busy,
       onclick: () => { captureDraft(); state.language = code; onLanguage(code); draw(`auth-lang-${code}`); },
     }, text)));
@@ -90,7 +90,7 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
         },
       }, c[d.role] || c.viewer))));
     const screen = h("div", { class: "auth-screen" },
-      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("span", { class: "auth-brand-mark" }, icon("book", 23)), h("span", {}, c.brand)), languages),
+      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("span", { class: "auth-brand-mark" }, icon("book", 23)), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 ? languages : null),
       h("main", { class: "auth-main" }, h("section", { class: "auth-card", "aria-labelledby": "auth-heading" },
         h("div", { class: "auth-heading" }, h("h1", { id: "auth-heading", tabindex: -1 }, signup ? c.signupTitle : c.loginTitle), h("p", {}, signup ? c.signupIntro : c.loginIntro)),
         form,

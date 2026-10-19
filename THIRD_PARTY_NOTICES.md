@@ -48,8 +48,8 @@ The frontend uses no third-party JavaScript, fonts or images: icons, charts and 
 | Model | Used for | Licence |
 |---|---|---|
 | amazon/chronos-bolt-small | Next-month price range in the Home price drawer | Apache-2.0 |
-| Gemma 4 (via Ollama / llama.cpp) | Default shared Copilot language model | Gemma Terms of Use |
-| Qwen, Llama and cloud models listed in `config/providers.yaml` | Optional Copilot language models | Each provider's licence or terms of service |
+| Gemma 4 (via Ollama / llama.cpp) | Default shared AI Assistant language model | Gemma Terms of Use |
+| Qwen, Llama and cloud models listed in `config/providers.yaml` | Optional AI Assistant language models | Each provider's licence or terms of service |
 
 The app works without any language model (the offline rules engine) and without the forecasting model
 (a statistical estimate).

@@ -43,7 +43,97 @@ ITEMS = {
     "Fuel (diesel)": tr("Diesel", "ডিজেল", "柴油"),
     "Fuel (petrol)": tr("Petrol", "পেট্রোল", "汽油"),
     "Fuel (gas)": tr("Cooking gas (LPG)", "রান্নার গ্যাস (এলপিজি)", "液化气"),
+    # The rest of the published series, so an owner can add any of them to their own price list.
+    "Gourd (bitter)": tr("Bitter gourd", "করলা", "苦瓜"),
+    "Hyacinth (sim)": tr("Hyacinth beans (shim)", "শিম", "扁豆"),
+    "Lemon (medium size)": tr("Lemon", "লেবু", "柠檬"),
+    "Turmeric (powder, Fresh)": tr("Turmeric powder", "হলুদ গুঁড়া", "姜黄粉"),
+    "Meat (chicken, sonali)": tr("Sonali chicken", "সোনালি মুরগি", "索纳利鸡"),
+    "Milk": tr("Milk (loose)", "দুধ (খোলা)", "散装牛奶"),
+    "Milk (cow, pasteurized)": tr("Pasteurised milk", "পাস্তুরিত দুধ", "巴氏杀菌牛奶"),
+    "Rice (Gazi)": tr("Rice (Gazi)", "চাল (গাজী)", "大米（Gazi）"),
+    "Rice (Nurjahan)": tr("Rice (Nurjahan)", "চাল (নূরজাহান)", "大米（Nurjahan）"),
+    "Rice (BRRI-28)": tr("Rice (BRRI-28)", "চাল (ব্রি-২৮)", "大米（BRRI-28）"),
+    "Rice (BRRI-29)": tr("Rice (BRRI-29)", "চাল (ব্রি-২৯)", "大米（BRRI-29）"),
+    "Rice (BRRI-49)": tr("Rice (BRRI-49)", "চাল (ব্রি-৪৯)", "大米（BRRI-49）"),
+    "Rice (Kajla)": tr("Rice (Kajla)", "চাল (কাজলা)", "大米（Kajla）"),
+    "Oranges (malta)": tr("Malta orange", "মাল্টা", "马尔他橙"),
+    "Apples (royal gala)": tr("Apple", "আপেল", "苹果"),
+    "Bananas (green)": tr("Green banana", "কাঁচা কলা", "青香蕉"),
+    "Bananas (ripe)": tr("Ripe banana", "পাকা কলা", "熟香蕉"),
+    "Papaya (green)": tr("Green papaya", "কাঁচা পেঁপে", "青木瓜"),
+    "Pumpkin": tr("Pumpkin", "মিষ্টি কুমড়া", "南瓜"),
+    "Beans (mung, large grain)": tr("Mung beans", "মুগ ডাল", "绿豆"),
+    "Cabbage": tr("Cabbage", "বাঁধাকপি", "卷心菜"),
+    "Carrots": tr("Carrot", "গাজর", "胡萝卜"),
+    "Cauliflower": tr("Cauliflower", "ফুলকপি", "花椰菜"),
+    "Eggplants": tr("Eggplant (brinjal)", "বেগুন", "茄子"),
+    "Cucumber (short, khira)": tr("Cucumber", "শসা (খিরা)", "黄瓜"),
+    "Gourd (bottle)": tr("Bottle gourd", "লাউ", "葫芦瓜"),
+    "Snake gourd": tr("Snake gourd", "চিচিঙ্গা", "蛇瓜"),
+    "Spinach (red)": tr("Red spinach", "লাল শাক", "红苋菜"),
+    "Spinach (malabar)": tr("Malabar spinach", "পুঁই শাক", "木耳菜"),
+    "Chili (whole, dry, Indian Teja)": tr("Dry chilli", "শুকনা মরিচ", "干辣椒"),
+    "Eggs (white)": tr("Eggs (white)", "সাদা ডিম", "白皮鸡蛋"),
+    "Fish (live, tilapia)": tr("Tilapia fish", "তেলাপিয়া মাছ", "罗非鱼"),
+    'Fish (dry, belt 10-12")': tr("Dried ribbon fish", "ছুরি শুঁটকি", "带鱼干"),
+    "Dishwashing liquid": tr("Dishwashing liquid", "থালাবাসন ধোয়ার তরল", "洗洁精"),
+    "Firewood": tr("Firewood", "জ্বালানি কাঠ", "柴火"),
+    "Fuel (kerosene)": tr("Kerosene", "কেরোসিন", "煤油"),
 }
+
+# What a business name or description says about what it buys. Used when the model is unavailable, and to
+# check the model's choice is not empty. Matched on lowercase words in English, Banglish and Bangla.
+KEYWORD_BASKETS = [
+    (("cake", "bakery", "baker", "pastry", "sweet", "mishti", "misti", "confection", "biscuit", "dessert",
+      "কেক", "বেকারি", "মিষ্টি", "পেস্ট্রি"),
+     ["Wheat flour", "Sugar", "Eggs (brown)", "Eggs (white)", "Milk (powder)", "Milk (cow, pasteurized)",
+      "Oil (soybean, fortified)", "Fuel (gas)"]),
+    (("tea", "cafe", "coffee", "চা স্টল", "চায়ের", "ক্যাফে"),
+     ["Sugar", "Milk (powder)", "Milk (cow, pasteurized)", "Ginger (imported)", "Fuel (gas)", "Bananas (ripe)", "Eggs (brown)"]),
+    (("biryani", "kitchen", "food", "restaurant", "hotel", "catering", "tiffin", "lunch", "খাবার", "রান্না"),
+     ["Meat (chicken, broiler)", "Rice (coarse)", "Oil (soybean, fortified)", "Onions (imported, India)", "Potatoes (Holland, white)",
+      "Eggs (brown)", "Fuel (gas)", "Ginger (imported)"]),
+    (("fruit", "ফল"), ["Apples (royal gala)", "Oranges (malta)", "Bananas (ripe)", "Papaya (green)", "Lemon (medium size)"]),
+    (("vegetable", "sabji", "sobji", "সবজি", "kacha bazar"),
+     ["Potatoes (Holland, white)", "Onions (imported, India)", "Tomatoes (red)", "Eggplants", "Cabbage", "Cauliflower",
+      "Carrots", "Chili (green)"]),
+    (("fish", "mach", "মাছ"), ["Fish (live, pangasius)", "Fish (live, tilapia)", 'Fish (dry, belt 10-12")', "Oil (soybean, fortified)"]),
+    (("chicken", "poultry", "murgi", "মুরগি", "egg", "ডিম"),
+     ["Meat (chicken, broiler)", "Meat (chicken, sonali)", "Eggs (brown)", "Eggs (white)"]),
+    (("meat", "beef", "butcher", "mangsho", "মাংস"), ["Meat (beef)", "Meat (chicken, broiler)", "Onions (imported, India)", "Ginger (imported)", "Garlic (imported, China)"]),
+    (("dairy", "milk", "doodh", "dudh", "দুধ"), ["Milk", "Milk (cow, pasteurized)", "Milk (powder)", "Sugar"]),
+]
+
+
+# Goods with no public price series at all. For these shops the drawer says so and follows running and living costs
+# instead of guessing (the 2026-10-19 persona test got soap and toothpaste for a bookshop and a phone shop).
+NO_PRICE_WORDS = ("phone", "mobile", "electronic", "gadget", "accessor", "charger", "computer", "laptop", "book", "stationer",
+                  "cloth", "fashion", "garment", "t-shirt", "panjabi", "saree", "shoe", "cosmetic", "jewel", "furniture",
+                  "hardware", "toy", "watch", "পোশাক", "বই", "মোবাইল")
+RUNNING_COSTS = ["Fuel (petrol)", "Fuel (diesel)", "Fuel (gas)", "Rice (coarse)", "Oil (soybean, fortified)", "Sugar"]
+NO_PRICE_NOTE = tr("Public market prices cover food, household goods and fuel, not what your shop sells. These are running "
+                   "and living costs that still affect your business and your customers.",
+                   "প্রকাশিত বাজারদরে খাবার, গৃহস্থালি পণ্য ও জ্বালানির দাম থাকে, আপনার দোকানের পণ্যের নয়। এগুলো চলতি ও জীবনযাত্রার খরচ।",
+                   "公开市场价格只包括食品、日用品和燃料，不包括您店里卖的商品。这些是仍会影响您生意的经营和生活成本。")
+
+
+def goods_without_prices(*texts: str) -> bool:
+    """True when the business sells things no public series covers and none of the food/household words match."""
+    blob = " ".join(t or "" for t in texts).lower()
+    return not keyword_basket(*texts) and any(w in blob for w in NO_PRICE_WORDS)
+
+
+def keyword_basket(*texts: str) -> list[str]:
+    """Items suggested by words in the business name or description, in order; empty when nothing matches."""
+    blob = " ".join(t or "" for t in texts).lower()
+    # Latin words match whole words or their start ("bakery" in "bakeryhouse"); Bangla words match anywhere.
+    hit = lambda w: (w in blob) if not w.isascii() else re.search(r"\b" + re.escape(w.strip()), blob) is not None  # noqa: E731
+    out: list[str] = []
+    for words, items in KEYWORD_BASKETS:
+        if any(hit(w) for w in words):
+            out += [i for i in items if i not in out]
+    return out
 
 STAPLES = ["Rice (coarse)", "Lentils (masur)", "Oil (soybean, fortified)", "Sugar", "Onions (imported, India)",
            "Potatoes (Holland, white)", "Eggs (brown)", "Fuel (diesel)"]

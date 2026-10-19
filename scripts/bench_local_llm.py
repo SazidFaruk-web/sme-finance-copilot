@@ -1,6 +1,6 @@
 """Benchmark a GGUF model under llama-server with the app's real prompt.
 
-Starts llama-server with the given flags, sends the copilot's actual system prompt + tool definitions,
+Starts llama-server with the given flags, sends the AI Assistant's actual system prompt + tool definitions,
 and records load time, time to first token, prompt-processing and generation speed, prompt-cache reuse
 and peak GPU memory (dedicated vs shared, from Windows GPU counters, so VRAM spill is visible).
 

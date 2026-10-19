@@ -1,6 +1,7 @@
 """Dashboard, forecast, what-if, alerts and digest endpoints (read-mostly, Tier 0)."""
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -177,3 +178,52 @@ def patch_settings(body: SettingsIn, user: User = Depends(require_tier(1)), db: 
     audit.record(db, actor=user.username, actor_role=user.role, business_id=b.id, event_type="operation",
                  action="update_settings", tier=1, inputs=body.model_dump(exclude_none=True))
     return get_settings_(user, db)
+
+
+class BusinessIn(BaseModel):
+    """Facts a lender asks for. The owner enters them; loan readiness, cash and prices use them."""
+    district: str | None = Field(None, min_length=2, max_length=80)
+    established_on: date | None = None
+    opening_cash_balance: float | None = Field(None, ge=0, le=1e10)
+    opening_balance_date: date | None = None
+    has_trade_license: bool | None = None
+    has_tin: bool | None = None
+    vat_registered: bool | None = None
+    has_bank_account: bool | None = None
+
+
+_BUSINESS_FIELDS = ("name", "district", "established_on", "opening_cash_balance", "opening_balance_date", "has_trade_license",
+                    "has_tin", "vat_registered", "has_bank_account", "sector")
+
+
+def _business_out(b) -> dict[str, Any]:
+    out = {k: getattr(b, k) for k in _BUSINESS_FIELDS}
+    for k in ("established_on", "opening_balance_date"):
+        out[k] = out[k].isoformat() if out[k] else None
+    out["opening_cash_balance"] = float(out["opening_cash_balance"] or 0)
+    return out
+
+
+@router.get("/business")
+def get_business(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
+    return _business_out(_biz(db, user))
+
+
+@router.patch("/business")
+def patch_business(body: BusinessIn, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
+    if user.role != "owner":
+        raise HTTPException(403, "only the owner can change the business details")
+    b = _biz(db, user)
+    changes = body.model_dump(exclude_none=True)
+    today = as_of_today()
+    for k in ("established_on", "opening_balance_date"):
+        if k in changes and changes[k] > today:
+            raise HTTPException(422, f"{k.replace('_', ' ')} cannot be in the future")
+    before = {k: _business_out(b)[k] for k in changes}
+    for k, v in changes.items():
+        setattr(b, k, v.strip() if isinstance(v, str) else v)
+    db.commit()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=b.id, event_type="operation",
+                 action="update_business_details", tier=1, inputs=body.model_dump(mode="json", exclude_none=True),
+                 result={"before": before})
+    return _business_out(b)
