@@ -1,5 +1,5 @@
 import { icon } from "./icons.js?v=13";
-import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=18";
+import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=19";
 
 // "More languages" (owner decision 2026-10-19): English by default; the owner can show বাংলা and 中文 on this device.
 const MORE_KEY = "more_languages";
