@@ -84,7 +84,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     const c = await api("/api/pilot/cases", { body: { kind, language: apiLang, request_key: crypto.randomUUID() } });
     location.hash = `#${here}?case=${c.id}`;
   }
-  function heading(title, sub) { body.replaceChildren(h("h1", { tabindex: "-1" }, title), ...(sub ? [h("p", { class: "pilot-intro" }, sub)] : [])); }
+  function heading(title, sub) { body.replaceChildren(h(ctx.embedded ? "h2" : "h1", { tabindex: "-1" }, title), ...(sub ? [h("p", { class: "pilot-intro" }, sub)] : [])); }
   function choices(items, choose, page = 0) {
     const box = h("div", { class: "pilot-choices" });
     for (const x of items.slice(page * 3, page * 3 + 3)) box.append(button(txt(x.label || x.title), () => choose(x)));

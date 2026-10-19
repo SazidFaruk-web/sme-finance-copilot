@@ -56,7 +56,8 @@ try {
   assert.equal(await page.locator('.chat-question').inputValue(), 'Do not clear this draft');
   assert.ok(await draft.evaluate(node => node.isConnected));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/#settings'); await page.locator('[data-theme-select]').waitFor();
+  await page.goto('/#settings?section=appearance'); await page.locator('[data-theme-select]').waitFor();
+  await page.getByText('More appearance options', { exact: true }).click();
   await page.locator('[data-theme-select]').selectOption('system');
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.waitForFunction(() => document.querySelector('.theme-toggle')?.getAttribute('aria-label') === 'Switch to light mode');

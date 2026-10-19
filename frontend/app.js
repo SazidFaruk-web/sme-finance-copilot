@@ -8,13 +8,14 @@ import { icon } from "./icons.js?v=13";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=20";
 import { greetingName } from "./guidance.js?v=19";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=21";
-import { renderPilot } from "./pilot.js?v=22";
+import { renderPilot } from "./pilot.js?v=23";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
 import { createMarketDrawer } from "./market.js?v=5";
 import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
+import { renderSettings } from "./settings.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -291,14 +292,17 @@ async function api(path, opts = {}) {
     try { const j = await r.json(); msg = typeof j.detail === "string" ? j.detail : (j.detail && j.detail.message) || JSON.stringify(j.detail); code = (j.detail && j.detail.code) || ""; } catch { /* ignore */ }
     const err = new Error(msg); err.code = code; err.status = r.status; throw err;
   }
+  if (opts.raw) return r;
   const ct = r.headers.get("content-type") || "";
   return ct.includes("application/json") ? r.json() : r;
 }
 async function download(path, filename) {
-  const r = await api(path);
+  const r = await api(path, { raw: true });
   const blob = await r.blob();
-  const a = h("a", { href: URL.createObjectURL(blob), download: filename });
+  const url = URL.createObjectURL(blob);
+  const a = h("a", { href: url, download: filename });
   document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ------------------------------------------------------------------ trace / explainability
@@ -442,7 +446,7 @@ const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parti
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
   .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
-const plain = (en, bn) => S.ui === "bn" ? bn : L(en);
+const plain = (en, bn, cn) => S.ui === "bn" ? bn : S.ui === "zh" && cn ? cn : L(en);
 const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
@@ -452,51 +456,13 @@ function setPref(key, value) {
   savePref(key === "look" ? `ui_style:${S.user ? S.user.username : ""}` : { ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
   if (key === "look" && S.home && S.home.exists) api("/api/home/prefs", { body: { style: value } }).then(r => { S.home = r; }).catch(() => {});
   applyPrefs();
-  if (key === "theme") return;
+  if (key === "theme" || key === "look") return;
   if (S.user) { renderShell(); route(); }
 }
 
-// Language / theme / interface / number format controls, shared by the ⚙ menu and the Settings page.
-function prefControls() {
-  const sel = (value, options, onchange) => h("select", { onchange: e => onchange(e.target.value) },
-    options.map(([v, l]) => h("option", { value: v, selected: v === value }, l)));
-  const field = (label, control) => h("label", { class: "field" }, label, control);
-  const theme = sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v));
-  theme.setAttribute("data-theme-select", "");
-  return [
-    field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
-    (S.health.languages || ["en"]).length > 1 ? h("label", { class: "row small", style: "gap:8px" },
-      h("input", { type: "checkbox", checked: moreLanguages(), onchange: e => {
-        setMoreLanguages(e.target.checked);
-        if (!e.target.checked) setPref("ui", "en"); else { applyPrefs(); renderShell(); route(); }
-      } }), plain("More languages (বাংলা, 中文)", "আরও ভাষা (বাংলা, 中文)")) : null,
-    langs().length > 1 ? field(t("language"), sel(S.ui, langs(), v => setPref("ui", v))) : null,
-    field(t("theme"), theme),
-    field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
-    field(t("numbers"), sel(S.style, [["lakh", "৳1,00,000 (lakh)"], ["intl", "৳100,000"]], async v => {
-      S.style = v; try { await api("/api/settings", { method: "PATCH", body: { number_style: v } }); } catch { /* viewer */ } route();
-    })),
-  ];
-}
-
+// One Settings destination in both views; no long preferences form in a popover.
 function settingsMenu() {
-  const wrap = h("div", { class: "menu-wrap" });
-  const panel = h("div", { class: "menu hidden", role: "menu" });
-  const close = () => { panel.classList.add("hidden"); document.removeEventListener("click", outside); };
-  const outside = e => { if (!wrap.contains(e.target)) close(); };
-  const btn = h("button", { class: "btn sm", "aria-haspopup": "true", title: t("settings"), onclick: () => {
-    if (!panel.classList.contains("hidden")) return close();
-    panel.replaceChildren(
-      h("div", { class: "small muted" }, `${t("signed_in_as")} `, h("b", {}, S.user.full_name || S.user.username), ` · ${S.user.role}`),
-      h("div", { class: "grid", style: "gap:10px;margin:10px 0" }, prefControls()),
-      h("div", { class: "row" },
-        h("a", { class: "btn sm grow", href: "#settings", onclick: close }, t("all_settings")),
-        h("button", { class: "btn sm danger", onclick: () => { close(); logout(false); } }, "⎋ " + t("logout"))));
-    panel.classList.remove("hidden");
-    setTimeout(() => document.addEventListener("click", outside));
-  } }, "⚙ ", t("settings_btn"));
-  wrap.append(btn, panel);
-  return wrap;
+  return h("a", { class: "btn sm", href: "#settings", title: t("settings") }, "⚙ ", t("settings_btn"));
 }
 
 // Avatar button: who is signed in, a link to settings, and log out.
@@ -1729,71 +1695,24 @@ async function viewAudit(v) {
 
 // ------------------------------------------------------------------ settings / privacy
 async function viewSettings(v) {
-  const st = await api("/api/settings");
-  const thr = h("input", { type: "number", value: st.low_balance_threshold, style: "width:160px" });
-  const comp = await api("/api/compliance");
-  const pw = h("input", { type: "password", placeholder: "your password" });
-  const phrase = h("input", { type: "text", placeholder: "type: DELETE MY DATA" });
-  const isOwner = S.user.role === "owner";
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), businessCard(), homeLayoutCard(), await privacyCard(),
-    h("div", { class: "grid g-2e", style: "margin-top:16px" },
-      h("div", { class: "card" }, h("h2", {}, "Alerts"), h("label", { class: "field" }, "Low-balance safety level (৳)", thr,
-          h("span", { class: "hint" }, "We warn you when cash is expected to drop below this amount.")),
-        h("button", { class: "btn primary", style: "margin-top:8px", disabled: S.user.max_tier < 1, onclick: async () => { await api("/api/settings", { method: "PATCH", body: { low_balance_threshold: +thr.value } }); toast("Saved", "ok"); } }, "Save"),
-        h("h2", { style: "margin-top:16px" }, "Data protection"),
-        h("ul", { class: "small" },
-          h("li", {}, `PII masking before cloud models: ${S.models.mask_pii ? "ON" : "OFF"}`),
-          h("li", {}, `Local-only mode (no data leaves this machine): ${S.models.local_only_mode ? "ON" : "OFF"} - set LOCAL_ONLY_MODE=true`),
-          h("li", {}, "Account/wallet numbers, phones, TIN and trade licence are encrypted at rest (Fernet)."),
-          h("li", {}, "Every agent decision and action is in the hash-chained audit log."))),
-      h("div", { class: "card" }, h("h2", {}, "Your data"),
-        h("button", { class: "btn primary", disabled: !isOwner, onclick: () => download("/api/privacy/export", "my_business_data.json") }, "Export my data (JSON)"),
-        h("h3", {}, "Delete all business data"),
-        h("p", { class: "small muted" }, "Removes transactions, invoices, drafts, reports, chats and the interaction dataset lines for this business and deactivates its accounts. The masked audit log is kept to prove the deletion happened."),
-        h("div", { class: "row" }, pw, phrase, h("button", { class: "btn danger", disabled: !isOwner, onclick: async () => {
-          try { const r = await api("/api/privacy/delete", { body: { password: pw.value, confirm: phrase.value } }); toast("Deleted: " + JSON.stringify(r.rows_deleted)); logout(true); } catch (e) { toast(e.message, "bad"); }
-        } }, "Delete")), !isOwner ? h("div", { class: "small muted" }, "Owner only.") : null)),
-    h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, "Bangladesh compliance awareness"),
-      // The generic rules list is off unless illustrative guidance is allowed; then the API only names the guided task.
-      comp.rules ? h("p", { class: "small muted" }, comp.disclaimer)
-        : h("p", { class: "small" }, "Requirements depend on your exact business and area. ",
-            h("a", { href: comp.next_destination || "#chat?start=paperwork" }, "Prepare business paperwork"), " to check them with a verified source."),
-      (comp.rules || []).map(r => h("div", { class: "alert-item" }, h("div", { class: "row" }, h("b", { class: "grow" }, r.title), r.applies_to_you ? h("span", { class: "chip" }, "applies to you") : null, h("span", { class: "illus" }, r.verify_label)),
-        h("div", { class: "msg" }, r.summary), r.source_url ? h("div", { class: "small muted" }, "Check: " + r.source_url) : null))));
+  await renderSettings(v, { h, icon, api, S, setPref, moreLanguages, setMoreLanguages, langs,
+    businessCard, homeLayoutCard, modal,
+    reminderPanel: host => renderPilot(host, { ...guidedContext(), embedded: true }),
+    onLogout: () => logout(false), onDeleted: () => logout(false),
+    onExport: () => download("/api/privacy/export", "my_business_data.json"),
+    onTour: () => { location.hash = "#dashboard"; launchTour(); },
+  });
 }
 
-async function privacyCard() {
-  const recent = await api("/api/privacy/recent").catch(() => []);
-  const m = S.models || { profiles: [] };
-  const prof = m.profiles.find(p => p.name === S.profile) || {};
-  const local = m.local_only_mode || !prof.external;
-  return h("div", { class: "card privacy-card", style: "margin-top:16px" }, h("h2", {}, "What this app can see"),
-    h("ul", { class: "plain see-list" },
-      h("li", { class: "ok-li" }, "Only what you type or upload here: records, files and invoices."),
-      h("li", { class: "no-li" }, "No access to your contacts, email, SMS, camera, other files or other apps."),
-      h("li", { class: "ok-li" }, "Customer messages and payments remain drafts or sandbox actions. Owner SMS reminders require consent, phone verification and a configured provider. Delivery is tracked separately."),
-      h("li", { class: local ? "ok-li" : "warn-li" }, local
-        ? `AI model "${prof.label || S.profile}" runs on this computer, so your data stays here.`
-        : `AI model "${prof.label || S.profile}" is a cloud model: questions go to it with phone and account numbers masked.`)),
-    h("div", { class: "row small" }, h("span", { class: "chip " + (local ? "ok" : "warn") }, local ? "⌂ Local model" : "☁ Cloud model"),
-      m.local_only_mode ? h("span", { class: "chip ok" }, "Local-only mode ON") : null,
-      h("span", { class: "chip " + (m.mask_pii ? "ok" : "warn") }, m.mask_pii ? "PII masking ON" : "PII masking OFF")),
-    h("h3", {}, "Last 5 things that happened"),
-    recent.length ? h("ul", { class: "plain small" }, recent.map(e => h("li", {}, h("span", { class: "num muted" }, e.ts.replace("T", " ") + "  "),
-      `${e.actor} · ${e.action.replace(/_/g, " ")}`, e.confirmation !== "not_required" ? h("span", { class: "chip", style: "margin-left:6px" }, e.confirmation) : null)))
-      : h("p", { class: "muted small" }, "Nothing yet."));
-}
-
-// Business details a lender asks for (owner decision 2026-10-19). Loan readiness, the cash balance and the price
-// drawer's district use them; only the owner can change them.
+// Business information and opening money. Only the owner can change these records.
 function businessCard() {
-  const card = h("div", { class: "card", style: "margin-top:12px" }, h("h2", {}, plain("Business details", "ব্যবসার তথ্য")),
-    h("p", { class: "small muted" }, plain("Lenders ask for these. They also improve your loan readiness score and show prices for your district.",
-      "ঋণদাতারা এগুলো জানতে চায়।")));
+  const card = h("div", { class: "card", style: "margin-top:12px" }, h("h2", {}, plain("Business details", "ব্যবসার তথ্য", "商家资料")),
+    h("p", { class: "small muted" }, plain("Keep these details up to date so your records and local prices stay useful.",
+      "হিসাব ও এলাকার বাজারদর ঠিক রাখতে তথ্য হালনাগাদ রাখুন।", "及时更新资料，让记账和本地价格更实用。")));
   const status = h("p", { class: "small", role: "status" });
   api("/api/business").then(b => {
     const owner = S.user.role === "owner";
-    const input = (label, attrs) => h("label", { class: "field" }, label, h("input", { ...attrs, disabled: !owner }));
+    const input = (label, attrs) => h("label", { class: "field" }, label, h("input", { type: "text", ...attrs, disabled: !owner }));
     const tick = (label, key) => h("label", { class: "row small", style: "gap:8px" },
       h("input", { type: "checkbox", name: key, checked: !!b[key], disabled: !owner }), label);
     const form = h("form", { class: "grid prefs-grid", onsubmit: async e => {
@@ -1802,34 +1721,27 @@ function businessCard() {
       for (const k of ["district", "established_on", "opening_balance_date"]) if (fd.get(k)) body[k] = fd.get(k);
       if (fd.get("opening_cash_balance") !== "") body.opening_cash_balance = Number(fd.get("opening_cash_balance"));
       for (const k of ["has_trade_license", "has_tin", "has_bank_account", "vat_registered"]) body[k] = fd.get(k) === "on";
-      status.textContent = plain("Saving…", "সেভ হচ্ছে…");
-      try { await api("/api/business", { method: "PATCH", body }); status.textContent = plain("Saved.", "সেভ হয়েছে।"); closeMarketDrawer(); }
+      const submit = e.currentTarget.querySelector('[type="submit"]'); submit.disabled = true;
+      status.textContent = plain("Saving…", "সেভ হচ্ছে…", "正在保存…");
+      try { await api("/api/business", { method: "PATCH", body }); status.textContent = plain("Saved.", "সেভ হয়েছে।", "已保存。"); closeMarketDrawer(); }
       catch (err) { status.textContent = err.message; }
+      finally { submit.disabled = false; }
     } },
-      input(plain("District", "জেলা"), { name: "district", value: b.district || "", maxlength: 80, list: "bd-districts" }),
+      input(plain("District", "জেলা", "所在地区"), { name: "district", value: b.district || "", maxlength: 80, list: "bd-districts" }),
       h("datalist", { id: "bd-districts" }, ["Dhaka", "Chattogram", "Khulna", "Rajshahi", "Sylhet", "Barishal", "Rangpur", "Mymensingh",
         "Gazipur", "Narayanganj", "Cumilla", "Bogura", "Jashore", "Cox's Bazar"].map(d => h("option", { value: d }))),
-      input(plain("Business started on", "ব্যবসা শুরুর তারিখ"), { name: "established_on", type: "date", value: b.established_on || "" }),
-      input(plain("Cash you started with (৳)", "শুরুর নগদ (৳)"), { name: "opening_cash_balance", type: "number", min: 0, step: "1", value: b.opening_cash_balance || "" }),
-      input(plain("Starting cash counted on", "শুরুর নগদ গোনার তারিখ"), { name: "opening_balance_date", type: "date", value: b.opening_balance_date || "" }),
-      h("div", { class: "grid", style: "gap:6px" }, tick(plain("Trade licence", "ট্রেড লাইসেন্স"), "has_trade_license"), tick(plain("TIN", "টিআইএন"), "has_tin"),
-        tick(plain("Business bank account", "ব্যবসার ব্যাংক হিসাব"), "has_bank_account"), tick(plain("VAT registered", "ভ্যাট নিবন্ধিত"), "vat_registered")),
-      owner ? h("button", { class: "btn primary", type: "submit" }, plain("Save business details", "ব্যবসার তথ্য সেভ করুন"))
-        : h("p", { class: "small muted" }, plain("Only the owner can change these.", "শুধু মালিক এগুলো বদলাতে পারেন।")), status);
+      input(plain("Business started on", "ব্যবসা শুরুর তারিখ", "开业日期"), { name: "established_on", type: "date", value: b.established_on || "" }),
+      h("details", { class: "settings-disclosure" }, h("summary", {}, plain("Starting money", "শুরুর টাকা", "期初资金")), h("div", { class: "settings-disclosure-body grid" },
+        input(plain("Cash you started with (৳)", "শুরুর নগদ (৳)", "期初金额（৳）"), { name: "opening_cash_balance", type: "number", min: 0, step: "1", value: b.opening_cash_balance ?? "" }),
+        input(plain("Starting cash counted on", "শুরুর নগদ গোনার তারিখ", "期初金额统计日期"), { name: "opening_balance_date", type: "date", value: b.opening_balance_date || "" }))),
+      h("details", { class: "settings-disclosure" }, h("summary", {}, plain("Documents & accounts", "কাগজপত্র ও ব্যাংক হিসাব", "证件与账户")),
+        h("div", { class: "business-flags settings-disclosure-body" }, tick(plain("Trade licence", "ট্রেড লাইসেন্স", "营业执照"), "has_trade_license"), tick(plain("TIN", "টিআইএন", "税号"), "has_tin"),
+          tick(plain("Business bank account", "ব্যবসার ব্যাংক হিসাব", "商用银行账户"), "has_bank_account"), tick(plain("VAT registered", "ভ্যাট নিবন্ধিত", "已登记增值税"), "vat_registered"))),
+      owner ? h("button", { class: "btn primary", type: "submit" }, plain("Save business details", "ব্যবসার তথ্য সেভ করুন", "保存商家资料"))
+        : h("p", { class: "small muted" }, plain("Only the owner can change these.", "শুধু মালিক এগুলো বদলাতে পারেন।", "只有店主可以修改这些资料。")), status);
     card.appendChild(form);
   }).catch(() => card.appendChild(h("p", { class: "small muted" }, plain("Business details could not load.", "ব্যবসার তথ্য আনা যায়নি।"))));
   return card;
-}
-
-function prefsCard() {
-  return h("div", { class: "card", style: "margin-top:12px" },
-    h("div", { class: "row" }, h("h2", { class: "grow" }, t("prefs")),
-      h("span", { class: "small muted" }, `${t("signed_in_as")} ${S.user.full_name || S.user.username} · ${S.user.role}`),
-      h("button", { class: "btn danger", onclick: () => logout(false) }, "⎋ " + t("logout"))),
-    h("div", { class: "grid prefs-grid" }, prefControls()),
-    h("p", { class: "small muted", style: "margin:10px 0 0" }, t("mode_hint")),
-    h("button", { class: "btn", type: "button", style: "margin-top:12px", onclick: () => { location.hash = "#dashboard"; launchTour(); } },
-      plain("Take the app tour again", "অ্যাপ ট্যুরটি আবার দেখুন")));
 }
 
 // ------------------------------------------------------------------ simple mode
@@ -2023,9 +1935,7 @@ async function viewSimpleFinancing(v) {
   find();
 }
 
-async function viewSimpleSettings(v) {
-  v.replaceChildren(h("h1", {}, t("settings")), prefsCard(), businessCard(), homeLayoutCard(), await privacyCard());
-}
+async function viewSimpleSettings(v) { return viewSettings(v); }
 
 // ------------------------------------------------------------------ onboarding wizard + home layout settings
 function homeLayoutCard() {
