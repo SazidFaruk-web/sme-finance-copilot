@@ -27,9 +27,10 @@ def _as_of(arg: str | None) -> date:
     return date.fromisoformat(arg) if arg else as_of_today()
 
 
-def cmd_seed(reset: bool, as_of: str | None) -> dict:
+def cmd_seed(reset: bool, as_of: str | None, story: bool = False) -> dict:
     from sme_copilot.config import get_settings
     from sme_copilot.db import SessionLocal, init_db, reset_engine
+    from sme_copilot.demo.personas import load_personas
     from sme_copilot.demo.seed import load
 
     s = get_settings()
@@ -48,10 +49,12 @@ def cmd_seed(reset: bool, as_of: str | None) -> dict:
         if db.query(Business).count() and not reset:
             print("Database already has data; use --reset to recreate the demo.")
             return {}
-        res = load(db, _as_of(as_of))
+        # Default: the four test owners shown on the login screen. --story: the scripted Nusrat business used by
+        # the demo video, the evidence run and the benchmarks (its logins are not listed on the login screen).
+        res = load(db, _as_of(as_of)) if story else load_personas(db, _as_of(as_of))
     print(json.dumps(res, indent=1, default=str))
-    print("\nDemo logins: nusrat (owner), rafiq (accountant), mitu (viewer). Passwords: see .env.example "
-          "(DEMO_*_PASSWORD).")
+    print("\nDemo logins: " + ("nusrat (owner), rafiq (accountant), mitu (viewer)" if story else "tanvir, shirin, rokeya, rafi")
+          + ". Passwords: see .env.example (DEMO_*_PASSWORD).")
     return res
 
 
@@ -117,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     sd = sub.add_parser("seed", help="load demo data")
     sd.add_argument("--reset", action="store_true", help="delete the local SQLite DB first")
     sd.add_argument("--as-of", default=None, help="pretend today is YYYY-MM-DD")
+    sd.add_argument("--story", action="store_true", help="load the scripted Nusrat demo business instead of the four test owners")
     dm = sub.add_parser("demo", help="reset + seed + serve")
     dm.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
     dm.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
@@ -153,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
             flag = "OK " if p.available else "-- "
             print(f"  {flag}{p.name:22} {p.adapter:18} {p.model:32} {'external' if p.external else 'local'}  {p.reason}")
     elif args.cmd == "seed":
-        cmd_seed(args.reset, args.as_of)
+        cmd_seed(args.reset, args.as_of, args.story)
     elif args.cmd == "demo":
         cmd_seed(True, None)
         import uvicorn

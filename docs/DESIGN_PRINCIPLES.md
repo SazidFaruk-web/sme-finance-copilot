@@ -4,7 +4,7 @@ This is the product design contract for contributors and agents. Read it before 
 
 ## Who we are designing for
 
-Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. The app speaks plain English (owner decision 2026-10-19: Bangla and Chinese are switched off in the interface and in AI replies). The app must remain useful without an available language model.
+Our primary user runs a small business in Bangladesh and has little or no financial knowledge. They want to keep their business going, know what to do next, and get help doing it. Do not assume they understand accounting, financial ratios, loan terminology, charts, or software settings. The app starts in plain English (owner decision 2026-10-19); a **More languages** option on the login screen and in Settings shows বাংলা and 中文, and turning it off returns to English. The app must remain useful without an available language model.
 
 Success means the owner can answer, without interpretation:
 
@@ -55,7 +55,7 @@ Use “money in,” “money out,” “customers owe you,” “bills to pay,�
 
 Write new guidance and navigation in plain English. Preserve names and original record descriptions. Format taka, dates, and periods clearly. Do not use emoji as the sole action label or money color as the sole meaning.
 
-Authentication is in English, with no language picker. Never clear a form on a redraw, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
+Authentication is in English; the language buttons appear only after **More languages** is chosen. Never clear a form on a redraw, and never persist passwords to retain a draft. Keep demo credentials collapsed and omit them outside demo deployments.
 
 ## Visual system
 

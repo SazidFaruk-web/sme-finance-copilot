@@ -5,11 +5,11 @@
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
-import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=16";
-import { renderAuth } from "./auth.js?v=17";
-import { renderPilot } from "./pilot.js?v=19";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=18";
+import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=19";
+import { renderPilot } from "./pilot.js?v=21";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
-import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=4";
+import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
 import { createMarketDrawer } from "./market.js?v=5";
 import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=1";
@@ -76,7 +76,7 @@ T.zh = zhCopy(T.en);  // Chinese comes from the shared dictionary keyed by the E
 // Languages the server switches on (APP_LANGUAGES; English only by owner decision 2026-10-19). With one language
 // the pickers are hidden and everything is English.
 const ALL_LANGS = [["en", "English"], ["bn", "বাংলা"], ["zh", "中文"]];
-const LANGS_ON = () => S.health.languages || ["en"];
+const LANGS_ON = () => moreLanguages() ? (S.health.languages || ["en"]) : ["en"];  // English unless "More languages" is on
 const langs = () => ALL_LANGS.filter(([code]) => LANGS_ON().includes(code));
 const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
@@ -436,6 +436,11 @@ function prefControls() {
   if (S.look === "classic") { theme.disabled = true; theme.title = t("theme_note"); }
   return [
     field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
+    (S.health.languages || ["en"]).length > 1 ? h("label", { class: "row small", style: "gap:8px" },
+      h("input", { type: "checkbox", checked: moreLanguages(), onchange: e => {
+        setMoreLanguages(e.target.checked);
+        if (!e.target.checked) setPref("ui", "en"); else { applyPrefs(); renderShell(); route(); }
+      } }), plain("More languages (বাংলা, 中文)", "আরও ভাষা (বাংলা, 中文)")) : null,
     langs().length > 1 ? field(t("language"), sel(S.ui, langs(), v => setPref("ui", v))) : null,
     field(t("theme"), theme),
     field(t("mode"), sel(S.mode, [["simple", t("mode_simple")], ["advanced", t("mode_advanced")]], v => setPref("mode", v))),
@@ -1166,7 +1171,7 @@ function voiceButton(input, send) {
 
 async function streamChat(text, bot, log) {
   const r = await fetch("/api/chat/stream", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf() },
-    body: JSON.stringify({ message: text, conversation_id: S.conv, profile: S.profile || null, language: S.ui === "zh" ? "zh" : null }) });
+    body: JSON.stringify({ message: text, conversation_id: S.conv, profile: S.profile || null, language: S.ui === "bn" ? null : S.ui }) });  // English UI: English replies; Bangla UI: Bangla or Banglish as typed
   if (r.status === 401) { logout(true); return; }
   if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
   const reader = r.body.getReader(); const dec = new TextDecoder();

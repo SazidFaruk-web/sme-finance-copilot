@@ -82,13 +82,8 @@ def create_app() -> FastAPI:
                "allow_signup": st.allow_signup, "market_prices": st.market_prices_enabled,
                "languages": st.languages}
         if st.app_env == "demo":  # demo deployments only: show the seeded demo logins on the login screen
-            import os
-            out["demo_users"] = [
-                {"username": "nusrat", "role": "owner", "password": os.environ.get("DEMO_OWNER_PASSWORD", "owner-demo-2026")},
-                {"username": "rafiq", "role": "accountant",
-                 "password": os.environ.get("DEMO_ACCOUNTANT_PASSWORD", "accountant-demo-2026")},
-                {"username": "mitu", "role": "viewer", "password": os.environ.get("DEMO_VIEWER_PASSWORD", "viewer-demo-2026")},
-            ]
+            from sme_copilot.demo.personas import demo_logins
+            out["demo_users"] = demo_logins()
         return out
 
     if FRONTEND_DIR.exists():

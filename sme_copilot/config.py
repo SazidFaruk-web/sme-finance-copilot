@@ -72,9 +72,9 @@ class Settings(BaseSettings):
 
     # --- Market prices (Home price drawer) ----------------------------------------------
     market_prices_enabled: bool = True
-    # Interface and reply languages, comma separated (en, bn, zh). Owner decision 2026-10-19: English only;
-    # APP_LANGUAGES=en,bn,zh turns Bangla and Chinese back on (screens, AI replies and the language pickers).
-    app_languages: str = "en"
+    # Languages an owner can switch on with "More languages" (en, bn, zh). The app always starts in English
+    # (owner decision 2026-10-19); APP_LANGUAGES=en removes the option entirely.
+    app_languages: str = "en,bn,zh"
     market_refresh: bool = True  # weekly download of the public WFP/HDX file; never in local_only_mode
     market_refresh_days: int = 7
     market_data_url: str = ""  # override the HDX CSV location (operator setting)

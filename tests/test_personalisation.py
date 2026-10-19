@@ -180,3 +180,37 @@ def test_shops_without_public_prices_get_running_costs_and_a_note():
     assert catalog.goods_without_prices("Tanvir Mobile Corner", "covers and chargers")
     assert not catalog.goods_without_prices("Ruhama Cake", "cakes")
     assert watch.rule_pick("Boighor Book Corner", "retail", "textbooks")[:3] == ["Fuel (petrol)", "Fuel (diesel)", "Fuel (gas)"]
+
+
+def test_english_interface_gets_english_replies_while_more_languages_stay_available(client):
+    assert client.get("/api/health").json()["languages"] == ["en", "bn", "zh"]  # offered behind "More languages"
+    h = _login(client)
+    r = client.post("/api/chat", json={"message": "এই মাসে আমার বিক্রি কত?", "language": "en"}, headers=h)
+    assert r.status_code == 200 and r.json()["language"] == "en"
+    r = client.post("/api/chat", json={"message": "এই মাসে আমার বিক্রি কত?", "language": "bn"}, headers=h)
+    assert r.json()["language"] == "bn"
+
+
+def test_demo_logins_are_the_four_test_owners(monkeypatch, tmp_path):
+    from sme_copilot.demo.personas import PERSONAS, demo_logins
+
+    assert [d["username"] for d in demo_logins()] == ["tanvir", "shirin", "rokeya", "rafi"]
+    assert all(d["role"] == "owner" and d["name"] and d["password"] for d in demo_logins())
+    assert PERSONAS["rafi"]["days"] == 0  # the new seller starts with no history
+
+
+def test_personas_seed_their_own_businesses(db):
+    from datetime import date as _date
+
+    from sme_copilot.demo.personas import load_personas
+    from sme_copilot.models import Business, MarketWatch, Transaction, User
+
+    out = load_personas(db, _date(2026, 10, 19))
+    assert set(out) == {"tanvir", "shirin", "rokeya", "rafi"}
+    assert db.query(User).count() == 4 and db.query(Business).count() == 4
+    tanvir = db.query(Business).filter_by(name="Tanvir Mobile Corner").one()
+    assert tanvir.district == "Chattogram" and tanvir.has_trade_license
+    assert db.query(Transaction).filter_by(business_id=tanvir.id).count() > 200
+    rafi = db.query(Business).filter_by(name="Rafi Fashion").one()
+    assert db.query(Transaction).filter_by(business_id=rafi.id).count() == 0
+    assert db.query(MarketWatch).filter_by(business_id=rafi.id).count() == 0  # he picks during setup

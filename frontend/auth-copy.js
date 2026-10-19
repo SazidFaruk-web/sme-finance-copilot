@@ -1,9 +1,9 @@
 // Authentication has one active interface language. Credentials and business names are user data.
-import { zhCopy } from "./i18n-zh.js?v=4";
+import { zhCopy } from "./i18n-zh.js?v=6";
 
 export const AUTH_COPY = {
   en: {
-    brand: "SME Copilot", language: "Language", loginTitle: "Welcome back.", loginIntro: "A little clarity for your business starts here.",
+    brand: "SME Copilot", language: "Language", moreLanguages: "More languages", fewerLanguages: "English only", loginTitle: "Welcome back.", loginIntro: "A little clarity for your business starts here.",
     signupTitle: "Start with the essentials.", signupIntro: "Create an account for your business. We’ll help you take the next step.",
     username: "Username", usernamePlaceholder: "Enter your username", password: "Password", passwordPlaceholder: "Enter your password",
     business: "Business name", businessPlaceholder: "e.g. Rina’s shop", name: "Your name", namePlaceholder: "Enter your full name",
@@ -24,7 +24,7 @@ export const AUTH_COPY = {
     invalidDetails: "Some details couldn’t be accepted. Please check the form and try again.", generic: "We couldn’t continue. Please try again.",
   },
   bn: {
-    brand: "এসএমই কোপাইলট", language: "ভাষা", loginTitle: "আবারও স্বাগতম।", loginIntro: "আপনার ব্যবসার সহজ হিসাব শুরু হোক এখানেই।",
+    brand: "এসএমই কোপাইলট", language: "ভাষা", moreLanguages: "আরও ভাষা", fewerLanguages: "শুধু ইংরেজি", loginTitle: "আবারও স্বাগতম।", loginIntro: "আপনার ব্যবসার সহজ হিসাব শুরু হোক এখানেই।",
     signupTitle: "সহজভাবে শুরু করুন।", signupIntro: "আপনার ব্যবসার জন্য একটি অ্যাকাউন্ট খুলুন। পরের কাজে আমরা সাহায্য করব।",
     username: "ব্যবহারকারী নাম", usernamePlaceholder: "ব্যবহারকারী নাম লিখুন", password: "পাসওয়ার্ড", passwordPlaceholder: "পাসওয়ার্ড লিখুন",
     business: "ব্যবসার নাম", businessPlaceholder: "যেমন: রিনার দোকান", name: "আপনার নাম", namePlaceholder: "আপনার পুরো নাম লিখুন",
