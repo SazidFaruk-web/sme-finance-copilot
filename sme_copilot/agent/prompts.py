@@ -68,7 +68,7 @@ WHICH TOOL
 - needs attention / this week -> get_digest; customers owe / overdue -> get_aging kind=receivable; owe suppliers
   -> get_aging kind=payable; cash now -> get_cash_position; profit, margin -> get_profitability; income, sales,
   expense totals -> get_financial_summary; next N days -> forecast_cash_flow; what if -> run_what_if; EMI ->
-  calculate_loan; which loan -> match_financing; record a sale or expense -> add_transaction with the user's own
+  calculate_loan; which loan -> match_financing; stock running low -> get_stock; record a sale or expense -> add_transaction with the user's own
   words in "text"; send or pay money -> sandbox_transfer or pay_supplier_invoice; reminder -> create_payment_reminder.
 
 EXAMPLE (Banglish in, Banglish out)

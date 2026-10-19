@@ -1,6 +1,7 @@
 """Rule-based transaction categorisation (multilingual keywords; LLM is an optional fallback)."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -16,6 +17,16 @@ class CategoryMatch:
     confidence: float
     keyword: str = ""
     direction: str | None = None
+
+
+# "bought 200 switch board from bright light 17000": a buying verb plus a quantity and a separate amount is stock bought
+# for resale, even when the item is not a keyword (the owner's own catalogue is not known here).
+_BUY_VERB = re.compile(r"(?<![a-z])(bought|purchased|kinlam|kinechi|kinsi|kinlm)(?![a-z])|কিনলাম|কিনেছি")
+_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _looks_like_stock_purchase(norm: str) -> bool:
+    return bool(_BUY_VERB.search(norm)) and len(_NUMBER.findall(norm)) >= 2
 
 
 @lru_cache
@@ -66,6 +77,8 @@ def _categorize(text: str, direction: str | None) -> tuple[str, float, str, str 
             # Longer keyword = more specific = more confident.
             conf = min(0.95, 0.6 + 0.05 * len(normalize(kw).split()) + 0.01 * len(normalize(kw)))
             return cat, round(conf, 2), kw, cat_dir
+    if direction in (None, "out") and _looks_like_stock_purchase(norm):
+        return "inventory", 0.6, "", "out"
     if direction == "in":
         return "sales", 0.4, "", "in"  # most unlabelled SME inflows are sales
     return "uncategorized", 0.0, "", direction

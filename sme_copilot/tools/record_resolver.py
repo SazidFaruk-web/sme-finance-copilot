@@ -116,6 +116,8 @@ _N = r"(\d+(?:\.\d+)?)"
 _RETURN_WORDS = re.compile(r"ferot|ferat|return|refund|ফেরত")
 _EACH = re.compile(r"\b(protitar|protita|prottek\w*|protek\w*|per piece|each|dor|kore)\b")
 _SOLD_FOR = re.compile(rf"^sold {_N} (?P<item>[a-z][a-z ]*?) for {_N} ?(?:taka|tk)\b")
+_SOLD_QTY_TOTAL = re.compile(rf"^(?:sold|sale) {_N} (?P<item>[a-z][a-z .-]*?) {_N} ?(?:taka|tk)?"
+                             rf"(?: (?P<pm>cash|bkash|bank))?$")
 _BIKRI = re.compile(rf"^{_N} ?(?:ta|ti|pcs|pc|piece|pieces)? ?(?P<item>[a-z][a-z ]*?) (?:bikri|becha|bechlam)\b.*?{_N} ?(?:taka|tk)\b")
 _EXPENSE_WORD = re.compile(r"\b(dilam|diyechi|paid|vara|bhara|rent|bill|beton|salary|khoroch)\b")
 _AMOUNT_ONLY = re.compile(rf"{_N} ?(?:taka|tk)\b")
@@ -133,6 +135,10 @@ def fast_path(text: str) -> dict | None:
     if m:
         return {**base, "type": "sale", "quantity": float(m.group(1)), "item": m.group("item").strip(),
                 "total_stated": float(m.group(3))}
+    m = _SOLD_QTY_TOTAL.match(t)
+    if m and not _EACH.search(t):  # one amount after the item, no "each": it is the total
+        return {**base, "type": "sale", "quantity": float(m.group(1)), "item": m.group("item").strip(),
+                "total_stated": float(m.group(3)), "payment_method": m.group("pm") or "unknown"}
     m = _BIKRI.match(t)
     if m:
         key = "unit_price" if _EACH.search(t) else "total_stated"

@@ -435,7 +435,7 @@ class ImportReport:
 def _existing_keys(session: Session, business_id: int) -> list[TxnKey]:
     rows = session.execute(select(
         Transaction.id, Transaction.txn_date, Transaction.amount, Transaction.direction, Transaction.description,
-        Transaction.reference, Transaction.counterparty, Transaction.category,
+        Transaction.reference, Transaction.counterparty, Transaction.category, Transaction.source,
     ).where(Transaction.business_id == business_id, Transaction.is_duplicate.is_(False))).all()
     return [TxnKey(*r) for r in rows]
 
@@ -475,8 +475,8 @@ def import_file(session: Session, business_id: int, content: bytes, filename: st
 def store_transactions(session: Session, business_id: int, rows: list[NormalizedTxn], *, source: str,
                        batch: ImportBatch | None = None) -> ImportReport:
     existing = _existing_keys(session, business_id)
-    keys = [TxnKey(None, r.txn_date, r.amount, r.direction, r.description, r.reference, r.counterparty, r.category)
-            for r in rows]
+    keys = [TxnKey(None, r.txn_date, r.amount, r.direction, r.description, r.reference, r.counterparty, r.category,
+                   source) for r in rows]
     dups = find_duplicates(keys, existing)
     objs: list[Transaction] = []
     for r in rows:

@@ -99,3 +99,13 @@ export function upcomingItems({ scheduled = [], reminders = [], asOf, limit = 4 
   const personal = reminders.filter(a => a.due_date >= asOf).map(a => ({ date: a.due_date, title: a.title, note: a.message, kind: "reminder", id: a.id }));
   return [...personal, ...events].sort((a, b) => a.date.localeCompare(b.date) || Number(b.kind === "reminder") - Number(a.kind === "reminder")).slice(0, limit);
 }
+
+// Name for the greeting: "Md. Rana Hossain" -> "Rana". Honorific prefixes are skipped so Home never says "Hello, Md..".
+const NAME_PREFIXES = new Set(["md", "mohammad", "mohammed", "muhammad", "mohd", "mst", "mosammat", "mrs", "mr", "ms",
+  "dr", "engr", "haji", "alhaj", "sheikh", "sk", "মোঃ", "মো", "মোহাম্মদ", "মুহাম্মদ", "মোছাঃ", "মোসাম্মৎ", "ডাঃ", "হাজী"]);
+export function greetingName(user = {}) {
+  const words = String(user.full_name || "").trim().split(/\s+/).filter(Boolean);
+  const isPrefix = w => NAME_PREFIXES.has(w.toLowerCase().replace(/[.:ঃ]+$/u, ""));
+  const name = words.find(w => !isPrefix(w)) || "";
+  return name.replace(/[.,]+$/, "") || String(user.username || "");
+}

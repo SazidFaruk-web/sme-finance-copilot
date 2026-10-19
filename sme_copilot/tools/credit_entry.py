@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sme_copilot.models import Invoice, InvoicePayment, Transaction
+from sme_copilot.tools.money import format_bdt
 from sme_copilot.tools.textnorm import bn_to_ascii_digits
 from sme_copilot.tools.nl_entry import money_amount
 
@@ -80,6 +81,18 @@ def customer_payment(session: Session, business_id: int, text: str) -> tuple[str
     if amount > sum(_owed(i) for i in invs) + 0.005:  # more than they owe: not (only) a bill payment
         return None
     return name, amount, invs
+
+
+def payment_preview(name: str, amount: float, invs: list[Invoice], style: str = "lakh") -> tuple[dict[str, Any], str]:
+    """(info, preview text) for a customer payment that settles their open bills, oldest first."""
+    owed = round(sum(_owed(i) for i in invs), 2)
+    info = {"kind": "payment", "customer": name, "amount": amount, "owed_before": owed,
+            "bills": [i.invoice_no for i in invs]}
+    first = invs[0].invoice_no
+    which = f"bill {first}" if len(invs) == 1 else f"their open bills, oldest first ({first} first)"
+    m = lambda v: format_bdt(v, style=style)  # noqa: E731
+    return info, (f"Payment from {name}: {m(amount)}. Link it to {which}? They owed {m(owed)}; "
+                  f"{m(max(0.0, owed - amount))} will still be due. Save?")
 
 
 def record_credit_sale(session: Session, business_id: int, customer: str, amount: float, today: date, note: str) -> Invoice:

@@ -15,6 +15,7 @@ from sme_copilot.tools.ingestion import store_parsed_entry
 from sme_copilot.tools.nl_entry import ParsedEntry, parse_entry
 from sme_copilot.tools.record_resolver import read_record, resolve_record
 from sme_copilot.tools.stock import link_transaction
+from sme_copilot.tools.stock import short_for_sale as stock_short
 from sme_copilot.tools.textnorm import normalize
 from sme_copilot.tools.trace import Trace, fmt
 
@@ -53,12 +54,66 @@ def get_break_even(ctx: ToolContext, a: BreakEvenArgs):
 class AgingArgs(BaseModel):
     kind: Literal["receivable", "payable"] = Field("receivable", description="receivable = customers owe you; "
                                                    "payable = you owe suppliers")
+    counterparty: str = Field("", max_length=120, description="Optional: only this customer/supplier (name or the "
+                                                              "user's words naming them)")
+
+
+def _counterparty_names(invoices, words: str) -> list[str]:
+    """Invoice counterparties named in ``words``: the full name, or its first word (4+ letters) as a whole word."""
+    low = normalize(words)
+    if not low or invoices.empty:
+        return []
+    found = []
+    for name in sorted({str(n) for n in invoices["counterparty"].dropna()}):
+        n = normalize(name)
+        first = n.split()[0] if n else ""
+        if n and (n in low or (len(first) >= 4 and re.search(r"(?<![a-z0-9])" + re.escape(first) + r"(?![a-z0-9])", low))):
+            found.append(name)
+    return found
 
 
 @tool("get_aging", "Receivables or payables aging buckets (not due, 1-30, 31-60, 61-90, 90+ days), overdue "
-      "totals by customer/supplier, and DSO.", AgingArgs, 0, result_model=A.AgingResult)
+      "totals by customer/supplier, and DSO. Pass counterparty to ask about one customer or supplier.",
+      AgingArgs, 0, result_model=A.AgingResult)
 def get_aging(ctx: ToolContext, a: AgingArgs):
-    return A.aging(ctx.invoices(), ctx.as_of, a.kind, ctx.txns())
+    inv = ctx.invoices()
+    names = _counterparty_names(inv[inv["kind"] == a.kind] if not inv.empty else inv, a.counterparty)
+    if names:
+        r = A.aging(inv[inv["counterparty"].isin(names)], ctx.as_of, a.kind, ctx.txns())
+        r.counterparty_filter = ", ".join(names)
+        return r
+    return A.aging(inv, ctx.as_of, a.kind, ctx.txns())
+
+
+class StockArgs(BaseModel):
+    only_low: bool = Field(True, description="true = only items that are low or out of stock")
+
+
+class StockResult(BaseModel):
+    as_of: date
+    items: list[dict]
+    low_count: int
+    out_count: int
+    item_count: int
+    restock_cost: float
+    trace: Trace
+
+
+@tool("get_stock", "Stock on hand per item: quantity, units sold in the last 30 days, days left, reorder level "
+      "and status (ok / low / out), plus the cost to restock low items.", StockArgs, 0, result_model=StockResult)
+def get_stock(ctx: ToolContext, a: StockArgs):
+    from sme_copilot.tools import stock as S
+    rows = S.stock_rows(ctx.session, ctx.business.id, ctx.as_of)
+    short = sorted((r for r in rows if r["status"] in ("low", "out")),
+                   key=lambda r: (r["status"] != "out", r["days_left"] if r["days_left"] is not None else 1e9))
+    cost = S.restock_cost(rows)
+    t = Trace(formula="qty = opening qty + stock movements; days left = qty / (units sold in 30 days / 30); "
+                      "low = qty <= reorder level or under 7 days left", period=f"as of {ctx.as_of.isoformat()}")
+    t.step("Items tracked", len(rows))
+    t.step("Low or out of stock", len(short))
+    t.step("Cost to restock low items (to 2x reorder level)", cost)
+    return StockResult(as_of=ctx.as_of, items=short if a.only_low else rows, low_count=sum(r["status"] == "low" for r in rows),
+                       out_count=sum(r["status"] == "out" for r in rows), item_count=len(rows), restock_cost=cost, trace=t)
 
 
 @tool("get_cost_drivers", "Top expense categories with share of total and change vs the previous period.",
@@ -252,13 +307,13 @@ def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResu
                             manual_form=True, reason="Enter the payment or credit-sale amount separately; more than one amount was found.")
     if pay:
         name, amount, invs = pay
-        owed = sum(float(i.amount) - float(i.amount_paid or 0) for i in invs)
-        info = {"kind": "payment", "customer": name, "amount": amount, "owed_before": round(owed, 2),
-                "bills": [i.invoice_no for i in invs]}
+        info, preview = ce.payment_preview(name, amount, invs, ctx.style)
+        owed = info["owed_before"]
         if not a.confirmed:
-            return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, credit=info,
-                                preview=f"Payment from {name}: {money(amount)}. It settles their open bills "
-                                        f"(they owed {money(owed)}). Save?", reason="customer payment")
+            entry = {**e.to_dict(), "amount": amount, "direction": "in", "category": "sales", "counterparty": name,
+                     "missing": []}
+            return AddTxnResult(recorded=False, transaction_id=None, entry=entry, needs_confirm=True, credit=info,
+                                preview=preview, reason="customer payment")
         t, applied = ce.apply_payment(ctx.session, ctx.business.id, invs, amount, date.fromisoformat(e.txn_date), e.channel, ctx.user.username)
         ctx.session.commit()
         return AddTxnResult(recorded=True, transaction_id=t.id, entry={**e.to_dict(), "amount": amount, "direction": "in",
@@ -306,6 +361,13 @@ def add_transaction(ctx: ToolContext, a: AddTxnArgs):
                 return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), manual_form=True,
                                     reason=r["reason"], preview="Could not read this, please use the form")
             link = (r["type"], r["item"], r["quantity"])
+            short = stock_short(ctx.session, ctx.business.id, r["item"], r["quantity"]) if r["type"] == "sale" else None
+            if short and not a.confirmed:
+                return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True,
+                                    stock={"short": short}, reason="not enough stock",
+                                    preview=f"Your records show {short['on_hand']:g} {short['unit']} of {short['item']} "
+                                            f"in stock, but this sale is for {short['qty']:g}. Save the sale anyway? "
+                                            f"If you bought more, record that purchase too.")
             e.amount, e.direction, e.category = r["amount"], r["direction"], r["category"]
             e.quantity, e.item = r["quantity"], r["item"] or e.item
             e.counterparty = r["counterparty"] or e.counterparty

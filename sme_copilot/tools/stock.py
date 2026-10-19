@@ -46,6 +46,25 @@ def match_item(session: Session, business_id: int, name: str | None) -> Item | N
     return ranked[0][1]
 
 
+def on_hand(session: Session, item: Item) -> float:
+    moved = session.scalar(select(func.coalesce(func.sum(StockMovement.qty_change), 0.0))
+                           .where(StockMovement.item_id == item.id)) or 0.0
+    return round(float(item.opening_qty or 0) + float(moved), 3)
+
+
+def short_for_sale(session: Session, business_id: int, item_name: str | None, qty: float | None) -> dict[str, Any] | None:
+    """{item, unit, on_hand, qty} when a sale of ``qty`` is more than the records show in stock, else None."""
+    if not qty or qty <= 0:
+        return None
+    it = match_item(session, business_id, item_name)
+    if it is None:
+        return None
+    have = on_hand(session, it)
+    if qty <= have + 1e-9:
+        return None
+    return {"item": it.name, "unit": it.unit, "on_hand": have, "qty": qty}
+
+
 def add_movement(session: Session, item: Item, qty_change: float, reason: str, transaction_id: int | None = None):
     m = StockMovement(item_id=item.id, qty_change=float(qty_change), reason=reason, transaction_id=transaction_id)
     session.add(m)

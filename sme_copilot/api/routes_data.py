@@ -17,7 +17,7 @@ from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
 from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.ingestion import DOC_TYPES, import_file, refresh_anomalies, text_to_bytes
-from sme_copilot.tools import khata_photo, stock
+from sme_copilot.tools import credit_entry, khata_photo, stock
 from sme_copilot.tools.nl_entry import parse_entry
 from sme_copilot.tools.record_resolver import fast_path, resolve_record
 
@@ -102,8 +102,18 @@ async def khata_read(files: list[UploadFile] = File(...), profile: str = Form(""
 
 
 @router.post("/entry/preview")
-def entry_preview(body: EntryIn, user: User = Depends(current_user)) -> dict[str, Any]:
+def entry_preview(body: EntryIn, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
     out = parse_entry(body.text, as_of_today()).to_dict()
+    try:
+        pay = credit_entry.customer_payment(db, user.business_id, body.text)
+    except ValueError:  # more than one possible amount: the save step asks for it
+        pay = None
+    if pay:
+        name, amount, invs = pay
+        info, preview = credit_entry.payment_preview(name, amount, invs)
+        out.update(amount=amount, direction="in", category="sales", counterparty=name, credit=info,
+                   needs_confirm=True, preview=preview, missing=[])
+        return out
     ex = fast_path(body.text)  # no LLM call while typing
     if ex:
         r = resolve_record(ex)
