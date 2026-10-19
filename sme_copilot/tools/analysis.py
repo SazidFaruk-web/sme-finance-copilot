@@ -323,6 +323,7 @@ class AgingResult(BaseModel):
     by_counterparty: list[dict[str, Any]]
     items: list[AgingItem]
     dso_days: float | None = None
+    counterparty_filter: str = ""  # set when the question was about one customer/supplier
     trace: Trace
 
 

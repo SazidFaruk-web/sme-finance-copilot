@@ -1,5 +1,5 @@
 import { icon } from "./icons.js?v=13";
-import { buildGuidance, upcomingItems } from "./guidance.js?v=18";
+import { buildGuidance, greetingName, upcomingItems } from "./guidance.js?v=19";
 import { zh, zhCopy } from "./i18n-zh.js?v=6";
 
 const COPY = {
@@ -71,7 +71,7 @@ export async function renderGuidedHome(v, ctx) {
   const { h, api, S } = ctx;
   const d = await api("/api/dashboard");
   const { c, g, action, taskBody, balance } = guideUI(ctx, d);
-  const first = (S.user.full_name || S.user.username).split(" ")[0];
+  const first = greetingName(S.user);
   const task = g.primary;
   // Strict Home budget: one balance, one recommendation, one primary action. No feed previews.
   v.replaceChildren(h("div", { class: "guided-home" },

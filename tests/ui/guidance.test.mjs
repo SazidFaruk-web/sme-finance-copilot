@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGuidance, upcomingItems } from '../../frontend/guidance.js';
+import { buildGuidance, greetingName, upcomingItems } from '../../frontend/guidance.js';
 
 const base = { asOf: '2026-10-17', recordCount: 20, canWrite: true };
 
@@ -74,4 +74,13 @@ test('upcoming items omit past payments, use chronological order and retain long
   assert.deepEqual(items.map(x => x.title), ['My next task', 'Supplier', 'My later task']);
   assert.equal(items[1].estimated, true);
   assert.equal(items[1].amount, -200);
+});
+
+test('the greeting uses the first real name, not an honorific prefix', () => {
+  assert.equal(greetingName({ full_name: 'Md. Rana Hossain', username: 'rana' }), 'Rana');
+  assert.equal(greetingName({ full_name: 'Mohammad Abdul Karim' }), 'Abdul');
+  assert.equal(greetingName({ full_name: 'মোঃ রানা হোসেন' }), 'রানা');
+  assert.equal(greetingName({ full_name: 'Nusrat Jahan' }), 'Nusrat');
+  assert.equal(greetingName({ full_name: 'Md.', username: 'rana' }), 'rana');
+  assert.equal(greetingName({ username: 'owner' }), 'owner');
 });

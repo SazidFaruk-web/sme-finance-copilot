@@ -6,7 +6,7 @@ from datetime import date
 from difflib import SequenceMatcher
 from statistics import median
 
-from .textnorm import normalize
+from .textnorm import contains_keyword, normalize
 
 
 @dataclass
@@ -20,6 +20,16 @@ class TxnKey:
     reference: str = ""
     counterparty: str = ""
     category: str = ""
+    source: str = ""  # "nl" / "manual" / "invoice_payment" (typed) or "csv:<file>" (imported statement)
+
+
+def _origin(source: str) -> str:
+    return "import" if ":" in (source or "") else (source or "")
+
+
+def _mentions(text: str, needle: str) -> bool:
+    n = normalize(needle)
+    return len(n) >= 4 and contains_keyword(normalize(text), n)
 
 
 def _desc(t: TxnKey) -> str:
@@ -38,6 +48,18 @@ def duplicate_reason(new: TxnKey, old: TxnKey) -> str | None:
         a, b = _desc(new), _desc(old)
         if a and b and SequenceMatcher(None, a, b).ratio() >= 0.85:
             return f"same amount within {day_gap} day(s) and near-identical description"
+    # A payment typed in by hand (often against an invoice) that later arrives on a bank / wallet statement: the
+    # narration names the invoice or the customer instead of repeating the typed description.
+    a_text, b_text = f"{new.counterparty} {new.description}", f"{old.counterparty} {old.description}"
+    if day_gap <= 7:
+        for ref, text in ((old.reference, a_text), (new.reference, b_text)):
+            if ref and _mentions(text, ref):
+                return f"same amount within {day_gap} day(s) and the statement names reference '{ref}'"
+    origins = {_origin(new.source), _origin(old.source)}
+    if day_gap <= 3 and "import" in origins and len(origins) == 2 and "" not in origins:
+        for party, text in ((old.counterparty, a_text), (new.counterparty, b_text)):
+            if party and _mentions(text, party):
+                return f"same amount within {day_gap} day(s) from {party}, already recorded by hand"
     return None
 
 

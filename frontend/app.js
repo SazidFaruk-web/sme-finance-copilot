@@ -5,7 +5,8 @@
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=13";
-import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=19";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=20";
+import { greetingName } from "./guidance.js?v=19";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=21";
 import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
@@ -875,7 +876,7 @@ function monthPace(d) {
   return { frac, last: d.monthly.find(m => m.month === key) || null };
 }
 function heroBanner(d) {
-  const k = d.kpis, first = (S.user.full_name || S.user.username).split(" ")[0];
+  const k = d.kpis, first = greetingName(S.user);
   const tile = (label, v) => h("div", { class: "hero-tile" }, h("span", { class: "small" }, label), h("b", {}, money(v)));
   return h("section", { class: "hero-banner", "aria-label": t("welcome") }, h("h1", {}, `${t("welcome")}, ${first}`),
     h("p", {}, `${d.business.name} · as of ${fmtDate(d.as_of)}`),
@@ -1926,7 +1927,7 @@ function quickEntryCard(onSaved) {
     if (!entry.value.trim()) { preview.textContent = ""; return; }
     try {
       const p = await api("/api/data/entry/preview", { body: { text: entry.value } });
-      preview.textContent = p.amount ? `→ ${p.direction === "in" ? "＋" : "−"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}` : "…";
+      preview.textContent = p.credit ? `→ ＋ ${p.preview}` : p.amount ? `→ ${p.direction === "in" ? "＋" : p.direction === "out" ? "−" : "?"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}` : "…";
     } catch { preview.textContent = ""; }
   }, 250); });
   const saveBtn = h("button", { class: "btn primary", disabled: !canWrite(), onclick: () => save(false) }, t("s_save"));
@@ -2084,7 +2085,7 @@ function openAdvancedWizard(first) {
   const onKey = e => { if (e.key === "Escape" && !first) close(); };
   const wiz = animatedRemove(h("div", { class: "wizard", role: "dialog", "aria-modal": "true", "aria-label": t("home_layout") },
     h("div", { class: "wiz-card" },
-      h("div", { class: "row" }, h("h1", { class: "grow" }, first ? `${t("hello")}, ${(S.user.full_name || S.user.username).split(" ")[0]} 👋` : t("home_layout")),
+      h("div", { class: "row" }, h("h1", { class: "grow" }, first ? `${t("hello")}, ${greetingName(S.user)} 👋` : t("home_layout")),
         first ? null : h("button", { class: "btn ghost", onclick: close, "aria-label": "Close" }, "✕")),
       h("p", { class: "muted", style: "margin-top:0" }, "Let's set up your home screen. You can change this any time in Settings."),
       h("ol", { class: "wiz-steps" }, dots), stage,

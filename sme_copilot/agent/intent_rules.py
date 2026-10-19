@@ -42,6 +42,7 @@ PAST_ENTRY_RX = re.compile(r"\b(sold|paid|bought|received|got|spent|purchased|co
 
 def _has(text: str, words: list[str]) -> bool:
     for w in words:
+        w = normalize(w)  # same NFC form as the text (Bangla য়/ড় have two spellings)
         if any(ord(c) > 127 for c in w):
             if w in text:
                 return True
@@ -50,7 +51,45 @@ def _has(text: str, words: list[str]) -> bool:
     return False
 
 
-def detect_period(t: str, default: str) -> str:
+_MONTH_WORDS = [  # unambiguous names; "jan", "mar" and "may" are ordinary words too, so they need a year or "in"
+    (r"january", 1), (r"february|feb", 2), (r"march", 3), (r"april|apr", 4), (r"june|jun", 6), (r"july|jul", 7),
+    (r"august|aug", 8), (r"september|sept|sep", 9), (r"october|oct", 10), (r"november|nov", 11),
+    (r"december|dec", 12), (r"জানুয়ারি", 1), (r"ফেব্রুয়ারি", 2), (r"মার্চ", 3), (r"এপ্রিল", 4), (r"জুন", 6),
+    (r"জুলাই", 7), (r"আগস্ট", 8), (r"সেপ্টেম্বর", 9), (r"অক্টোবর", 10), (r"নভেম্বর", 11), (r"ডিসেম্বর", 12)]
+_MONTH_NEEDS_CUE = [(r"jan", 1), (r"mar", 3), (r"may", 5)]
+
+
+def detect_month(t: str, today: date | None = None) -> str | None:
+    """A named calendar month ("profit in September", "সেপ্টেম্বর মাসে", "sep 2026") -> "YYYY-MM".
+    Without a year it is the most recent such month up to today."""
+    today = today or date.today()
+    m = re.search(r"\b(20\d{2})-(0[1-9]|1[0-2])\b", t)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    found = None
+    for rx, mon in _MONTH_WORDS:
+        m = re.search(rf"(?<![a-z])(?:{normalize(rx)})(?![a-z])(?:\s*,?\s*(20\d{{2}}))?", t)
+        if m:
+            found = (mon, m.group(1))
+            break
+    if found is None:
+        for rx, mon in _MONTH_NEEDS_CUE:
+            m = re.search(rf"\b(?:in|of|during|for)\s+{rx}\b(?:\s*,?\s*(20\d{{2}}))?|\b{rx}\s*,?\s*(20\d{{2}})\b|"
+                          rf"\b{rx}\s+(?:mash|mas|month)\b", t)
+            if m:
+                found = (mon, next((g for g in m.groups() if g), None))
+                break
+    if found is None:
+        return None
+    mon, year = found
+    y = int(year) if year else (today.year if mon <= today.month else today.year - 1)
+    return f"{y}-{mon:02d}"
+
+
+def detect_period(t: str, default: str, today: date | None = None) -> str:
+    month = detect_month(t, today)
+    if month:
+        return month
     if _has(t, ["last month", "previous month", "gato mash", "goto mash", "gato mas", "গত মাস", "গত মাসে",
                 "last maser", "ager mash"]):
         return "last_month"
@@ -199,7 +238,11 @@ Builder = Callable[[str, str, dict[str, Any]], dict[str, Any] | None]
 
 def _intents() -> list[tuple[str, list[str], Builder]]:
     def period_args(default):
-        return lambda t, o, c: {"period": detect_period(t, default)}
+        return lambda t, o, c: {"period": detect_period(t, default, _today(c))}
+
+    def owed(kind):
+        # The user's words go to the tool, which matches them against its own customer / supplier names.
+        return lambda t, o, c: {"kind": kind, "counterparty": o.strip()[:120]}
 
     def transfer(t, o, c):
         amt = _amount(t)
@@ -303,18 +346,22 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
         ("overview:strong", ["summary", "overview", "income and expense", "income and expenses", "how am i doing",
                              "how is my business", "business kemon", "byabsa kemon", "ব্যবসা কেমন", "hisab", "হিসাব"],
          period_args("last_3_months")),
+        # Before the forecast: "kotodin dhore Kamal taka dey nai" asks how long a customer has not paid, not "how long
+        # will my cash last".
+        ("get_aging:unpaid", UNPAID_WORDS, owed("receivable")),
         ("forecast_cash_flow", ["forecast", "cash flow", "cashflow", "next 30", "next 60", "next 90", "runway",
                                 "run out", "kotodin", "কতদিন", "নগদ প্রবাহ", "agami", "আগামী", "shortfall",
                                 "projection", "cholbe", "চলবে", "cover the bills", "সামনের বিল দেওয়ার মতো"], lambda t, o, c: {"horizon_days": detect_horizon(t)}),
+        ("get_stock", STOCK_WORDS, lambda t, o, c: {"only_low": True}),
         ("get_digest", ["alert", "alerts", "attention", "digest", "to do", "todo", "what should i do", "ki korte hobe",
                         "কী করতে হবে", "সতর্ক", "warning", "this week", "priority", "agenda", "shoptahe", "focus on today", "মনোযোগ দেব"],
          lambda t, o, c: {}),
         ("compliance_info", ["vat", "mushak", "tin", "e-tin", "trade license", "trade licence", "kyc", "aml", "nbr",
                              "ভ্যাট", "মূসক", "ট্রেড লাইসেন্স", "tax return"], compliance),
         ("get_aging:payable", ["payable", "payables", "i owe", "we owe", "supplier due", "dena", "দেনা",
-                               "supplier ke dite", "bills to pay"], lambda t, o, c: {"kind": "payable"}),
+                               "supplier ke dite", "bills to pay"], owed("payable")),
         ("get_aging", ["receivable", "receivables", "owe me", "owes me", "owes", "overdue", "unpaid", "due from",
-                       "baki", "বাকি", "pawna", "পাওনা", "টাকা পাব", "collect", "outstanding"], lambda t, o, c: {"kind": "receivable"}),
+                       "baki", "বাকি", "pawna", "পাওনা", "টাকা পাব", "collect", "outstanding"], owed("receivable")),
         ("get_break_even", ["break even", "break-even", "breakeven", "lav loss soman", "লাভ-ক্ষতি সমান",
                             "minimum sales"], lambda t, o, c: {"months": 3}),
         ("explain_change", ["why", "keno", "কেন", "what changed", "drop", "dropped", "fell", "decrease", "decreased",
@@ -331,10 +378,56 @@ def _intents() -> list[tuple[str, list[str], Builder]]:
          period_args("last_3_months")),
         ("get_cash_position", ["balance", "cash in hand", "how much cash", "koto taka ache", "কত টাকা আছে",
                                "hate koto", "bank balance"], lambda t, o, c: {}),
+        ("get_stock:weak", ["stock", "inventory", "স্টক", "মজুদ"], lambda t, o, c: {"only_low": False}),
         ("overview", ["summary", "overview", "how am i doing", "how is my business", "business kemon", "byabsa kemon",
                       "ব্যবসা কেমন", "sales", "income", "bikri", "বিক্রি", "revenue", "hisab", "হিসাব", "report",
                       "performance", "kemon cholche"], period_args("last_3_months")),
     ]
+
+
+UNPAID_WORDS = ["not paid", "hasn't paid", "has not paid", "haven't paid", "have not paid", "didn't pay", "did not pay",
+                "not paying", "yet to pay", "still owes", "dey nai", "deyni", "dey ni", "dei nai", "deini", "dilo na",
+                "pay nai", "pay kore nai", "porishodh kore nai", "shodh kore nai", "taka dey na", "দেয়নি", "দেয় নাই",
+                "দেয় নি", "দিল না", "শোধ করেনি", "পরিশোধ করেনি"]
+STOCK_WORDS = ["running low", "run low", "low stock", "stock low", "out of stock", "stock out", "reorder", "re-order",
+               "restock", "stock level", "stock left", "in stock", "how much stock", "stock koto", "stock e ki",
+               "mal shesh", "mal kom", "kon mal", "মাল শেষ", "মাল কম", "স্টক কত", "স্টকে"]
+
+BANK_LETTER_WORDS = ["letter", "chithi", "chiti", "চিঠি", "application", "aboedon", "abedon", "আবেদন", "write to",
+                     "likhe dao", "likhe den"]
+BANK_WORDS = ["bank", "bank manager", "branch manager", "loan", "rin", "ঋণ", "লোন", "ব্যাংক"]
+
+
+def _today(c: dict[str, Any]) -> date:
+    try:
+        return date.fromisoformat(c.get("today") or "")
+    except ValueError:
+        return date.today()
+
+
+def bank_letter(t: str, original: str, context: dict[str, Any]) -> str | None:
+    """A letter to the bank (e.g. asking for a loan). No tool writes one; offline, give a plain template built from
+    the user's own words. Never a customer payment reminder."""
+    if not (_has(t, BANK_LETTER_WORDS) and _has(t, BANK_WORDS)):
+        return None
+    amt = _amount(t)
+    lang = _rules_lang(context)
+    biz = context.get("business") or "[business name]"
+    when = _today(context).strftime("%d %B %Y").lstrip("0")
+    money = format_bdt(amt, style=context.get("number_style", "lakh")) if amt else "[amount]"
+    lead = {"bn": "এখানে একটি খসড়া চিঠি দিলাম। পাঠানোর আগে বন্ধনীর [ ] তথ্যগুলো লিখে সব যাচাই করে নিন।",
+            "banglish": "Ekta khosra chithi dilam. Pathanor age [ ] er jaygay apnar tottho likhun ar shob check kore nin."}.get(
+        lang, "Here is a draft letter. Fill in the parts in [brackets] and check every detail before you send it.")
+    tail = {"bn": "ঋণ-প্রস্তুতি রিপোর্ট সংযুক্ত করতে চাইলে লিখুন: \"loan report\"।",
+            "banglish": "Loan-readiness report jog korte chaile likhun: \"loan report\"."}.get(
+        lang, "To attach a loan-readiness report from your records, ask for a \"loan report\".")
+    return (f"{lead}\n\nTo\nThe Branch Manager\n[Bank name and branch]\n\nDate: {when}\n\n"
+            f"Subject: Application for a business loan of {money}\n\nDear Sir/Madam,\n\n"
+            f"I am the proprietor of {biz}. I would like to apply for a business loan of {money} for [purpose, for "
+            f"example buying stock]. I keep daily records of my sales and expenses, and I can share my bank statements "
+            f"and a loan-readiness report from these records.\n\nPlease let me know the terms, the documents you need "
+            f"and the next steps.\n\nThank you.\n\nYours faithfully,\n[Your name]\nProprietor, {biz}\n[Phone number]"
+            f"\n\n{tail}")
 
 
 HELP = {
@@ -364,6 +457,9 @@ class RuleIntentEngine:
         names = {t.name for t in tools}
         t = normalize(user_text)
         lang = _rules_lang(context)
+        letter = bank_letter(t, user_text, context)
+        if letter:
+            return letter
         for intent, words, builder in _intents():
             if words and not _has(t, words):
                 continue
@@ -497,23 +593,90 @@ def c_break_even(r, f: Fmt) -> str:
         f"bikri lagbe. Apnar gor bikri {f.m(r['avg_monthly_revenue'])}, safety margin {f.n(r['margin_of_safety_pct'])}%.")
 
 
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
+def c_aging_one(r, f: Fmt) -> str:
+    """The question named one customer / supplier: how much, and since when."""
+    name, items = r["counterparty_filter"], r.get("items") or []
+    rec = r["kind"] == "receivable"
+    if not items:
+        return f.pick(f"{name} has no unpaid bills in your records." if rec else f"You have no unpaid bills from {name}.",
+                      f"আপনার হিসাবে {name}-এর কোনো বাকি বিল নেই।", f"Apnar hisabe {name} er kono baki bill nei.")
+    old = max(items, key=lambda i: i["days_past_due"])
+    due = date.fromisoformat(str(old["due_date"])[:10]).strftime("%d %b %Y").lstrip("0")
+    days = old["days_past_due"]
+    n = len(items)
+    owe = f.pick(f"{name} owes you {f.m(r['total_outstanding'])} on {_plural(n, 'bill')}." if rec else
+                 f"You owe {name} {f.m(r['total_outstanding'])} on {_plural(n, 'bill')}.",
+                 f"{name}-এর কাছে পাওনা {f.m(r['total_outstanding'])} ({f.n(n)}টি বিল)।" if rec else
+                 f"{name}-কে দিতে হবে {f.m(r['total_outstanding'])} ({f.n(n)}টি বিল)।",
+                 f"{name} er kache pawna {f.m(r['total_outstanding'])} ({n} ta bill)." if rec else
+                 f"{name} ke dite hobe {f.m(r['total_outstanding'])} ({n} ta bill).")
+    if days > 0:
+        since = f.pick(f" The oldest, {old['invoice_no']}, was due on {due}: {f.n(days)} days ago.",
+                       f" সবচেয়ে পুরনো বিল {old['invoice_no']}, শোধের তারিখ ছিল {f.n(due)}: {f.n(days)} দিন আগে।",
+                       f" Sobcheye puron bill {old['invoice_no']}, due chilo {due}: {days} din age.")
+    else:
+        since = f.pick(f" Nothing is overdue yet; the next bill, {old['invoice_no']}, is due on {due}.",
+                       f" এখনো কোনো বিলের তারিখ পেরোয়নি; {old['invoice_no']} শোধের তারিখ {f.n(due)}।",
+                       f" Ekhono kono bill overdue na; {old['invoice_no']} er due {due}.")
+    return owe + since
+
+
 def c_aging(r, f: Fmt) -> str:
-    who = ", ".join([f"{c['counterparty']} {f.m(c['overdue'])}" for c in (r.get("by_counterparty") or [])
-                     if c["overdue"] > 0][:3])
+    if r.get("counterparty_filter"):
+        return c_aging_one(r, f)
+    late = sorted((c for c in (r.get("by_counterparty") or []) if c["overdue"] > 0), key=lambda c: -c["overdue"])
+    who = ", ".join(f"{c['counterparty']} {f.m(c['overdue'])}" for c in late[:3])
+    more = len(late) - 3
+    if who and more > 0:
+        who += f.pick(f" and {more} more", f" এবং আরও {f.n(more)} জন", f" ar aro {more} jon")
     if r["kind"] == "receivable":
         dso = f" DSO ~{f.n(r['dso_days'])} days." if r.get("dso_days") else ""
+        n = r["overdue_count"]
         return f.pick(
-            f"Customers owe you {f.m(r['total_outstanding'])}; {f.m(r['overdue_total'])} is overdue across "
-            f"{r['overdue_count']} invoice(s){': ' + who if who else ''}. Over 90 days: {f.m(r['buckets']['90+'])}.{dso}",
+            f"Customers owe you {f.m(r['total_outstanding'])}; {f.m(r['overdue_total'])} is overdue on "
+            f"{_plural(n, 'bill')} from {_plural(len(late), 'customer')}{': ' + who if who else ''}. "
+            f"Over 90 days: {f.m(r['buckets']['90+'])}.{dso}",
             f"ক্রেতাদের কাছে পাওনা {f.m(r['total_outstanding'])}; এর মধ্যে মেয়াদোত্তীর্ণ {f.m(r['overdue_total'])} "
-            f"({f.n(r['overdue_count'])}টি ইনভয়েস){': ' + who if who else ''}। ৯০ দিনের বেশি: {f.m(r['buckets']['90+'])}।",
+            f"({f.n(len(late))} জন ক্রেতার {f.n(n)}টি বিল){': ' + who if who else ''}। ৯০ দিনের বেশি: {f.m(r['buckets']['90+'])}।",
             f"Customer der kache pawna {f.m(r['total_outstanding'])}; overdue {f.m(r['overdue_total'])} "
-            f"({r['overdue_count']} ta invoice){': ' + who if who else ''}. 90 diner beshi: {f.m(r['buckets']['90+'])}.")
+            f"({len(late)} jon customer er {n} ta bill){': ' + who if who else ''}. 90 diner beshi: {f.m(r['buckets']['90+'])}.")
     return f.pick(
         f"You owe suppliers {f.m(r['total_outstanding'])}; {f.m(r['overdue_total'])} is overdue"
         f"{': ' + who if who else ''}.",
         f"সরবরাহকারীদের দেনা {f.m(r['total_outstanding'])}; মেয়াদোত্তীর্ণ {f.m(r['overdue_total'])}{': ' + who if who else ''}।",
         f"Supplier der dena {f.m(r['total_outstanding'])}; overdue {f.m(r['overdue_total'])}{': ' + who if who else ''}.")
+
+
+def c_stock(r, f: Fmt) -> str:
+    items = r.get("items") or []
+    short = [i for i in items if i["status"] in ("low", "out")]
+    if not short:
+        return f.pick(f"None of your {r['item_count']} stock items is running low.",
+                      f"আপনার {f.n(r['item_count'])}টি পণ্যের কোনোটির মজুদ কম নয়।",
+                      f"Apnar {r['item_count']} ta item er kono tar stock kom na.")
+    lines = []
+    for i in short[:6]:
+        if i["status"] == "out":
+            lines.append(f.pick(f"- {i['name']}: out of stock", f"- {i['name']}: শেষ", f"- {i['name']}: shesh"))
+            continue
+        left = (f.pick(f", about {f.n(i['days_left'])} days left", f", প্রায় {f.n(i['days_left'])} দিন চলবে",
+                       f", prai {i['days_left']:g} din cholbe") if i.get("days_left") is not None else "")
+        lines.append(f.pick(f"- {i['name']}: {f.n(i['qty'])} {i['unit']} left (reorder at {f.n(i['reorder_level'])}){left}",
+                            f"- {i['name']}: {f.n(i['qty'])} {i['unit']} আছে (রি-অর্ডার {f.n(i['reorder_level'])}){left}",
+                            f"- {i['name']}: {i['qty']:g} {i['unit']} ache (reorder {i['reorder_level']:g}){left}"))
+    if len(short) > 6:
+        lines.append(f.pick(f"...and {len(short) - 6} more on the Stock page.", f"...আরও {f.n(len(short) - 6)}টি স্টক পাতায়।",
+                            f"...ar {len(short) - 6} ta Stock page e."))
+    head = f.pick(f"{_plural(len(short), 'item')} running low or out:", f"{f.n(len(short))}টি পণ্যের মজুদ কম বা শেষ:",
+                  f"{len(short)} ta item er stock kom ba shesh:")
+    cost = f.pick(f"Restocking them to a safe level would cost about {f.m(r['restock_cost'])}.",
+                  f"নিরাপদ মাত্রায় আনতে প্রায় {f.m(r['restock_cost'])} লাগবে।",
+                  f"Safe level e ante prai {f.m(r['restock_cost'])} lagbe.") if r.get("restock_cost") else ""
+    return "\n".join([head, *lines, cost]).strip()
 
 
 def c_costs(r, f: Fmt) -> str:
@@ -835,7 +998,7 @@ COMPOSERS: dict[str, Callable[[dict[str, Any], Fmt], str]] = {
     "forecast_cash_flow": c_forecast, "run_what_if": c_whatif, "list_alerts": c_alerts, "get_digest": c_digest,
     "acknowledge_alert": c_ack, "schedule_alert": c_schedule,
     "get_financial_summary": c_summary, "get_profitability": c_profit, "get_break_even": c_break_even,
-    "get_aging": c_aging, "get_cost_drivers": c_costs, "explain_change": c_change, "get_seasonality": c_season,
+    "get_aging": c_aging, "get_stock": c_stock, "get_cost_drivers": c_costs, "explain_change": c_change, "get_seasonality": c_season,
     "get_cash_position": c_cash, "search_transactions": c_search, "calculate_loan": c_loan,
     "add_transaction": c_add_txn,
 }

@@ -25,10 +25,13 @@ categories:
     direction: out
     behavior: capex  # inventory acquired; cost of items sold is tracked separately
     keywords: {en: [], bn: [], banglish: []}
-  loan_interest:
+  loan_interest:  # cost of borrowing: interest and the bank's loan processing fee
     direction: out
     behavior: fixed
-    keywords: {en: [], bn: [], banglish: []}
+    keywords:
+      en: [loan interest, interest paid, interest charged, loan processing fee, loan processing charge, loan fee]
+      bn: [সুদ দিলাম, লোনের সুদ, ঋণের সুদ, প্রসেসিং ফি]
+      banglish: [sud dilam, loan er sud, processing fee dilam]
   sales:
     direction: in
     behavior: revenue
@@ -76,7 +79,7 @@ categories:
     direction: out
     behavior: cogs
     keywords:
-      en: [purchase, purchased, bought stock, stock, inventory, raw material, fabric, buttons, zipper, zippers, thread, label, labels, trims, accessories purchase, supplier payment, wholesale, goods, restock, books from, publishers, publications, prokashoni, guide books stock, ingredients, chicken and meat, rice, oil and spices, spices, vegetables, flour and sugar, groceries for orders]
+      en: [purchase, purchased, bought stock, stock, inventory, raw material, fabric, buttons, zipper, zippers, thread, label, labels, trims, accessories purchase, supplier payment, wholesale, goods, restock, books from, publishers, publications, prokashoni, guide books stock, stock purchase, supplier bill, bill payment to supplier, chq, ingredients, chicken and meat, rice, oil and spices, spices, vegetables, flour and sugar, groceries for orders]
       bn: [মাল কেনা, মাল কিনলাম, ক্রয়, কাঁচামাল, কাপড়, বোতাম, চেইন, সুতা, স্টক]
       banglish: [mal kinlam, mal kena, kinlam, kacha mal, kapor, botam, chain kinlam, suta]
   rent:
@@ -97,7 +100,7 @@ categories:
     direction: out
     behavior: fixed
     keywords:
-      en: [electricity, electric bill, power bill, desco, dpdc, gas bill, water bill, wasa, internet, wifi, phone bill, mobile recharge, utility]
+      en: [electricity, electric bill, power bill, desco, dpdc, gas bill, water bill, wasa, internet, wifi, phone bill, utility]
       bn: [বিদ্যুৎ, কারেন্ট বিল, বিদ্যুৎ বিল, গ্যাস বিল, পানির বিল, ইন্টারনেট]
       banglish: [current bill, bijli bill, gas bill, panir bill, net bill]
   transport:
@@ -125,7 +128,7 @@ categories:
     direction: out
     behavior: variable
     keywords:
-      en: [cash out fee, cashout fee, transaction fee, bank charge, service charge, mfs fee, send money fee, cheque return charge, return charge, cheque bounce charge]
+      en: [cash out fee, cashout fee, transaction fee, bank charge, service charge, mfs fee, send money fee, account maintenance fee, sms charge, sms charges, cheque return charge, return charge, cheque bounce charge]
       bn: [ক্যাশ আউট চার্জ, ব্যাংক চার্জ]
       banglish: [cash out charge, bank charge]
   maintenance:
@@ -160,9 +163,12 @@ categories:
     direction: out
     behavior: non_operating
     keywords:
-      en: [personal, owner withdrawal, drawings, family expense, household]
-      bn: [ব্যক্তিগত, সংসার খরচ, নিজের জন্য]
-      banglish: [nijer jonno, songsar khoroch, personal khoroch]
+      en: [personal, owner withdrawal, drawings, family expense, family expenses, for family, household, household expenses,
+           taken home, took home, sent to parents, sent home, money to parents, school fees, school fee, tuition fees, tuition fee,
+           children school, kids school]
+      bn: [ব্যক্তিগত, সংসার খরচ, নিজের জন্য, বাড়িতে দিলাম, বাসায় দিলাম, বাবা মাকে, স্কুলের বেতন, স্কুল ফি]
+      banglish: [nijer jonno, songsar khoroch, sonsar khoroch, personal khoroch, barite dilam, basay dilam, bari pathalam,
+                 abba ke dilam, amma ke dilam, school er beton, school fee dilam]
   food_entertainment:
     direction: out
     behavior: variable
@@ -174,9 +180,11 @@ categories:
     direction: out
     behavior: variable
     keywords:
-      en: [misc, miscellaneous, other expense, sundry]
-      bn: [বিবিধ, অন্যান্য খরচ]
-      banglish: [onnanno khoroch]
+      # Small shop costs: phone top-ups are not a fixed utility bill; market / traders' association dues.
+      en: [misc, miscellaneous, other expense, sundry, mobile recharge, phone recharge, recharge, flexiload, top up,
+           market committee, committee fee, samity fee, samity, samiti, association fee, traders association]
+      bn: [বিবিধ, অন্যান্য খরচ, মোবাইল রিচার্জ, রিচার্জ, ফ্লেক্সিলোড, সমিতি, মার্কেট কমিটি]
+      banglish: [onnanno khoroch, recharge korlam, flexi korlam, somiti, samity chanda]
 
 # Generic direction words used when no category keyword matches.
 direction_words:
@@ -202,6 +210,6 @@ wallet_types:
   merchant payment: {direction: out, category: null}
   make payment: {direction: out, category: null}
   pay bill: {direction: out, category: utilities}
-  mobile recharge: {direction: out, category: utilities}
+  mobile recharge: {direction: out, category: misc_expense}
   fee: {direction: out, category: mobile_fees}
   charge: {direction: out, category: mobile_fees}
