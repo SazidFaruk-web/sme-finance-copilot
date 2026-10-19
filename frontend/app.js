@@ -6,7 +6,7 @@
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
 import { icon } from "./icons.js?v=12";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=18";
-import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=19";
+import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=20";
 import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
@@ -558,7 +558,7 @@ function renderShell() {
   const privacy = h("span", { class: "chip", title: "PII (phones, account numbers, NID/TIN) is masked before any external model call" },
     S.models.local_only_mode ? "⌂ Local-only mode" : (S.models.mask_pii ? "🔒 PII masked for cloud models" : "PII masking OFF"));
   $("#root").replaceChildren(h("div", { class: "app" },
-    h("aside", { class: "sidebar" }, h("a", { class: "brand", href: "#dashboard" }, simple ? "SME Copilot" : "SME Finance Copilot", h("span", {}, plain("A little help for your business", "আপনার ব্যবসার সহজ সঙ্গী"))), nav,
+    h("aside", { class: "sidebar" }, h("a", { class: "brand", href: "#dashboard" }, h("img", { class: "brand-logo", src: "/static/app-icon.svg?v=2", alt: "" }), simple ? "SME Copilot" : "SME Finance Copilot", h("span", {}, plain("A little help for your business", "আপনার ব্যবসার সহজ সঙ্গী"))), nav,
       h("div", { class: "foot" }, plain("Your business. One step at a time.", "আপনার ব্যবসা। একবারে একটি কাজ।"))),
     h("div", { class: "main" },
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),

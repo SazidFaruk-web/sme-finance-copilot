@@ -1,1 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#a84227"/><path d="M55 110V64h82v46M67 130h58M76 92l14 14 28-29" fill="none" stroke="#fff8f1" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SME Finance Copilot">
+  <defs>
+    <!-- Background: Record-button orange -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DE5E33"/>
+      <stop offset="1" stop-color="#A9381D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.22" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Book: one plain white → soft peach gradient -->
+    <linearGradient id="paper" gradientUnits="userSpaceOnUse" x1="160" y1="172" x2="352" y2="436">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FDEBE0"/>
+    </linearGradient>
+    <!-- Taka green -->
+    <linearGradient id="taka" gradientUnits="userSpaceOnUse" x1="0" y1="62" x2="0" y2="292">
+      <stop offset="0" stop-color="#34C26F"/>
+      <stop offset="1" stop-color="#16884A"/>
+    </linearGradient>
+    <!-- Soft shadows only -->
+    <filter id="drop" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9"/>
+      <feOffset dx="0" dy="8" result="b"/>
+      <feFlood flood-color="#6E1F0B" flood-opacity="0.3"/>
+      <feComposite in2="b" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="fold" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5"/>
+      <feOffset dx="5" dy="2" result="b"/>
+      <feFlood flood-color="#8A3A1E" flood-opacity="0.28"/>
+      <feComposite in2="b" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="mark" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3.5"/>
+      <feOffset dx="0" dy="3" result="b"/>
+      <feFlood flood-color="#5A1A08" flood-opacity="0.25"/>
+      <feComposite in2="b" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background tile -->
+  <rect x="0" y="0" width="512" height="512" rx="104" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="104" fill="url(#glow)"/>
+
+  <g id="bookgroup" transform="translate(-10 -34)"><g filter="url(#drop)">
+    <!-- Back cover -->
+    <rect x="160" y="172" width="192" height="264" rx="11" fill="url(#paper)"/>
+    <!-- Taka page marker: small, tucked in at the top-right corner on a diagonal -->
+    <g transform="translate(352 166) rotate(45) scale(0.34) translate(-261 -176)">
+      <g filter="url(#mark)" fill="none" stroke="url(#taka)" stroke-width="27" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M220 100 C220 64 262 60 262 100 L262 248 C262 290 304 292 310 254"/>
+        <path d="M212 150 L306 150"/>
+      </g>
+    </g>
+    <!-- Front cover, almost closed: the fold is shown only by its soft shadow -->
+    <path d="M160 172 L330 187 Q334 187.5 334 192 L334 416 Q334 420.5 330 421 L160 436 Z"
+          fill="url(#paper)" filter="url(#fold)"/>
+  </g></g>
+</svg>
