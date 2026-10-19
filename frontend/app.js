@@ -518,7 +518,11 @@ async function boot() {
     if (!location.hash.startsWith("#chat")) location.hash = "#chat?tab=offline";
     window.onhashchange = show; await show(); return;
   }
-  if (S.models.shared_only || !S.profile || !S.models.profiles.some(p => p.name === S.profile && p.available)) S.profile = S.models.default;
+  if (S.models.shared_only || !S.profile || !S.models.profiles.some(p => p.name === S.profile && p.available)) {
+    // Server default first; if it cannot run here (e.g. no API key), the first model that can.
+    const usable = S.models.profiles.filter(p => p.available && p.adapter !== "rules");
+    S.profile = S.models.shared_only || usable.some(p => p.name === S.models.default) || !usable.length ? S.models.default : usable[0].name;
+  }
   // A new account always finishes setup in Simple, so it starts there: no Advanced screen behind the first
   // question (the mode is remembered per device, so the previous account's choice would show otherwise).
   if (!S.home.exists) { S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); }

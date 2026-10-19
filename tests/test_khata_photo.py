@@ -249,7 +249,7 @@ def test_profile_choice_rules(monkeypatch):
 
 def test_shipped_profiles_declare_vision():
     reg = ProviderRegistry(settings=Settings())
-    assert reg.profiles["claude-sonnet"]["vision"] is True
+    assert reg.profiles["claude-sonnet"]["vision"] is True and reg.profiles["local-llamacpp"]["vision"] == "auto"
     assert "vision" not in reg.profiles["rules-offline"]
 
 

@@ -1,14 +1,19 @@
 # LLM provider profiles.
 #
-# The AI Assistant uses one model: Claude Sonnet 5.5 through the Anthropic API.
+# The AI Assistant uses Claude Sonnet 5.5 through the Anthropic API by default.
 # Set ANTHROPIC_API_KEY in .env (never put keys here). LOCAL_ONLY_MODE must be false, because
 # prompts go to Anthropic's servers; phone and account numbers are masked first (MASK_PII).
+# For a private model that keeps everything on this PC, start Gemma 4 with scripts\start_local_llm.bat
+# (or the "SME Copilot (Gemma 4)" launcher, which sets LLM_PROFILE=local-llamacpp) and pick it in the
+# model menu. A local model never falls back to a cloud one.
 #
 # adapter:    anthropic | openai | gemini | openai_compatible | ollama | rules
 # external:   true if prompts leave this machine.
 # api_key_env: NAME of the environment variable holding the key.
 # pricing:    USD per million tokens, for benchmark cost estimates; verify against the vendor's price page.
-# vision:     true if the model reads photos (khata photo import).
+# tools:      native | emulated  (emulated = strict-JSON tool calling for weak tool callers)
+# vision:     true if the model reads photos (khata photo import); auto = ask the llama.cpp server's /props
+#             whether a vision projector (--mmproj) is loaded.
 
 default_profile: claude-sonnet
 
@@ -23,8 +28,32 @@ profiles:
     label: "Claude Sonnet 5.5"
     pricing: {input_per_mtok: 3.0, output_per_mtok: 15.0}
 
+  # ---- Local models: no data leaves the machine ---------------------------------
+  # Benchmarked on an RX 9060 XT 16 GB (benchmarks/results/local_models.md). Start the server with
+  # scripts\start_local_llm.bat (gemma) or scripts\start_local_llm.bat qwen14b. Only one runs at a time.
+  local-llamacpp:
+    adapter: openai_compatible
+    model: gemma-4-12b-it
+    base_url: http://127.0.0.1:8080/v1
+    external: false
+    tools: native          # Gemma ignores the emulated JSON format; its native tool calls are reliable
+    timeout: 120
+    max_retries: 0         # a local server is up or not; retrying only multiplies the wait
+    vision: auto           # photos work once the server runs with --mmproj (see scripts\start_local_llm.bat)
+    label: "Local Gemma 4 12B (private)"
+
+  local-qwen14b:
+    adapter: openai_compatible
+    model: qwen3-14b
+    base_url: http://127.0.0.1:8080/v1
+    external: false
+    tools: emulated        # Qwen3-14B scored better with emulated (JSON) tools than native ones
+    timeout: 120
+    max_retries: 0
+    label: "Local Qwen3-14B (private, backup)"
+
   # Not a model and not shown in the model picker: deterministic rules that answer only when the
-  # Claude API is unreachable (no key, no internet), so the assistant never goes silent.
+  # chosen model is unreachable (no key, no internet), so the assistant never goes silent.
   rules-offline:
     adapter: rules
     model: rules-v1
