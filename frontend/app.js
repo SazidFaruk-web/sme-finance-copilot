@@ -432,7 +432,7 @@ async function logout(expired) {
   if (!expired) await clearLocalOwner().catch(() => {});
   sessionStorage.removeItem("pilot-profile");
   if (!expired) fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": csrf() }, credentials: "same-origin" });
-  sessionStorage.removeItem("token"); renderLogin(expired ? "Please log in again." : "");
+  sessionStorage.removeItem("token"); S.greetingReq = S.greeting = S.greetingDone = undefined; renderLogin(expired ? "Please log in again." : "");
 }
 
 // ------------------------------------------------------------------ shell
@@ -556,6 +556,7 @@ async function boot() {
   // A new account always finishes setup in Simple, so it starts there: no Advanced screen behind the first
   // question (the mode is remembered per device, so the previous account's choice would show otherwise).
   if (!S.home.exists) { S.mode = "simple"; savePref("ui_mode", "simple"); applyPrefs(); }
+  startGreeting();
   renderShell();
   window.onhashchange = route;
   route();
@@ -569,6 +570,15 @@ const isNewAccount = () => { const c = Date.parse((S.user.created_at || "") + "Z
 function launchTour() {
   if (location.hash && !location.hash.startsWith("#dashboard")) location.hash = "#dashboard";
   setTimeout(() => startTour({ h, lang: S.ui, user: S.user.username }), 450);  // after Home and the price tab have drawn
+}
+
+// One fresh model-written opening line per app open (local model, ~2-3 s). Started at load so the Assistant tab has it ready.
+function startGreeting() {
+  if (S.greetingReq) return S.greetingReq;
+  const lang = S.ui === "bn" || S.ui === "zh" ? S.ui : "en";
+  S.greetingReq = api(`/api/chat/greeting?language=${lang}&simple=${S.mode === "simple"}` + (S.profile ? `&profile=${encodeURIComponent(S.profile)}` : ""))
+    .then(d => { S.greeting = d.text || null; }).catch(() => { S.greeting = null; }).finally(() => { S.greetingDone = true; });
+  return S.greetingReq;
 }
 
 let pendingCount = 0;
@@ -1189,18 +1199,15 @@ function viewChat(v) {
   if (S.chatDraft) { input.value = S.chatDraft; delete S.chatDraft; }
   const chips = h("div", { class: "chat-chips" }, (simple ? SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"] : SUGGESTIONS.slice(0, 4))
     .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
-  const greetText = h("div", { class: "text" }, simple
+  const fixedGreeting = () => simple
     ? plain("Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
       "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।")
-    : L("I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."));
+    : L("I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports.");
+  // The opening line is requested when the app loads (startGreeting), so it is usually ready before this tab opens.
+  startGreeting();
+  const greetText = h("div", { class: "text" }, S.greeting ? S.greeting : S.greetingDone ? fixedGreeting() : h("div", { class: "typing" }, L("Thinking…")));
   log.appendChild(h("div", { class: "msg bot" }, greetText));
-  // A fresh opening line from the local model each time the app is opened; the fixed text stays if it fails.
-  if (S.greeting === undefined) {
-    S.greeting = null;
-    S.greetingReq = api(`/api/chat/greeting?language=${S.ui === "bn" || S.ui === "zh" ? S.ui : "en"}&simple=${simple}` + (S.profile ? `&profile=${encodeURIComponent(S.profile)}` : ""))
-      .then(d => { S.greeting = d.text || null; }).catch(() => {});
-  }
-  (S.greetingReq || Promise.resolve()).then(() => { if (S.greeting && greetText.isConnected) greetText.textContent = S.greeting; });
+  if (!S.greetingDone) S.greetingReq.then(() => { if (greetText.isConnected) greetText.replaceChildren(S.greeting || fixedGreeting()); });
   log.appendChild(chips);
   v.replaceChildren(h("div", { class: "card panel chat-panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))),
