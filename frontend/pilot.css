@@ -45,3 +45,8 @@
 #pilot-print { display: none; }
 @media (max-width: 600px) { .pilot-card { padding: 20px; border-radius: 18px; } .pilot-card h2 { font-size: 22px !important; } .pilot-payment { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .pilot-payment .btn { grid-column: 1/-1; justify-self: end; } .pilot-saved-row { align-items: start; flex-direction: column; gap: 4px; } .pilot-metrics { grid-template-columns: 1fr; gap: 18px; } }
 @media print { body:has(#pilot-print) > * { display: none !important; } body:has(#pilot-print) #pilot-print { display: block !important; color: #111; background: #fff; padding: 20mm; } #pilot-print pre { white-space: pre-wrap; font: 12pt/1.6 sans-serif; } }
+/* The task picker inside the AI Assistant's right panel */
+.pilot-embedded { max-width: none; padding-bottom: 8px; }
+.pilot-embedded h1 { font-size: 20px; }
+.pilot-embedded .pilot-choices { margin: 16px 0; gap: 8px; }
+.pilot-embedded .pilot-choices > .btn { min-height: 52px !important; padding: 12px 14px !important; font-size: 15px; }

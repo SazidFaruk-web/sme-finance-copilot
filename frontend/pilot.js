@@ -43,10 +43,10 @@ export async function renderPilot(host, ctx, initialKind = "") {
   let current, editing = "", choicePage = 0, busy = false, catalog;
   const params = new URLSearchParams(location.hash.split("?")[1] || "");
   const here = location.hash.slice(1).split("?")[0] || "chat";  // tasks opened from Financing stay under Financing
-  const shell = h("div", { class: "pilot-page" });
+  const shell = h("div", { class: "pilot-page" + (ctx.embedded ? " pilot-embedded" : "") });
   const message = h("p", { class: "pilot-status", role: "status", "aria-live": "polite" });
   const body = h("div", {});
-  shell.append(...(S.mode === "simple" ? [h("a", { href: "#more", class: "text-link" }, say("← More", "← আরও"))] : []), body, message);  // #more is guided-only
+  shell.append(...(S.mode === "simple" && !ctx.embedded ? [h("a", { href: "#more", class: "text-link" }, say("← More", "← আরও"))] : []), body, message);  // #more is guided-only
   host.replaceChildren(shell);
   const button = (label, fn, primary = false) => h("button", { type: "button", "aria-label": label, class: "btn" + (primary ? " primary" : ""), onclick: () => guard(fn) }, label);
   const link = (label, href) => h("a", { class: "text-link", href }, label);
