@@ -95,7 +95,7 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
         },
       }, d.name ? `${d.name} · ${d.business}${d.note ? ` (${d.note})` : ""}` : (c[d.role] || c.viewer)))));
     const screen = h("div", { class: "auth-screen" },
-      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("span", { class: "auth-brand-mark" }, icon("book", 23)), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 && moreLanguages() ? languages : null),
+      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("img", { class: "auth-brand-mark", src: "/static/app-icon.svg?v=2", alt: "" }), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 && moreLanguages() ? languages : null),
       h("main", { class: "auth-main" }, h("section", { class: "auth-card", "aria-labelledby": "auth-heading" },
         h("div", { class: "auth-heading" }, h("h1", { id: "auth-heading", tabindex: -1 }, signup ? c.signupTitle : c.loginTitle), h("p", {}, signup ? c.signupIntro : c.loginIntro)),
         form,

@@ -21,7 +21,7 @@
 }
 .auth-header { width: min(1200px,100%); margin: 0 auto; padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .auth-brand { display: inline-flex; align-items: center; gap: 11px; font-size: 20px; font-weight: 650; letter-spacing: -.6px; white-space: nowrap; }
-.auth-brand-mark { display: grid; place-items: center; width: 39px; height: 43px; border-radius: 12px; background: var(--auth-accent); color: var(--auth-surface); }
+.auth-brand-mark { display: block; width: 42px; height: 42px; }
 .auth-languages { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--auth-border); background: var(--auth-surface); border-radius: 14px; }
 .auth-languages button { border: 0; background: transparent; border-radius: 10px; padding: 8px 15px; min-height: 40px; color: var(--auth-muted); font-size: 13px; cursor: pointer; }
 .auth-languages button[aria-pressed="true"] { background: var(--auth-soft); color: var(--auth-accent); font-weight: 650; }
@@ -65,8 +65,7 @@ body.auth-open .auth-screen :is(button,summary,input):focus-visible { outline: 3
 @media (max-width: 600px) {
   .auth-header { padding: 20px; gap: 12px; }
   .auth-brand { gap: 8px; font-size: 16px; letter-spacing: -.4px; white-space: normal; line-height: 1.3; }
-  .auth-brand-mark { width: 30px; height: 34px; border-radius: 9px; }
-  .auth-brand-mark svg { width: 18px; height: 18px; }
+  .auth-brand-mark { width: 34px; height: 34px; }
   .auth-languages { padding: 3px; border-radius: 12px; gap: 0; }
   .auth-languages button { min-height: 40px; padding: 7px 10px; font-size: 12px; }
   .auth-main { align-items: start; padding: 30px 20px; }
