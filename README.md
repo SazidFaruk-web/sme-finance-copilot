@@ -43,11 +43,17 @@ python -m venv .venv
 Open <http://127.0.0.1:8000>. Set `APP_ENV=demo` (or copy `.env.example` to `.env`) to have the demo logins
 shown on the login page.
 
-| User | Role | Password (demo) | Can do |
+Four fictional test owners (all owners, each their own business):
+
+| User | Password (demo) | Business | History |
 |---|---|---|---|
-| `nusrat` | owner | `owner-demo-2026` | everything incl. confirming sandbox payments (Tier 0-2) |
-| `rafiq` | accountant | `accountant-demo-2026` | analysis, data entry, drafts, reminders, reports (Tier 0-1) |
-| `mitu` | viewer | `viewer-demo-2026` | read-only analysis (Tier 0) |
+| `tanvir` | `tanvir-demo-2026` | Tanvir Mobile Corner, phone accessories, Chattogram | about 3 months, credit customers, a supplier bill |
+| `shirin` | `shirin-demo-2026` | Boighor Book Corner, bookshop, Rajshahi | 1 month: semester rush, then a slow month |
+| `rokeya` | `rokeya-demo-2026` | Rokeya's Kitchen, homemade food via Facebook, Sylhet | 15 days of bKash and cash orders |
+| `rafi` | `rafi-demo-2026` | Rafi Fashion, new clothes seller, Khulna | none: setup and the tour on first login |
+
+`python -m sme_copilot.cli seed --reset --story` loads the scripted *Nusrat Trims* business instead (owner `nusrat`,
+accountant `rafiq`, viewer `mitu`; passwords in `.env.example`). The evidence run and benchmarks use it.
 
 The default model is the independent **shared Ollama server**, used by every website user. Start it once as
 described below. Without a running model, the offline `rules-offline` engine answers instead: a deterministic engine that implements the
@@ -191,8 +197,9 @@ Install the model and fetch the newest data once (allowed even in `LOCAL_ONLY_MO
 
 ## Language
 
-The interface and the AI Assistant's replies are in English (owner decision 2026-10-19).
-`APP_LANGUAGES` (default `en`) keeps the switched-off translations available for a later pilot.
+The app always starts in English, and the AI Assistant replies in English (owner decision 2026-10-19).
+**More languages** (on the login screen and in Settings) shows বাংলা and 中文 on that device; turning it off
+returns to English. `APP_LANGUAGES` (default `en,bn,zh`) sets what that option offers; `en` removes it.
 
 ---
 

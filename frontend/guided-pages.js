@@ -1,6 +1,6 @@
 import { icon } from "./icons.js?v=12";
-import { buildGuidance, upcomingItems } from "./guidance.js?v=16";
-import { zh, zhCopy } from "./i18n-zh.js?v=4";
+import { buildGuidance, upcomingItems } from "./guidance.js?v=18";
+import { zh, zhCopy } from "./i18n-zh.js?v=6";
 
 const COPY = {
   en: {

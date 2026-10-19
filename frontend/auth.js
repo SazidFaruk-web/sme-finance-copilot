@@ -1,9 +1,14 @@
 import { icon } from "./icons.js?v=12";
-import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=16";
+import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=18";
+
+// "More languages" (owner decision 2026-10-19): English by default; the owner can show বাংলা and 中文 on this device.
+const MORE_KEY = "more_languages";
+export const moreLanguages = () => { try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; } };
+export const setMoreLanguages = on => { try { localStorage.setItem(MORE_KEY, on ? "1" : ""); } catch { /* private mode */ } };
 
 export function renderAuth(root, { h, language, health, api, onLanguage, onAuthenticated, initialError, startMode = "login" }) {
   const state = {
-    language: ["bn", "zh"].includes(language) && (health.languages || ["en"]).includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
+    language: ["bn", "zh"].includes(language) && moreLanguages() && (health.languages || ["en"]).includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
     allowSignup: health.allow_signup !== false, busy: false, error: initialError ? authErrorKey(initialError) : "", fields: {},
     drafts: { login: { username: "", password: "" }, signup: { business: "", name: "", username: "", password: "", confirm: "" } },
     visible: {}, demoOpen: false,
@@ -88,14 +93,20 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
         type: "button", disabled: state.busy, onclick: () => {
           state.drafts.login = { username: d.username, password: d.password }; state.mode = "login"; state.error = ""; state.fields = {}; state.visible = {}; draw("auth-password");
         },
-      }, c[d.role] || c.viewer))));
+      }, d.name ? `${d.name} · ${d.business}${d.note ? ` (${d.note})` : ""}` : (c[d.role] || c.viewer)))));
     const screen = h("div", { class: "auth-screen" },
-      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("span", { class: "auth-brand-mark" }, icon("book", 23)), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 ? languages : null),
+      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("span", { class: "auth-brand-mark" }, icon("book", 23)), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 && moreLanguages() ? languages : null),
       h("main", { class: "auth-main" }, h("section", { class: "auth-card", "aria-labelledby": "auth-heading" },
         h("div", { class: "auth-heading" }, h("h1", { id: "auth-heading", tabindex: -1 }, signup ? c.signupTitle : c.loginTitle), h("p", {}, signup ? c.signupIntro : c.loginIntro)),
         form,
         state.allowSignup ? h("p", { class: "auth-switch" }, signup ? c.already : c.newHere, " ", h("button", { type: "button", disabled: state.busy, onclick: () => switchMode(signup ? "login" : "signup") }, signup ? c.login : c.signup)) : null,
-        !signup ? demo : null)),
+        !signup ? demo : null,
+        (health.languages || ["en"]).length > 1 ? h("p", { class: "auth-more-langs" }, h("button", { type: "button", id: "auth-more-langs",
+          disabled: state.busy, onclick: () => {
+            const on = !moreLanguages(); setMoreLanguages(on); captureDraft();
+            if (!on && state.language !== "en") { state.language = "en"; onLanguage("en"); }
+            draw("auth-more-langs");
+          } }, moreLanguages() ? c.fewerLanguages : c.moreLanguages)) : null)),
       h("footer", { class: "auth-footer" }, c.footer));
     root.replaceChildren(screen);
     if (focusId) root.querySelector(`#${focusId}`)?.focus();

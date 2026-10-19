@@ -1,6 +1,6 @@
 // Deterministic, record-backed guidance. No model call or financial calculation here.
 // Keep priority and permission decisions independently testable from the DOM.
-import { zh, zhCopy } from "./i18n-zh.js?v=4";
+import { zh, zhCopy } from "./i18n-zh.js?v=6";
 
 const COPY = {
   en: {
