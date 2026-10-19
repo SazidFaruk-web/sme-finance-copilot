@@ -10,7 +10,7 @@ import { greetingName } from "./guidance.js?v=19";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=21";
 import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
-import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=10";
+import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=11";
 import { createMarketDrawer } from "./market.js?v=5";
 import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
@@ -1192,7 +1192,7 @@ function viewChat(v) {
   log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, simple
     ? plain("Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
       "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।")
-    : L("Assalamu alaikum! I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
+    : L("I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
   log.appendChild(chips);
   v.replaceChildren(h("div", { class: "card panel chat-panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))),
@@ -1989,7 +1989,7 @@ async function viewSimpleData(v) {
   v.replaceChildren(h("h1", {}, plain("Your business records", "আপনার ব্যবসার হিসাব")),
     h("p", { class: "muted" }, canWrite() ? plain("Write a sale or expense in your own words. Check the preview, then save.", "বিক্রি বা খরচ নিজের ভাষায় লিখুন। মিলিয়ে দেখে তারপর সেভ করুন।") : plain("You can review records here. The owner or accountant can add and correct entries.", "এখানে হিসাব দেখতে পারবেন। মালিক বা হিসাবরক্ষক হিসাব যোগ বা ঠিক করতে পারবেন।")),
     canWrite() ? quickEntryCard(load) : null,
-    canWrite() ? h("div", { class: "pilot-inline" }, h("a", { href: "#chat?start=record", class: "btn primary" }, plain("Add or check money", "হিসাব লিখুন বা টাকা মেলান")), h("a", { href: "#chat?tab=offline", class: "text-link" }, plain("Offline drafts", "অফলাইন খসড়া"))) : null,
+    canWrite() && S.mode === "simple" ? h("div", { class: "pilot-inline" }, h("a", { href: "#chat?start=record", class: "btn primary" }, plain("Add or check money", "হিসাব লিখুন বা টাকা মেলান")), h("a", { href: "#chat?tab=offline", class: "text-link" }, plain("Offline drafts", "অফলাইন খসড়া"))) : "",
     canWrite() ? h("details", { class: "card", style: "margin-top:16px" }, h("summary", {}, plain("Import A File", "ফাইল থেকে হিসাব আনুন")),
       h("div", { class: "row", style: "margin-top:16px" }, file, upload), h("a", { class: "text-link", href: "#data?tools=all" }, plain("Photo scan and more import options", "ছবি স্ক্যান ও অন্যান্য সুবিধা"), icon("arrow", 16))) : null,
     h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_recent")), list));

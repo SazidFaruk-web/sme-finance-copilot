@@ -1254,7 +1254,7 @@ export const ZH = {
   "Rent and staff are the big costs; keep cash ahead of them.": "房租和员工是大头开支；要提前备好现金。",
   "Saved to sandbox outbox; no message delivered": "已保存到沙盒发件箱；没有发送任何消息",
   "You have read-only access. You can check records and ask the AI Assistant; an owner or accountant can make changes.": "您只有只读权限。可以查看记录并询问助手；店主或会计可以进行更改。",
-  "Assalamu alaikum! I'm your AI Assistant for business money. Ask about sales, costs, cash flow, loans - in English, বাংলা or Banglish. I can also record entries, draft reminders and prepare loan reports.": "您好！我是您的财务助手。可以问我销售、成本、现金流、贷款等问题，用中文、英语、孟加拉语都可以。我还可以帮您记账、起草提醒和准备贷款报告。",
+  "I'm your AI Assistant for business money. Ask about sales, costs, cash flow, loans - in English, বাংলা or Banglish. I can also record entries, draft reminders and prepare loan reports.": "我是您的财务助手。可以问我销售、成本、现金流、贷款等问题，用中文、英语、孟加拉语都可以。我还可以帮您记账、起草提醒和准备贷款报告。",
   "Reminder saved. It will appear in this app on": "提醒已保存。它将出现在本应用中，日期：",
   "e.g. sold 12 shirts for 6000 taka cash · দোকান ভাড়া ১৫০০০ দিলাম": "例如：卖出 12 件衬衫，现金 6000 塔卡 · dokan bhara 15000 dilam",
   "中文": "中文",
