@@ -14,7 +14,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from sme_copilot.tools import repo
-from sme_copilot.tools.analysis import add_months, aging, month_start
+from sme_copilot.tools.analysis import add_months, aging, month_start, profitability
 
 MIN_AMOUNT = 1000  # below this, a gap or a change is not worth interrupting for
 GROWTH_PCT = 20
@@ -68,14 +68,15 @@ def candidates(session: Session, business_id: int, today: date) -> list[dict[str
     # Sales so far this month against the same days of last month.
     prev_start = add_months(start, -1)
     prev_end = min(prev_start + (today - start), start - timedelta(days=1))
-    before = _sum(txns, prev_start, prev_end, "in")
+    sales_now = profitability(txns, start, today).revenue
+    before = profitability(txns, prev_start, prev_end).revenue
     covered = not txns.empty and txns["date"].min() <= pd.Timestamp(prev_start + timedelta(days=3))  # records cover last month's days
     if covered and before >= MIN_AMOUNT:
-        change = (money_in / before - 1) * 100
+        change = (sales_now / before - 1) * 100
         if change >= GROWTH_PCT:
             out.append({"id": f"sales_up:{ym}", "kind": "good", "key": "sales_up",
-                        "params": {"pct": round(change), "now": round(money_in, 2), "before": round(before, 2)}})
+                        "params": {"pct": round(change), "now": round(sales_now, 2), "before": round(before, 2)}})
         elif change <= -DROP_PCT:
             out.append({"id": f"sales_down:{ym}", "kind": "warn", "key": "sales_down",
-                        "params": {"pct": round(-change), "now": round(money_in, 2), "before": round(before, 2)}})
+                        "params": {"pct": round(-change), "now": round(sales_now, 2), "before": round(before, 2)}})
     return out

@@ -81,14 +81,14 @@ Authentication is in English; the language buttons appear only after **More lang
 
 ### Guided tasks and the Bangladesh pilot
 
-The agreed [Bangladesh product plan](PRODUCT_PLAN_BD.md) is shared implementation context. The first audience is small shops and traders in Dhaka South. The AI Assistant opens a functional task, not a chat transcript: establish the goal, confirm facts, ask the next useful question, compare options, prepare an action, and review its outcome.
+The agreed [Bangladesh product plan](PRODUCT_PLAN_BD.md) is shared implementation context. The first audience is small shops and traders in Dhaka South. The AI Assistant combines chat with a task panel (owner decision, 2026-10-19). Chat helps establish the problem; functional tasks confirm facts, ask the next useful question, compare options, prepare an action, and review its outcome. Opening or changing a task must preserve the conversation.
 
 - Show one question and at most three choices at a time. Prefer amounts, dates, selected records and short checklists. Offer “I don't know” and “Do this later.” Unknown values never silently become zero.
 - Reuse known facts as editable suggestions. After six new questions, offer an answer summary and the choice to continue deeper or pause. Preserve input on language switches and provide backtracking and resuming.
 - Keep optional text/voice for unusual cases. Speech only fills reviewable input; it cannot trigger a payment, message, application or record confirmation.
 - Show at most three leading comparison figures. Put payment schedules, calculations and explanations behind “Why?” or “Show calculation.” Separate lender eligibility from the owner's ability to repay.
 - Any relevant answer, record or source change invalidates action previews. Saved comparisons must show when their supporting facts have changed. Only deterministic services calculate money, check applicability, validate dates and enforce permissions.
-- The model selects approved task/question IDs. It cannot generate arbitrary executable components or bypass confirmation. Keep a usable rules fallback when the model is unavailable.
+- Within guided tasks, the model selects approved task/question IDs. Chat uses the same deterministic tool, permission and confirmation services. The model cannot generate arbitrary executable components or bypass confirmation. Completion claims must match the actual tool and its state: preparing a request is distinct from saving it, and neither implies external delivery. Keep a usable rules fallback when the model is unavailable.
 - Distinguish **saved on this device**, **synchronised for review**, and **confirmed in records**. No automatic execution when connectivity returns. Never imply live source checks, SMS or speech are available offline.
 - Distinguish **Prepared**, **Submitted**, and **Accepted/completed**. Printing a draft does not submit an application. Retain the official form and submission destination when verified.
 - Owner SMS is opt-in, generic and grouped at most once daily, with provider setup and number verification. Provider acceptance is not handset delivery; delivery is not task completion. Customer messages remain owner-reviewed drafts.

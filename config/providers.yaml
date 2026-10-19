@@ -29,6 +29,22 @@ profiles:
     pricing: {input_per_mtok: 3.0, output_per_mtok: 15.0}
 
   # ---- Local models: no data leaves the machine ---------------------------------
+  # Existing shared-service installations and .env.example use this name. Keep it
+  # independent of the website and preserve private, rules-only fallback.
+  shared-llm:
+    adapter: ollama
+    model: sme-copilot
+    base_url: http://127.0.0.1:11434/v1
+    external: false
+    tools: native
+    vision: true
+    timeout: 180
+    max_retries: 0
+    label: "Shared Gemma 4 12B (Ollama server)"
+    extra:
+      json_mode: json_schema
+      request_params: {reasoning_effort: none}
+
   # Benchmarked on an RX 9060 XT 16 GB (benchmarks/results/local_models.md). Start the server with
   # scripts\start_local_llm.bat (gemma) or scripts\start_local_llm.bat qwen14b. Only one runs at a time.
   local-llamacpp:

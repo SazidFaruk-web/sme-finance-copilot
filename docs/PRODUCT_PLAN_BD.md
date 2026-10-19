@@ -1,6 +1,6 @@
 # Bangladesh SME Finance Copilot
 
-Agreed product specification and pilot operating plan. Research recorded **17 October 2026**; implementation notes updated **18 October 2026**. Read together with [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). This plan applies to every contributor and agent.
+Agreed product specification and pilot operating plan. Research recorded **17 October 2026**; implementation notes updated **19 October 2026**. Read together with [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). This plan applies to every contributor and agent.
 
 ## Promise and first audience
 
@@ -28,23 +28,24 @@ Simple bookkeeping, dues, backups and reminders are foundations already offered 
 
 ## Product experience
 
-Preserve five destinations:
+Preserve six destinations (owner decision, 19 October 2026):
 
 | Destination | Contents |
 |---|---|
-| Home | Exactly two cards: recorded money and one next step. Exactly one primary action. No previews, shortcuts, secondary tasks or charts. |
+| Home | Exactly two cards: recorded money and one next step, with one primary action. Only the agreed closed Prices edge drawer and occasional 10-second note are exceptions; see the design principles. |
+| AI Assistant | Chat for understanding the problem, with resumable guided tasks beside it. Picking a task preserves the conversation. |
 | Tasks | To do, Reminders, Coming up; saved guided cases and follow-ups. |
 | Money | This month and Money ahead; decision tools linked from the relevant context. |
 | Records | Add, review, correct, import and reconcile records. |
-| More | Guided AI Assistant, people, documents, stock, business details, support and specialist tools. |
+| More | People, documents, stock, business details, support and specialist tools. |
 
-The AI Assistant is a guided task, not a chat transcript:
+The AI Assistant combines chat with a guided task panel (owner decision, 19 October 2026). Financial actions still follow the guided pattern:
 
 **Understand the goal → confirm known facts → ask the next useful question → compare options → prepare an action → review the outcome.**
 
 One question at a time; at most three choices shown. Use buttons, amounts, dates, selected records and document checklists. Offer “I don't know” and “Do this later.” Unknown is not zero. Reuse records as suggestions, and let the owner check or replace stale facts. After six new answers, show a summary and offer continuing or pausing. Backtracking, edits and resuming must retain progress. Explanations and calculations belong behind disclosure controls.
 
-The interface is plain English; preserve original names. Optional speech produces editable input and never executes a command. Names, dates and amounts need review. Do not promise speech without its required connectivity.
+The interface starts in plain English. More languages on Login and in Settings enables বাংলা and 中文; switching it off returns to English. Preserve original names and in-progress authentication input, without storing passwords. Optional speech fills editable input and never sends a message or executes a command automatically. Names, dates and amounts need review. Do not promise speech without its required connectivity.
 
 ## Financial requirements
 
@@ -127,7 +128,7 @@ The existing FastAPI app, SQLAlchemy database, role permissions, records, audit 
 | Financial calculation | Deterministic money validation, full quote schedules, slow-sales/delayed-receipt scenarios, shortfall and product calculations. Null/NaN/invalid dates rejected or handled as missing. |
 | Record actions | Cash/credit/partial sales and purchases; loans, split principal/charges, withdrawals, paired transfers, advances/refunds; reconciliation correction reminders. Product-cost gaps flagged. |
 | Persistence and stale state | Optimistic versions; answer edits invalidate previews; record/source fingerprints; transactional effects; repeated confirmed requests do not duplicate records/documents/reminders. |
-| Guided model assistance | Optional bounded shared-local-model selection among approved applicable question IDs and goal categories, with rules fallback. Model has no financial execution authority. Free text is not sent to this routing model. |
+| Guided model assistance | Optional bounded shared-local-model selection among approved applicable question IDs and goal categories, with rules fallback. Chat uses the chosen provider through the permission and confirmation services. Model has no independent financial execution authority. Free text is not sent to the question-routing helper. |
 | Documents | Encrypted PDF/image attachments and editable text drafts, downloadable/printable to PDF, scoped access, receipt references, distinct handoff states. |
 | Reminders | Persistent in-app alerts and jobs, snooze/date/complete controls, independent worker, owner preferences and delivery records. |
 | SMS | SSL adapter implemented; off by default. Requires configuration, consent and operator phone verification. No customer SMS sending. |
@@ -171,7 +172,7 @@ PILOT_SMS_API_TOKEN=
 PILOT_SMS_SID=
 ```
 
-Use `LLM_PROFILE=shared-llm` with the existing shared endpoint for optional model question selection, or `rules-offline` for deterministic operation. No raw customer text is passed to the new routing model, and external model profiles are not used by that helper.
+The provider catalog defaults to Claude; `.env.example` and existing shared-service installations explicitly choose `LLM_PROFILE=shared-llm`. That shared Gemma profile remains supported independently of the website. Use `rules-offline` for deterministic operation. The optional guided-question helper uses only local profiles and approved field IDs. Setup and market-item selection can use the chosen cloud profile; their text prompts follow `MASK_PII`, with a request-local vault that restores responses only on this computer. A local model never falls back to a cloud one.
 
 Before enabling SMS: contract with the provider, register sender ID, whitelist the server IP, verify credentials, test delivery/failure semantics with an authorised test number, establish the controlled allowance and add monitoring. The owner saves their number and opt-in in Tasks → Reminders → SMS and reminder settings. Verify number ownership out of band, then record the operator and evidence:
 

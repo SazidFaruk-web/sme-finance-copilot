@@ -12,7 +12,8 @@ import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.j
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
 import { createMarketDrawer } from "./market.js?v=5";
 import { startTour, tourDone } from "./tour.js?v=2";
-import { maybeShowHomeNote } from "./home-note.js?v=1";
+import { maybeShowHomeNote } from "./home-note.js?v=2";
+import { createVoiceButton } from "./voice.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -1155,7 +1156,7 @@ function viewChat(v) {
     try { await streamChat(asked || text, bot, log); } catch (e) { bot.replaceChildren(h("div", { class: "notice warn" }, e.message)); }
   };
   input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
-  const mic = voiceButton(input, send);
+  const mic = voiceButton(input);
   if (S.chatDraft) { input.value = S.chatDraft; delete S.chatDraft; }
   const chips = h("div", { class: "chat-chips" }, (simple ? SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"] : SUGGESTIONS.slice(0, 4))
     .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
@@ -1170,20 +1171,7 @@ function viewChat(v) {
   input.focus();
 }
 
-function voiceButton(input, send) {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return h("button", { class: "btn", disabled: true, title: "Voice input not supported in this browser" }, "🎤");
-  const b = h("button", { class: "btn mic", title: "Voice input (uses the browser's speech service)" }, "🎤");
-  let rec = null;
-  b.addEventListener("click", () => {
-    if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = { bn: "bn-BD", zh: "zh-CN" }[S.ui] || "en-US"; rec.interimResults = false;
-    rec.onresult = e => { input.value = e.results[0][0].transcript; send(); };
-    rec.onend = () => { rec = null; b.classList.remove("on"); };
-    b.classList.add("on"); rec.start();
-  });
-  return b;
-}
+function voiceButton(input) { return createVoiceButton({ h, input, language: S.ui }); }
 
 async function streamChat(text, bot, log) {
   const r = await fetch("/api/chat/stream", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf() },

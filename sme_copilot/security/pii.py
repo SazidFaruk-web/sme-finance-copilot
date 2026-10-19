@@ -79,6 +79,29 @@ def mask_text(text: str) -> str:
     return PIIVault().mask(text) if text else text
 
 
+def chat_with_pii(provider, messages, **kwargs):
+    """Apply the app's masking policy to direct model helpers, restoring replies locally.
+
+    A request-local vault preserves the same placeholder across every message. Do
+    not mutate the caller's messages or share this mapping between owners.
+    """
+    from dataclasses import replace
+    import json
+    from sme_copilot.config import get_settings
+
+    if not (getattr(provider, "external", False) and get_settings().mask_pii):
+        return provider.chat(messages, **kwargs)
+    vault = PIIVault()
+    masked = [replace(m, content=vault.mask(m.content), tool_calls=[
+        replace(tc, arguments=json.loads(vault.mask(json.dumps(tc.arguments, ensure_ascii=False))))
+        for tc in m.tool_calls]) for m in messages]
+    response = provider.chat(masked, **kwargs)
+    response.content = vault.unmask(response.content)
+    for tc in getattr(response, "tool_calls", []):
+        tc.arguments = vault.unmask_obj(tc.arguments)
+    return response
+
+
 def mask_obj(obj):
     if isinstance(obj, str):
         return mask_text(obj)

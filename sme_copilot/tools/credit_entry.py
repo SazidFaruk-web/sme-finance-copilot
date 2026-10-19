@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from sme_copilot.models import Invoice, InvoicePayment, Transaction
 from sme_copilot.tools.textnorm import bn_to_ascii_digits
+from sme_copilot.tools.nl_entry import money_amount
 
 CREDIT_WORDS = r"(?:baki|bakite|বাকিতে|বাকি|on credit|credit sale|udhar|udhaar|উধার)"
 PAID_WORDS = re.compile(r"\b(?:received|got|paid me|collected|dilo|dilen|diyeche|pelam|joma)\b|দিল|দিয়েছে|দিলেন|পেলাম|জমা", re.I)
@@ -27,9 +28,8 @@ CREDIT_DAYS = 30
 
 
 def _amount(text: str) -> float | None:
-    nums = re.findall(r"\d[\d,]*(?:\.\d+)?", bn_to_ascii_digits(text))
-    vals = [float(n.replace(",", "")) for n in nums if float(n.replace(",", "")) > 0]
-    return max(vals) if vals else None
+    amount = money_amount(text)
+    return amount if amount is not None and amount > 0 else None
 
 
 def _clean_name(s: str) -> str:

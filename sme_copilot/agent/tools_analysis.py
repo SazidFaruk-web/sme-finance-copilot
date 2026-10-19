@@ -244,7 +244,12 @@ def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResu
     from sme_copilot.tools import credit_entry as ce
 
     money = lambda v: f"৳{v:,.0f}"  # noqa: E731
-    pay = ce.customer_payment(ctx.session, ctx.business.id, a.text)
+    try:
+        pay = ce.customer_payment(ctx.session, ctx.business.id, a.text)
+        sale = None if pay else ce.credit_sale(a.text)
+    except ValueError:
+        return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), missing=["amount"],
+                            manual_form=True, reason="Enter the payment or credit-sale amount separately; more than one amount was found.")
     if pay:
         name, amount, invs = pay
         owed = sum(float(i.amount) - float(i.amount_paid or 0) for i in invs)
@@ -254,12 +259,11 @@ def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResu
             return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, credit=info,
                                 preview=f"Payment from {name}: {money(amount)}. It settles their open bills "
                                         f"(they owed {money(owed)}). Save?", reason="customer payment")
-        t, applied = ce.apply_payment(ctx.session, ctx.business.id, invs, amount, ctx.as_of, e.channel, ctx.user.username)
+        t, applied = ce.apply_payment(ctx.session, ctx.business.id, invs, amount, date.fromisoformat(e.txn_date), e.channel, ctx.user.username)
         ctx.session.commit()
         return AddTxnResult(recorded=True, transaction_id=t.id, entry={**e.to_dict(), "amount": amount, "direction": "in",
                             "category": "sales", "counterparty": name}, credit={**info, "applied": applied,
                             "still_owed": round(owed - amount, 2)})
-    sale = ce.credit_sale(a.text)
     if sale:
         name, amount = sale
         info = {"kind": "credit_sale", "customer": name, "amount": amount, "due_in_days": ce.CREDIT_DAYS}
@@ -267,7 +271,7 @@ def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResu
             return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, credit=info,
                                 preview=f"Credit sale: {name} will owe you {money(amount)}, due in {ce.CREDIT_DAYS} days. "
                                         f"No cash is recorded until they pay. Save?", reason="credit sale")
-        inv = ce.record_credit_sale(ctx.session, ctx.business.id, name, amount, ctx.as_of, a.text)
+        inv = ce.record_credit_sale(ctx.session, ctx.business.id, name, amount, date.fromisoformat(e.txn_date), a.text)
         ctx.session.commit()
         return AddTxnResult(recorded=True, transaction_id=None, entry={**e.to_dict(), "amount": amount, "counterparty": name,
                                                                       "direction": None, "category": "credit_sale"},

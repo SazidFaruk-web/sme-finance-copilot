@@ -18,6 +18,7 @@ import pandas as pd
 from sme_copilot.llm_providers.base import Message
 from sme_copilot.llm_providers.structured import extract_json
 from sme_copilot.security.injection import SYSTEM_GUARD, scan, wrap_untrusted
+from sme_copilot.security.pii import chat_with_pii
 
 from . import catalog, prices
 from .service import FRESH_MONTHS
@@ -96,7 +97,7 @@ def _ask_model(provider: Any, name: str, business_type: str, text: str, allowed:
     schema = _schema(allowed)
     msgs = [Message("system", system if provider.supports_json_mode else system + "\nJSON schema:\n" + json.dumps(schema)),
             Message("user", user)]
-    resp = provider.chat(msgs, json_schema=schema if provider.supports_json_mode else None, temperature=0.0, max_tokens=500)
+    resp = chat_with_pii(provider, msgs, json_schema=schema if provider.supports_json_mode else None, temperature=0.0, max_tokens=500)
     raw = extract_json(resp.content)
     items = clean(raw.get("items") if isinstance(raw, dict) else None, allowed, SUGGEST_MAX)
     if len(items) < 2:

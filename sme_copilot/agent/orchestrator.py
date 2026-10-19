@@ -43,19 +43,63 @@ MAX_HISTORY_MESSAGES = 8
 # A reply that says something was done ("I have prepared a reminder", "the reminder is set") is only allowed when a
 # tool in this turn actually did or queued it. The 2026-10-19 persona test caught the model claiming a reminder it never
 # prepared, and inventing customers when it answered from memory in a long chat.
-_CLAIM = re.compile(r"\bI(?:'ve| have)?\s+(?:now\s+|already\s+|just\s+)?(?:prepared|created|set up|sent|scheduled|drafted|"
-                    r"saved|recorded|added|queued)\b|\b(?:reminder|payment|transfer|letter|report|entry|record)s?\s+"
-                    r"(?:is|are|has been|have been)\s+(?:now\s+)?(?:set|sent|scheduled|created|prepared|saved|recorded)\b", re.I)
+_VERBS = r"prepared|created|set up|sent|scheduled|drafted|saved|recorded|added|queued|paid|transferred"
+_CLAIM = re.compile(r"\bI(?:'ve| have)?\s+(?:now\s+|already\s+|just\s+)?(?P<active>" + _VERBS + r")\b|"
+                    r"\b(?P<noun>reminders?|payments?|transfers?|letters?|reports?|entries|entry|records?|drafts?|checklists?|bills?)\s+"
+                    r"(?:is|are|has been|have been)\s+(?:now\s+)?(?P<passive>set|" + _VERBS + r")\b", re.I)
 _NO_ACTION = ("I have not prepared or saved anything yet, so nothing will be sent. Ask me again with the details, for "
               "example \"Prepare a payment reminder for <customer>\", or open More, then Customers & suppliers.")
 _NO_FACTS = ("I need to look at your records before I give numbers, and I could not do that for this answer. "
              "Please ask again, for example \"Who owes me money?\" or \"How much did I sell this month?\".")
 
 
+def _supported_action(match, reply: str, outcomes: list[ToolOutcome]) -> bool:
+    """Ground each action in its own tool and state, never in an unrelated write."""
+    verb = (match.group("active") or match.group("passive")).lower()
+    phrase = match.group("noun") or re.split(r"[.;!?\n]|\bbut\b", reply[match.end():], maxsplit=1, flags=re.I)[0]
+    preparing = verb in ("prepared", "drafted", "set up")
+    if preparing and re.fullmatch(r"\s*(?:this|the|a|your) request\s*", phrase, re.I):
+        return sum(o.status == "pending_confirmation" for o in outcomes) == 1
+    # No chat tool delivers real messages. A prepared request is not a sent message,
+    # nor proof of a real payment; sandbox transfers must explicitly say sandbox.
+    if verb == "sent":
+        return False
+    if verb in ("paid", "transferred"):
+        return "sandbox" in reply.lower() and any(o.status == "ok" and o.tool in (
+            "sandbox_transfer", "pay_supplier_invoice") and o.data.get("transfer_id") for o in outcomes)
+    if re.search(r"\breminders?\b", phrase, re.I):
+        allowed = {"create_payment_reminder": "reminder_id", "schedule_alert": "alert_id"}
+    elif re.search(r"\bchecklists?\b", phrase, re.I):
+        allowed = {"prepare_loan_checklist": "draft_id"}
+    elif re.search(r"\breports?\b", phrase, re.I):
+        allowed = {"generate_loan_report": "report_id"}
+    elif re.search(r"\b(?:letters?|drafts?|follow[ -]?ups?)\b", phrase, re.I):
+        allowed = {"draft_invoice_followup": "draft_id"}
+    elif re.search(r"\b(?:payments?|transfers?)\b", phrase, re.I) and verb not in ("recorded", "added", "saved"):
+        allowed = {"sandbox_transfer": "transfer_id", "pay_supplier_invoice": "transfer_id"}
+    elif re.search(r"\b(?:obligations?|bills?)\b", phrase, re.I):
+        allowed = {"add_obligation": "obligation_id"}
+    elif verb in ("recorded", "added", "saved") or re.search(r"\b(?:entry|entries|records?|transactions?)\b", phrase, re.I):
+        allowed = {"add_transaction": "recorded"}
+    else:
+        return False
+    for o in outcomes:
+        if o.tool not in allowed:
+            continue
+        if preparing and o.status == "pending_confirmation":
+            return True
+        if o.status == "ok" and o.data.get(allowed[o.tool]):
+            return True
+        if preparing and o.tool == "add_transaction" and o.status == "ok" and o.data.get("needs_confirm"):
+            return True
+    return False
+
+
 def _enforce_honesty(result: "AgentResult", outcomes: list[ToolOutcome]) -> None:
-    acted = any(o.status in ("ok", "pending_confirmation") and (o.tier or 0) >= 1 for o in outcomes)
-    if _CLAIM.search(result.reply or "") and not acted:
-        result.reply, result.blocked_claim = _NO_ACTION, "action"
+    claims = list(_CLAIM.finditer(result.reply or ""))
+    if any(not _supported_action(m, result.reply, outcomes) for m in claims):
+        result.reply = (_NO_ACTION if not outcomes else "I could not confirm that action was completed. Please check the action status below before relying on it.")
+        result.blocked_claim = "action"
     elif not outcomes and result.ungrounded_numbers:  # numbers from nowhere: no tool ran and none were said before
         result.reply, result.blocked_claim = _NO_FACTS, "numbers"
     if result.blocked_claim:

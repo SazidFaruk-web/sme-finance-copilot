@@ -51,8 +51,8 @@ _DATE_PATTERNS = [
 ]
 _MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
-_DAY_MONTH = re.compile(r"\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b")
-_MONTH_DAY = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b")
+_DAY_MONTH = re.compile(r"\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b(?:\s*,?\s*(\d{4})\b)?")
+_MONTH_DAY = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b(?:\s*,?\s*(\d{4})\b)?")
 
 _RELATIVE = [
     (("day before yesterday", "porshu", "parshu", "পরশু"), -2),
@@ -89,11 +89,12 @@ class ParsedEntry:
         return asdict(self)
 
 
-def _extract_amount_and_qty(norm: str) -> tuple[float | None, float | None, str]:
+def _extract_amount_and_qty(norm: str, *, strict: bool = False) -> tuple[float | None, float | None, str]:
     candidates: list[dict] = []
     # Dates and phone / account numbers are not amounts: blank them out before scanning numbers.
     for pat, _ in _DATE_PATTERNS:
         norm = pat.sub(" ", norm)
+    norm = _DAY_MONTH.sub(" ", _MONTH_DAY.sub(" ", norm))
     norm = _PHONE_RX.sub(" ", norm)
     for m in _NUM.finditer(norm):
         raw = m.group("num")
@@ -121,6 +122,8 @@ def _extract_amount_and_qty(norm: str) -> tuple[float | None, float | None, str]
         money = non_qty or candidates
         if len(candidates) > 1 and not non_qty:
             money = [max(candidates, key=lambda c: c["val"])]
+    if strict and len({c["val"] for c in money}) > 1:
+        raise ValueError("More than one possible money amount; enter the payment amount separately.")
     amount = max(money, key=lambda c: c["val"])["val"]
     qty_c = [c for c in candidates if c["val"] != amount and (c["qty"] or len(candidates) > 1)]
     qty = qty_c[0]["val"] if qty_c else None
@@ -128,6 +131,11 @@ def _extract_amount_and_qty(norm: str) -> tuple[float | None, float | None, str]
     if qty_c:
         item = re.sub(r"^(টা|টি|ta|ti|pcs|pc|pieces|piece)\s*", "", qty_c[0]["after"]).strip(" ,.")
     return amount, qty, item
+
+
+def money_amount(text: str) -> float | None:
+    """One unambiguous amount, excluding dates, phones and item quantities."""
+    return _extract_amount_and_qty(normalize(text), strict=True)[0]
 
 
 def _extract_date(norm: str, today: date) -> date:
@@ -144,8 +152,8 @@ def _extract_date(norm: str, today: date) -> date:
         g = m.groups()
         day, mon = (int(g[0]), _MONTHS[g[1][:3]]) if g[0].isdigit() else (int(g[1]), _MONTHS[g[0][:3]])
         try:
-            d = date(today.year, mon, day)
-            return d if d <= today else date(today.year - 1, mon, day)
+            d = date(int(g[2]) if g[2] else today.year, mon, day)
+            return d if g[2] or d <= today else date(today.year - 1, mon, day)
         except ValueError:
             pass
     for words, delta in _RELATIVE:

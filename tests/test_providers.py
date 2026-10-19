@@ -380,7 +380,7 @@ def test_per_request_override_goes_first():
 
 def test_shipped_providers_yaml_is_valid():
     reg = ProviderRegistry(settings=Settings(llm_profile=""))
-    assert {p.name for p in reg.list_profiles()} == {"claude-sonnet", "local-llamacpp", "local-qwen14b", "rules-offline"}
+    assert {p.name for p in reg.list_profiles()} == {"claude-sonnet", "shared-llm", "local-llamacpp", "local-qwen14b", "rules-offline"}
     assert reg.default_profile == "claude-sonnet"
     assert reg.profiles["claude-sonnet"]["model"] == "claude-sonnet-5-5"
     assert ModelRouter(reg).chain() == ["claude-sonnet", "rules-offline"]

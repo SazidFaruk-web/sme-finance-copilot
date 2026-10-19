@@ -13,8 +13,8 @@ const COPY = {
     bill_soon: p => `${p.name} (${p.money(p.amount)}) is due on ${p.date(p.due)}.`,
     overspend: p => `This month ${p.money(p.out)} went out but only ${p.money(p.in)} came in: ${p.money(p.gap)} more than you earned. Check the biggest costs in Money.`,
     owed: p => `Customers are late paying you ${p.money(p.owed)}, more than came in this month. Collecting some of it would help.`,
-    sales_up: p => `Money in is ${p.pct}% higher than the same days last month (${p.money(p.now)} against ${p.money(p.before)}). Well done!`,
-    sales_down: p => `Money in is ${p.pct}% lower than the same days last month (${p.money(p.now)} against ${p.money(p.before)}). Worth checking why.`,
+    sales_up: p => `Recorded sales after refunds are ${p.pct}% higher than the same days last month (${p.money(p.now)} against ${p.money(p.before)}).`,
+    sales_down: p => `Recorded sales after refunds are ${p.pct}% lower than the same days last month (${p.money(p.now)} against ${p.money(p.before)}). Worth checking why.`,
     tips: [
       "Write down every sale the same day. Small amounts add up and are the easiest to forget.",
       "Keep the shop's money and your family's money separate, even if it is only two boxes.",
@@ -37,8 +37,8 @@ const COPY = {
     bill_soon: p => `${p.name} (${p.money(p.amount)}) দেওয়ার তারিখ ${p.date(p.due)}।`,
     overspend: p => `এই মাসে ${p.money(p.out)} খরচ হয়েছে, কিন্তু এসেছে মাত্র ${p.money(p.in)}: আয়ের চেয়ে ${p.money(p.gap)} বেশি। "টাকা" পাতায় বড় খরচগুলো দেখুন।`,
     owed: p => `ক্রেতাদের কাছে ${p.money(p.owed)} বকেয়া, যা এই মাসের আয়ের চেয়েও বেশি। কিছুটা আদায় করলে উপকার হবে।`,
-    sales_up: p => `গত মাসের একই দিনগুলোর তুলনায় আয় ${p.pct}% বেশি (${p.money(p.now)}, আগে ছিল ${p.money(p.before)})। দারুণ!`,
-    sales_down: p => `গত মাসের একই দিনগুলোর তুলনায় আয় ${p.pct}% কম (${p.money(p.now)}, আগে ছিল ${p.money(p.before)})। কারণটা দেখে নিন।`,
+    sales_up: p => `ফেরত বাদ দিয়ে হিসাবের বিক্রি গত মাসের একই দিনগুলোর তুলনায় ${p.pct}% বেশি (${p.money(p.now)}, আগে ছিল ${p.money(p.before)})।`,
+    sales_down: p => `ফেরত বাদ দিয়ে হিসাবের বিক্রি গত মাসের একই দিনগুলোর তুলনায় ${p.pct}% কম (${p.money(p.now)}, আগে ছিল ${p.money(p.before)})। কারণটা দেখে নিন।`,
     tips: [
       "প্রতিটি বিক্রি সেদিনই লিখে রাখুন। ছোট অঙ্কগুলোই সবচেয়ে বেশি ভুলে যাওয়া হয়।",
       "দোকানের টাকা আর সংসারের টাকা আলাদা রাখুন, দুটি আলাদা বাক্সে হলেও।",
@@ -61,8 +61,8 @@ const COPY = {
     bill_soon: p => `${p.name}（${p.money(p.amount)}）将于 ${p.date(p.due)} 到期。`,
     overspend: p => `本月支出 ${p.money(p.out)}，收入只有 ${p.money(p.in)}：比收入多花了 ${p.money(p.gap)}。请在“资金”中查看最大的开支。`,
     owed: p => `客户逾期未付 ${p.money(p.owed)}，比本月收入还多。收回一部分会有帮助。`,
-    sales_up: p => `收入比上月同期高 ${p.pct}%（${p.money(p.now)}，上月同期 ${p.money(p.before)}）。做得好！`,
-    sales_down: p => `收入比上月同期低 ${p.pct}%（${p.money(p.now)}，上月同期 ${p.money(p.before)}）。值得查一查原因。`,
+    sales_up: p => `扣除退款后的记录销售额比上月同期高 ${p.pct}%（${p.money(p.now)}，上月同期 ${p.money(p.before)}）。`,
+    sales_down: p => `扣除退款后的记录销售额比上月同期低 ${p.pct}%（${p.money(p.now)}，上月同期 ${p.money(p.before)}）。值得查一查原因。`,
     tips: [
       "每笔销售当天就记下来。小金额最容易被忘记。",
       "把店里的钱和家里的钱分开，哪怕只是两个盒子。",

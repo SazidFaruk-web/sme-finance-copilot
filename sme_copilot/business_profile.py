@@ -19,6 +19,7 @@ from sme_copilot.llm_providers.base import Message
 from sme_copilot.llm_providers.structured import extract_json
 from sme_copilot.market import catalog, watch
 from sme_copilot.security.injection import SYSTEM_GUARD, scan, wrap_untrusted
+from sme_copilot.security.pii import chat_with_pii
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ def _ask_model(provider: Any, name: str, about: str, chosen: str, allowed_items:
     schema = _schema(allowed_items)
     msgs = [Message("system", system if provider.supports_json_mode else system + "\nJSON schema:\n" + json.dumps(schema)),
             Message("user", user)]
-    resp = provider.chat(msgs, json_schema=schema if provider.supports_json_mode else None, temperature=0.0, max_tokens=500)
+    resp = chat_with_pii(provider, msgs, json_schema=schema if provider.supports_json_mode else None, temperature=0.0, max_tokens=500)
     raw = extract_json(resp.content)
     if not isinstance(raw, dict) or raw.get("business_type") not in hl.BUSINESS_TYPES:
         raise ValueError("model returned no business type")
