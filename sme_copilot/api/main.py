@@ -25,6 +25,14 @@ async def lifespan(app: FastAPI):
     if s.app_env == "production" and not s.field_encryption_key:
         raise RuntimeError("FIELD_ENCRYPTION_KEY must be set in production")
     init_db()
+    if s.app_env == "demo":
+        # Older databases contain only the scripted Nusrat business. Make the demo
+        # accounts advertised by /api/health usable without resetting that database.
+        from sme_copilot.api.deps import as_of_today
+        from sme_copilot.db import SessionLocal
+        from sme_copilot.demo.personas import load_personas
+        with SessionLocal() as db:
+            load_personas(db, as_of_today())
     from sme_copilot.security.auth import warm_up
     warm_up()  # the first failed login must not be slower than later ones
     stop = threading.Event()

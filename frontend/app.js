@@ -4,9 +4,9 @@
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
 // and is sent as a Bearer header (no cookies -> no CSRF surface).
 import { barChart, hbarChart, lineChart } from "./charts.js?v=9";
-import { icon } from "./icons.js?v=12";
-import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=18";
-import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=20";
+import { icon } from "./icons.js?v=13";
+import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=19";
+import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=21";
 import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
@@ -97,16 +97,41 @@ function applyPrefs() {
   if (!LANGS_ON().includes(S.ui)) S.ui = "en";
   const root = document.documentElement;
   root.dataset.style = S.look;
-  const theme = (S.look === "general" || S.look === "sky") ? S.theme : "light";  // Classic is light-only
+  const theme = S.theme;
   if (theme === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
   root.lang = { bn: "bn", zh: "zh-CN" }[S.ui] || "en";
   document.body.classList.toggle("simple", S.mode === "simple");
   setChineseFallback(S.ui === "zh");
+  syncThemeControls();
+}
+
+function darkTheme() { return S.theme === "dark" || (S.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches); }
+function updateThemeButton(button) {
+  const copy = {
+    en: ["Light mode", "Dark mode", "Switch to light mode", "Switch to dark mode"],
+    bn: ["লাইট মোড", "ডার্ক মোড", "লাইট মোড চালু করুন", "ডার্ক মোড চালু করুন"],
+    zh: ["浅色模式", "深色模式", "切换为浅色模式", "切换为深色模式"],
+  }[button.dataset.language] || ["Light mode", "Dark mode", "Switch to light mode", "Switch to dark mode"];
+  const dark = darkTheme(), label = copy[dark ? 2 : 3];
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.replaceChildren(icon(dark ? "sun" : "moon"), h("span", { class: "theme-toggle-label" }, copy[dark ? 0 : 1]));
+}
+function syncThemeControls() {
+  document.querySelectorAll(".theme-toggle").forEach(updateThemeButton);
+  document.querySelectorAll("[data-theme-select]").forEach(select => { select.value = S.theme; });
+}
+function themeButton(language = S.ui) {
+  const button = h("button", { type: "button", class: "btn theme-toggle", "data-language": language,
+    onclick: () => setPref("theme", darkTheme() ? "light" : "dark") });
+  updateThemeButton(button);
+  return button;
 }
 // Locale for dates and speech; English-only literals pass through L() so Chinese still applies to them.
 const locale = () => ({ bn: "bn-BD", zh: "zh-CN" })[S.ui] || "en-GB";
 const L = s => S.ui === "zh" ? zh(s) : s;
 applyPrefs();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeControls);
 
 // ------------------------------------------------------------------ helpers
 function h(tag, attrs = {}, ...kids) {
@@ -395,6 +420,7 @@ async function renderLogin(err, startTab = "login") {
   try { S.health = await (await fetch("/api/health")).json(); } catch { S.health = {}; }
   if (renderId !== loginRender || S.user) return;
   renderAuth($("#root"), { h, api, health: S.health, language: S.ui, initialError: err, startMode: startTab,
+    themeControl: themeButton,
     onLanguage: language => { S.ui = language; savePref("ui_lang", language); applyPrefs(); },
     onAuthenticated: async () => { sessionStorage.removeItem("token"); await boot();
       if ($(".auth-screen")) { const error = new Error("Application unavailable"); error.status = 503; throw error; }
@@ -419,12 +445,13 @@ const plain = (en, bn) => S.ui === "bn" ? bn : L(en);
 const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
-// Re-render everything after a preference change (language, theme, mode).
+// Appearance changes update tokens in place so current forms and workflows survive.
 function setPref(key, value) {
   S[key] = value;
   savePref(key === "look" ? `ui_style:${S.user ? S.user.username : ""}` : { ui: "ui_lang", theme: "theme", mode: "ui_mode" }[key], value);
   if (key === "look" && S.home && S.home.exists) api("/api/home/prefs", { body: { style: value } }).then(r => { S.home = r; }).catch(() => {});
   applyPrefs();
+  if (key === "theme") return;
   if (S.user) { renderShell(); route(); }
 }
 
@@ -434,7 +461,7 @@ function prefControls() {
     options.map(([v, l]) => h("option", { value: v, selected: v === value }, l)));
   const field = (label, control) => h("label", { class: "field" }, label, control);
   const theme = sel(S.theme, [["system", t("th_system")], ["light", "☀ " + t("th_light")], ["dark", "☾ " + t("th_dark")]], v => setPref("theme", v));
-  if (S.look === "classic") { theme.disabled = true; theme.title = t("theme_note"); }
+  theme.setAttribute("data-theme-select", "");
   return [
     field(t("style"), sel(S.look, [["general", t("st_general")], ["sky", t("st_sky")], ["classic", t("st_classic")]], v => setPref("look", v))),
     (S.health.languages || ["en"]).length > 1 ? h("label", { class: "row small", style: "gap:8px" },
@@ -514,6 +541,7 @@ async function boot() {
     $("#root").replaceChildren(h("div", { class: "pilot-offline-shell" },
       h("p", {}, plain("Connection unavailable. Only this device’s saved drafts are available.", "সংযোগ নেই। শুধু এই ডিভাইসে রাখা খসড়া পাওয়া যাবে।")),
       h("button", { class: "btn", onclick: () => location.reload() }, plain("Reconnect", "আবার সংযোগ")),
+      themeButton(),
       h("button", { class: "btn", onclick: () => logout(false) }, plain("Sign out and clear local drafts", "লগ আউট করে ডিভাইসের খসড়া মুছুন")), offline));
     const show = () => renderPilot(offline, guidedContext());
     if (!location.hash.startsWith("#chat")) location.hash = "#chat?tab=offline";
@@ -570,7 +598,7 @@ function renderShell() {
         simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
         h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
         simple ? (langs().length > 1 ? h("select", { class: "btn language-toggle", "aria-label": t("language"), onchange: e => setPref("ui", e.target.value) },
-          langs().map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : null) : settingsMenu(), avatar),
+          langs().map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : null) : settingsMenu(), themeButton(), avatar),
       h("main", { class: "view", id: "view" }))));
   refreshPending();
 }

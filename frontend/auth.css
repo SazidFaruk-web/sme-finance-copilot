@@ -19,7 +19,9 @@
     --auth-soft: #35271f; --auth-input: #292723; --auth-error: #eea3a7;
   }
 }
-.auth-header { width: min(1200px,100%); margin: 0 auto; padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.auth-header { width: min(1200px,100%); margin: 0 auto; padding: 28px 40px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
+.auth-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; max-width: 100%; }
+.auth-screen .theme-toggle { background: var(--auth-surface); color: var(--auth-ink); border: 1px solid var(--auth-border); border-radius: 12px; box-shadow: none; }
 .auth-brand { display: inline-flex; align-items: center; gap: 11px; font-size: 20px; font-weight: 650; letter-spacing: -.6px; white-space: nowrap; }
 .auth-brand-mark { display: block; width: 42px; height: 42px; }
 .auth-languages { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--auth-border); background: var(--auth-surface); border-radius: 14px; }

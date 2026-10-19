@@ -18,11 +18,12 @@ import random
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sme_copilot import home_layout as hl
 from sme_copilot.market import catalog, watch
-from sme_copilot.models import Business, HomePrefs, MarketWatch, Obligation, SandboxAccount
+from sme_copilot.models import Business, HomePrefs, MarketWatch, Obligation, SandboxAccount, User
 from sme_copilot.security.auth import create_user
 from sme_copilot.tools.ingestion import import_file
 
@@ -164,10 +165,13 @@ def _next_due(today: date, day: int) -> date:
 
 
 def load_personas(session: Session, as_of: date, seed: int = 20261019) -> dict[str, Any]:
-    """Create the four businesses and their histories. Returns a short report per persona."""
+    """Add missing demo owners without resetting existing accounts, passwords or records."""
     rnd = random.Random(seed)
     report: dict[str, Any] = {}
     for username, p in PERSONAS.items():
+        if session.scalar(select(User.id).where(User.username == username)) is not None:
+            report[username] = {"existing": True}
+            continue
         created = datetime.combine(as_of - timedelta(days=p["days"]), datetime.min.time()) + timedelta(hours=10)
         b = Business(name=p["business"], sector=p["summary"] or "trading", district=p["district"], owner_name=p["full_name"],
                      established_on=p["established"], has_trade_license=p["licence"], has_tin=p["tin"], has_bank_account=p["bank"],

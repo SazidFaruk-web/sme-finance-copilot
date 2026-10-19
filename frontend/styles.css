@@ -122,6 +122,13 @@ a { color: var(--accent); }
 .topbar { display: flex; gap: 12px; align-items: center; padding: 10px 20px; background: var(--surface-1);
   border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
 .topbar .biz { font-weight: 600; }
+.theme-toggle { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+.theme-toggle svg { flex-shrink: 0; }
+.theme-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .theme-toggle { width: 44px; padding: 10px; }
+  .theme-toggle-label { display: none; }
+}
 .view { padding: 20px; max-width: 1280px; }
 h1 { font-size: 20px; margin: 0 0 4px; }
 h2 { font-size: 15px; margin: 0 0 10px; }
@@ -555,8 +562,8 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
 
 /* =====================================================================================
    Styles (Settings > Style): html[data-style] = general | sky | classic. Tokens plus a few layout classes;
-   every page renders the same DOM. General and Sky support light/dark; Classic is light-only
-   (app.js pins data-theme="light" for it). General and Sky tokens live at the top of this file.
+   every page renders the same DOM. All styles support light/dark.
+   General and Sky tokens live at the top of this file.
    ===================================================================================== */
 :root[data-style="classic"] {
   --page: #f2f4f3; --surface-1: #ffffff; --surface-2: #edf2ee; --border: #e0e7e2; --grid: #e5ebe7; --axis: #c3cec7;
@@ -573,6 +580,26 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
   --hatch: repeating-linear-gradient(135deg, transparent 0 5px, rgba(20, 67, 47, .10) 5px 7px);
 }
 /* ---------- shared: sidebar, buttons, cards read the style tokens */
+:root[data-style="classic"][data-theme="dark"] {
+  --page: #17221c; --surface-1: #202f26; --surface-2: #283b30; --border: #3d5345; --grid: #334b3c; --axis: #516a59;
+  --text-primary: #eef6f0; --text-secondary: #c4d7ca; --text-muted: #acc5b5;
+  --accent: #97d9b4; --accent-ink: #97d9b4; --accent-soft: #294b36; --series-1: #97d9b4; --series-2: #5fb98a;
+  --info: #97d9b4; --info-soft: #294b36; --neutral-soft: #283b30; --c-blue: #97d9b4;
+  --sb-bg: var(--surface-1); --sb-text: var(--text-secondary); --sb-hover: var(--surface-2); --sb-active-bg: var(--accent-soft);
+  --sb-active-text: var(--accent-ink); --sb-icon-bg: var(--surface-2); --sb-icon-active: var(--accent); --sb-bar: var(--accent);
+  --classic-shell: #111b15; --classic-primary: #97d9b4; --classic-primary-text: #17221c; --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="classic"]:not([data-theme="light"]) {
+    --page: #17221c; --surface-1: #202f26; --surface-2: #283b30; --border: #3d5345; --grid: #334b3c; --axis: #516a59;
+    --text-primary: #eef6f0; --text-secondary: #c4d7ca; --text-muted: #acc5b5;
+    --accent: #97d9b4; --accent-ink: #97d9b4; --accent-soft: #294b36; --series-1: #97d9b4; --series-2: #5fb98a;
+    --info: #97d9b4; --info-soft: #294b36; --neutral-soft: #283b30; --c-blue: #97d9b4;
+    --sb-bg: var(--surface-1); --sb-text: var(--text-secondary); --sb-hover: var(--surface-2); --sb-active-bg: var(--accent-soft);
+    --sb-active-text: var(--accent-ink); --sb-icon-bg: var(--surface-2); --sb-icon-active: var(--accent); --sb-bar: var(--accent);
+    --classic-shell: #111b15; --classic-primary: #97d9b4; --classic-primary-text: #17221c; --shadow: none;
+  }
+}
 .sidebar { background: var(--sb-bg); }
 .brand { color: var(--sb-active-text); }
 .brand span, .sidebar .foot { color: var(--sb-muted); }
@@ -645,16 +672,16 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
 .tip-card h2 { color: var(--accent-ink); }
 
 /* ======== Green: big rounded shell, light sidebar with bar + badges, gradient first KPI, pill buttons, hatch */
-:root[data-style="classic"] body { background: #dfe6e1; }
+:root[data-style="classic"] body { background: var(--classic-shell, #dfe6e1); }
 :root[data-style="classic"] .app { margin: 14px; min-height: calc(100vh - 28px); border-radius: var(--shell-radius); background: var(--page);
   overflow: clip; box-shadow: 0 10px 40px rgba(20, 67, 47, .10); }
 :root[data-style="classic"] .sidebar { top: 14px; height: calc(100vh - 28px); border-right-color: var(--border); }
 :root[data-style="classic"] .topbar { background: color-mix(in srgb, var(--page) 88%, transparent); border-bottom-color: transparent;
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 :root[data-style="classic"] .nav .badge { background: #1f6b4a; }
-:root[data-style="classic"] .btn.primary { background: #14432f; border-color: #14432f; }
-:root[data-style="classic"] .btn:not(.primary):not(.ghost):not(.danger) { background: transparent; border: 1.5px solid #1f6b4a; color: #14432f; }
-:root[data-style="classic"] .btn:not(.primary):not(.ghost):not(.danger):hover { background: #e7f3ec; }
+:root[data-style="classic"] .btn.primary { background: var(--classic-primary, #14432f); border-color: var(--classic-primary, #14432f); color: var(--classic-primary-text, #fff); }
+:root[data-style="classic"] .btn:not(.primary):not(.ghost):not(.danger) { background: transparent; border: 1.5px solid var(--accent); color: var(--accent-ink); }
+:root[data-style="classic"] .btn:not(.primary):not(.ghost):not(.danger):hover { background: var(--accent-soft); }
 :root[data-style="classic"] .kpi { border-top: 1px solid var(--border); }
 :root[data-style="classic"] .g-kpi > .kpi:first-child { background: linear-gradient(135deg, #1f6b4a, #14432f); border-color: transparent; color: #fff; }
 :root[data-style="classic"] .g-kpi > .kpi:first-child :is(.label, .sub, .value, .btn.ghost) { color: #fff; }

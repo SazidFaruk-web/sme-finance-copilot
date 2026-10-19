@@ -40,8 +40,10 @@ python -m venv .venv
 .venv/Scripts/python -m sme_copilot.cli demo              # reset + seed demo data + serve
 ```
 
-Open <http://127.0.0.1:8000>. Set `APP_ENV=demo` (or copy `.env.example` to `.env`) to have the demo logins
+Open <http://127.0.0.1:8000>. Set `APP_ENV=demo` to have the demo logins
 shown on the login page.
+In demo mode, startup adds any missing demo owners and their sample histories. Existing accounts,
+passwords and records are preserved, including the older Nusrat demo business. Other modes do not create demo accounts.
 
 Four fictional test owners (all owners, each their own business):
 

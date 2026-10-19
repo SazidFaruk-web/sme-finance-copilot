@@ -1,0 +1,91 @@
+// Uses only the isolated tests/browser/server.py database. No cloud model or SMS calls.
+import { chromium } from '../../data/ui-review/node_modules/playwright-core/index.mjs';
+import assert from 'node:assert/strict';
+const browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+const context = await browser.newContext({ baseURL: 'http://127.0.0.1:8002', viewport: { width: 1280, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce' });
+await context.addInitScript(() => localStorage.setItem('tour_done:tanvir', '1'));
+const page = await context.newPage(), errors = [];
+page.on('pageerror', error => errors.push(error.message));
+const toggle = () => page.locator('.theme-toggle');
+const theme = () => page.locator('html').getAttribute('data-theme');
+const noOverflow = async () => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+const fit = async () => {
+  const box = await toggle().boundingBox();
+  assert.ok(box.width >= 44 && box.height >= 44 && box.x >= 0 && box.x + box.width <= (await page.viewportSize()).width);
+  await noOverflow();
+};
+try {
+  await page.goto('/');
+  await page.locator('#auth-username').fill('draft-owner');
+  await page.locator('#auth-password').fill('unsent-password');
+  const original = await page.locator('#auth-password').elementHandle();
+  await toggle().click(); assert.equal(await theme(), 'dark');
+  assert.equal(await page.locator('#auth-password').inputValue(), 'unsent-password');
+  assert.ok(await original.evaluate(node => node.isConnected));
+  await toggle().focus(); await page.keyboard.press('Enter'); assert.equal(await theme(), 'light');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await page.locator('#auth-business').fill('Draft business');
+  await page.locator('#auth-password').fill('signup-password');
+  await toggle().click();
+  assert.equal(await page.locator('#auth-business').inputValue(), 'Draft business');
+  assert.equal(await page.locator('#auth-password').inputValue(), 'signup-password');
+  await page.locator('#auth-more-langs').click();
+  await page.locator('#auth-lang-bn').click();
+  assert.equal(await toggle().getAttribute('aria-label'), 'লাইট মোড চালু করুন');
+  await toggle().click(); assert.equal(await theme(), 'light');
+  await page.locator('#auth-lang-zh').click();
+  assert.equal(await toggle().getAttribute('aria-label'), '切换为深色模式');
+  await toggle().click();
+  await page.setViewportSize({ width: 360, height: 800 }); await fit();
+  await page.screenshot({ path: 'data/ui-review/theme-auth-dark-mobile.png', fullPage: true });
+  assert.equal(await page.evaluate(() => Object.values(localStorage).some(v => v.includes('unsent-password') || v.includes('signup-password'))), false);
+  await page.locator('#auth-lang-en').click();
+  await page.getByRole('button', { name: 'Log in', exact: true }).click();
+  await page.locator('#auth-username').fill('tanvir');
+  await page.locator('#auth-password').fill('tanvir-demo-2026');
+  await page.locator('.auth-submit').click(); await page.locator('.guided-home').waitFor();
+  assert.equal(await page.locator('.home-main-grid > *').count(), 2);
+  assert.equal(await theme(), 'dark'); await fit();
+  await page.screenshot({ path: 'data/ui-review/theme-home-dark-mobile.png', fullPage: true });
+  await toggle().click(); assert.equal(await theme(), 'light');
+  await page.screenshot({ path: 'data/ui-review/theme-home-light-mobile.png', fullPage: true });
+  await page.reload(); await page.locator('.guided-home').waitFor(); assert.equal(await theme(), 'light');
+  await page.locator('#nav-chat').click(); await page.locator('.chat-question').fill('Do not clear this draft');
+  const draft = await page.locator('.chat-question').elementHandle();
+  await toggle().click();
+  assert.equal(await page.locator('.chat-question').inputValue(), 'Do not clear this draft');
+  assert.ok(await draft.evaluate(node => node.isConnected));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#settings'); await page.locator('[data-theme-select]').waitFor();
+  await page.locator('[data-theme-select]').selectOption('system');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForFunction(() => document.querySelector('.theme-toggle')?.getAttribute('aria-label') === 'Switch to light mode');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.waitForFunction(() => document.querySelector('.theme-toggle')?.getAttribute('aria-label') === 'Switch to dark mode');
+  for (const style of ['sky', 'classic', 'general']) {
+    await page.getByLabel(/^Style/).selectOption(style);
+    await page.waitForFunction(s => document.documentElement.dataset.style === s, style);
+    await page.locator('[data-theme-select]').waitFor();
+    await page.locator('[data-theme-select]').selectOption('dark');
+    assert.equal(await theme(), 'dark');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'dark');
+    // WCAG contrast of the actual theme control in each dark style.
+    const colors = await toggle().evaluate(node => {
+      const style = getComputedStyle(node), root = getComputedStyle(document.documentElement);
+      return [style.color, root.getPropertyValue('--page').trim()];
+    });
+    const rgb = value => value.startsWith('#') ? value.slice(1).match(/../g).map(x => parseInt(x, 16)) : value.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const luminance = value => rgb(value).map(x => x / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4).reduce((n, x, i) => n + x * [.2126, .7152, .0722][i], 0);
+    const levels = colors.map(luminance).sort((a, b) => b - a);
+    assert.ok((levels[0] + .05) / (levels[1] + .05) >= 4.5, `${style} theme control needs readable contrast`);
+  }
+  await page.goto('/#dashboard'); await page.locator('.guided-home').waitFor();
+  await page.screenshot({ path: 'data/ui-review/theme-home-dark-desktop.png', fullPage: true });
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await context.setOffline(true); await page.reload();
+  await page.getByText('Connection unavailable. Only this device’s saved drafts are available.', { exact: true }).waitFor();
+  assert.equal(await theme(), 'dark');
+  await toggle().click(); assert.equal(await theme(), 'light');
+  assert.equal(errors.length, 0, errors.join('\n'));
+  console.log('PASS theme toggles on login/signup and in the app; drafts survive; EN/BN/ZH labels, keyboard, mobile, persistence, device preference, all styles and offline operation work.');
+} finally { await browser.close(); }

@@ -13,6 +13,7 @@ export function icon(name, size = 20) {
     calendar: "M4 5h16v16H4ZM8 3v4m8-4v4M4 11h16",
     check: "m5 12 4 4L19 6", bill: "M6 3h12v18l-3-2-3 2-3-2-3 2ZM9 8h6m-6 4h6",
     sun: "M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+    moon: "M20.5 13a8.5 8.5 0 0 1-9.5-9.5A8.5 8.5 0 1 0 20.5 13Z",
   };
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   for (const [k, val] of Object.entries({ viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: "currentColor", "stroke-width": name === "more" ? 4 : 1.7, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" })) svg.setAttribute(k, val);

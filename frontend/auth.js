@@ -1,4 +1,4 @@
-import { icon } from "./icons.js?v=12";
+import { icon } from "./icons.js?v=13";
 import { AUTH_COPY, validateAuth, authErrorKey } from "./auth-copy.js?v=18";
 
 // "More languages" (owner decision 2026-10-19): English by default; the owner can show বাংলা and 中文 on this device.
@@ -6,7 +6,7 @@ const MORE_KEY = "more_languages";
 export const moreLanguages = () => { try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; } };
 export const setMoreLanguages = on => { try { localStorage.setItem(MORE_KEY, on ? "1" : ""); } catch { /* private mode */ } };
 
-export function renderAuth(root, { h, language, health, api, onLanguage, onAuthenticated, initialError, startMode = "login" }) {
+export function renderAuth(root, { h, language, health, api, onLanguage, onAuthenticated, initialError, startMode = "login", themeControl = () => null }) {
   const state = {
     language: ["bn", "zh"].includes(language) && moreLanguages() && (health.languages || ["en"]).includes(language) ? language : "en", mode: health.allow_signup !== false && startMode === "signup" ? "signup" : "login",
     allowSignup: health.allow_signup !== false, busy: false, error: initialError ? authErrorKey(initialError) : "", fields: {},
@@ -95,7 +95,8 @@ export function renderAuth(root, { h, language, health, api, onLanguage, onAuthe
         },
       }, d.name ? `${d.name} · ${d.business}${d.note ? ` (${d.note})` : ""}` : (c[d.role] || c.viewer)))));
     const screen = h("div", { class: "auth-screen" },
-      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("img", { class: "auth-brand-mark", src: "/static/app-icon.svg?v=2", alt: "" }), h("span", {}, c.brand)), (health.languages || ["en"]).length > 1 && moreLanguages() ? languages : null),
+      h("header", { class: "auth-header" }, h("div", { class: "auth-brand" }, h("img", { class: "auth-brand-mark", src: "/static/app-icon.svg?v=2", alt: "" }), h("span", {}, c.brand)),
+        h("div", { class: "auth-tools" }, (health.languages || ["en"]).length > 1 && moreLanguages() ? languages : null, themeControl(state.language))),
       h("main", { class: "auth-main" }, h("section", { class: "auth-card", "aria-labelledby": "auth-heading" },
         h("div", { class: "auth-heading" }, h("h1", { id: "auth-heading", tabindex: -1 }, signup ? c.signupTitle : c.loginTitle), h("p", {}, signup ? c.signupIntro : c.loginIntro)),
         form,
