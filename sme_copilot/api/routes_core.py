@@ -163,6 +163,15 @@ def chat(body: ChatIn, user: User = Depends(current_user), db: Session = Depends
     return run_chat(db, user, body)
 
 
+@router.get("/chat/greeting")
+def chat_greeting(language: str = "en", profile: str | None = None, simple: bool = False,
+                  user: User = Depends(current_user)) -> dict[str, Any]:
+    """A fresh model-written opening line for the assistant tab; `text` is null when the UI should keep its fixed one."""
+    from sme_copilot.greeting import make_greeting
+    first = (user.full_name or user.username or "").strip().split(" ")[0]
+    return {"text": make_greeting(first, language, profile, simple)}
+
+
 @router.post("/chat/stream")
 def chat_stream(body: ChatIn, user: User = Depends(current_user)) -> StreamingResponse:
     """Server-sent events: `tool` events as each tool finishes, then `delta` chunks of the reply,

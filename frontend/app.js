@@ -1189,10 +1189,18 @@ function viewChat(v) {
   if (S.chatDraft) { input.value = S.chatDraft; delete S.chatDraft; }
   const chips = h("div", { class: "chat-chips" }, (simple ? SIMPLE_SUGGESTIONS[S.ui === "bn" ? "bn" : "en"] : SUGGESTIONS.slice(0, 4))
     .map(s => h("button", { class: "btn sm", onclick: () => send(L(s), s) }, L(s))));
-  log.appendChild(h("div", { class: "msg bot" }, h("div", { class: "text" }, simple
+  const greetText = h("div", { class: "text" }, simple
     ? plain("Tell me what you need help with. I can explain your records and suggest a small next step. You review and confirm any prepared action.",
       "কী নিয়ে সাহায্য চান বলুন। হিসাব বুঝতে ও পরের ছোট কাজটি বেছে নিতে সাহায্য করব। প্রস্তুত করা কাজ আপনিই যাচাই করে নিশ্চিত করবেন।")
-    : L("I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."))));
+    : L("I'm your AI Assistant for business money. Ask about sales, costs, cash flow and loans. I can also record entries, draft reminders and prepare loan reports."));
+  log.appendChild(h("div", { class: "msg bot" }, greetText));
+  // A fresh opening line from the local model each time the app is opened; the fixed text stays if it fails.
+  if (S.greeting === undefined) {
+    S.greeting = null;
+    S.greetingReq = api(`/api/chat/greeting?language=${S.ui === "bn" || S.ui === "zh" ? S.ui : "en"}&simple=${simple}` + (S.profile ? `&profile=${encodeURIComponent(S.profile)}` : ""))
+      .then(d => { S.greeting = d.text || null; }).catch(() => {});
+  }
+  (S.greetingReq || Promise.resolve()).then(() => { if (S.greeting && greetText.isConnected) greetText.textContent = S.greeting; });
   log.appendChild(chips);
   v.replaceChildren(h("div", { class: "card panel chat-panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))),
