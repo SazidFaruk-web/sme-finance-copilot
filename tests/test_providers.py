@@ -380,13 +380,15 @@ def test_per_request_override_goes_first():
 
 def test_shipped_providers_yaml_is_valid():
     reg = ProviderRegistry(settings=Settings(llm_profile=""))
-    assert {p.name for p in reg.list_profiles()} == {"claude-sonnet", "rules-offline"}
+    assert {p.name for p in reg.list_profiles()} == {"claude-sonnet", "local-llamacpp", "local-qwen14b", "rules-offline"}
     assert reg.default_profile == "claude-sonnet"
     assert reg.profiles["claude-sonnet"]["model"] == "claude-sonnet-5-5"
     assert ModelRouter(reg).chain() == ["claude-sonnet", "rules-offline"]
+    # The Gemma launcher sets LLM_PROFILE=local-llamacpp: a private model never falls back to the cloud.
+    assert ModelRouter(reg).chain(override="local-llamacpp") == ["local-llamacpp", "rules-offline"]
 
 
-# The shipped file has only Claude; shared-server behaviour is tested against its own profiles.
+# The shipped file has no shared server; shared-server behaviour is tested against its own profiles.
 SHARED_CFG = {"profiles": {
     "shared-llm": {"adapter": "ollama", "model": "sme-copilot", "base_url": "http://127.0.0.1:11434/v1", "external": False,
                    "tools": "native", "extra": {"request_params": {"reasoning_effort": "none"}}},

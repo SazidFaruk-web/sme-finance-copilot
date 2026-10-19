@@ -1,6 +1,6 @@
 // Cache the public application shell only. Business API requests always go to the server.
-const CACHE = "sme-shell-31";
-const FILES = ["/", "/static/app.js?v=29", "/static/pilot.js?v=22", "/static/pilot-store.js?v=14",
+const CACHE = "sme-shell-32";
+const FILES = ["/", "/static/app.js?v=30", "/static/pilot.js?v=22", "/static/pilot-store.js?v=14",
   "/static/pilot.css?v=15", "/static/styles.css?v=17", "/static/guided.css?v=17", "/static/auth.css?v=14",
   "/static/auth.js?v=20", "/static/auth-copy.js?v=18", "/static/icons.js?v=12", "/static/charts.js?v=9", "/static/guided-pages.js?v=18",
   "/static/guidance.js?v=18", "/static/i18n-zh.js?v=6", "/static/market.js?v=5", "/static/market.css?v=4", "/static/tour.js?v=2", "/static/tour.css?v=2", "/static/home-note.js?v=1", "/static/manifest.webmanifest", "/static/app-icon.svg?v=2", "/static/app-icon-192.png?v=2", "/static/apple-touch-icon.png?v=2"];
