@@ -1,5 +1,10 @@
 # Security Self-Assessment
 
+> **Open findings (19 October 2026):** The follow-up [security review](SECURITY_REVIEW_2026-10-19.md)
+> reproduced seven application vulnerabilities, including alternate-route permission bypasses and concurrent
+> confirmation replay. It also identifies an optional Docker model exposure and installer advisories.
+> The control descriptions below are not a clean security sign-off; consult the follow-up review for current gaps.
+
 SME Finance Copilot · FinTechathon 2026 · Topic E. This document covers (1) how the permission tiers are
 implemented and (2) the known-risk list with mitigations and residual risk. Every control below is
 implemented in code and covered by automated tests (`tests/test_security.py`, `tests/test_actions.py`,
