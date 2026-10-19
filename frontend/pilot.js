@@ -1,5 +1,5 @@
 import { localDrafts, saveLocal, removeLocal, numericInput } from "./pilot-store.js?v=14";
-import { zh } from "./i18n-zh.js?v=6";
+import { zh } from "./i18n-zh.js?v=10";
 
 // Unsubmitted edits survive language changes in memory. Explicit offline drafts use IndexedDB.
 const edits = new Map();

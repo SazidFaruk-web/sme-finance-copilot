@@ -10,7 +10,7 @@ import { greetingName } from "./guidance.js?v=19";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=21";
 import { renderPilot } from "./pilot.js?v=22";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
-import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=6";
+import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=10";
 import { createMarketDrawer } from "./market.js?v=5";
 import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
@@ -18,7 +18,7 @@ import { createVoiceButton } from "./voice.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
-  en: { dashboard: "Dashboard", chat: "AI Assistant", data: "Data", stock: "Stock", financing: "Financing", actions: "Actions",
+  en: { dashboard: "Dashboard", chat: "AI Assistant", data: "Record Entry", stock: "Stock", financing: "Financing", actions: "Actions",
     parties: "Customers & suppliers", s_parties: "Baki khata", invoices: "Invoices", reports: "Reports", profit_m: "Profit this month", costs_m: "Expenses by category (this month)", aging_t: "Customers owe you, by how late",
     audit: "Audit log", settings: "Privacy & settings", logout: "Log out", model: "Model", ask: "Ask about your business…",
     send: "Send", cash: "Cash balance", income_m: "Income this month", expense_m: "Expenses this month",
@@ -36,7 +36,7 @@ const T = {
     s_cash_now: "Money you have now", s_in: "Money in this month", s_out: "Money out this month", s_owed: "Customers owe you (late)",
     s_ok: "Your cash looks fine for the next 30 days.", s_low: "Cash may run short around", s_lowest: "Lowest expected balance in 30 days:",
     s_next90: "Your cash over the next 90 days", s_todo: "To do", s_nothing: "Nothing urgent. 👍", s_confirm: "Waiting for your OK",
-    s_add_title: "Write what happened, in any language", s_add_ph: "e.g. sold 12 shirts for 6000 taka cash · দোকান ভাড়া ১৫০০০ দিলাম",
+    s_add_title: "Write what happened", s_add_ph: "e.g. sold 12 shirts for 6000 taka cash · দোকান ভাড়া ১৫০০০ দিলাম",
     s_save: "Save", s_saved: "Saved ✓", s_upload_title: "Or upload a file (sales, expenses, bank, bKash…)", s_upload: "Upload",
     s_recent: "Recent records", s_score: "Your loan-readiness score", s_improve: "How to improve", s_best: "Best options for you",
     s_amount: "How much do you need? (৳)", s_find: "Find loans", s_per_month: "per month", s_months: "months",
@@ -63,7 +63,7 @@ const T = {
     s_cash_now: "এখন আপনার কাছে আছে", s_in: "এই মাসে এসেছে", s_out: "এই মাসে গেছে", s_owed: "ক্রেতাদের বকেয়া (দেরি)",
     s_ok: "আগামী ৩০ দিন আপনার নগদ ঠিক আছে।", s_low: "নগদ কম পড়তে পারে প্রায়", s_lowest: "৩০ দিনে সর্বনিম্ন আনুমানিক ব্যালেন্স:",
     s_next90: "আগামী ৯০ দিনে আপনার নগদ", s_todo: "করণীয়", s_nothing: "জরুরি কিছু নেই। 👍", s_confirm: "আপনার অনুমোদনের অপেক্ষায়",
-    s_add_title: "কী হলো লিখুন, যেকোনো ভাষায়", s_add_ph: "যেমন: ১২টা শার্ট বিক্রি ৬০০০ টাকা নগদ · dokan bhara 15000 dilam",
+    s_add_title: "কী হলো লিখুন", s_add_ph: "যেমন: ১২টা শার্ট বিক্রি ৬০০০ টাকা নগদ · dokan bhara 15000 dilam",
     s_save: "সংরক্ষণ", s_saved: "সংরক্ষিত ✓", s_upload_title: "অথবা ফাইল আপলোড করুন (বিক্রি, খরচ, ব্যাংক, বিকাশ…)", s_upload: "আপলোড",
     s_recent: "সাম্প্রতিক হিসাব", s_score: "আপনার ঋণ-প্রস্তুতি স্কোর", s_improve: "কীভাবে বাড়াবেন", s_best: "আপনার জন্য সেরা বিকল্প",
     s_amount: "কত টাকা দরকার? (৳)", s_find: "ঋণ খুঁজুন", s_per_month: "প্রতি মাসে", s_months: "মাস",
@@ -436,14 +436,14 @@ async function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "chat", "data", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
-const SIMPLE_ROUTES = ["dashboard", "chat", "tasks", "money", "data", "more"];
+const ROUTES = ["dashboard", "data", "chat", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
+const SIMPLE_ROUTES = ["dashboard", "data", "chat", "tasks", "money", "more"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties" };
 const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
   .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
 const plain = (en, bn) => S.ui === "bn" ? bn : L(en);
-const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Records", "হিসাব"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
+const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Record Entry", "হিসাব এন্ট্রি"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
 // Appearance changes update tokens in place so current forms and workflows survive.
@@ -640,7 +640,7 @@ function route() {
     ? { dashboard: viewSimpleHome, chat: viewAssistant, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewPilotFunding, settings: viewSimpleSettings,
       invoices: viewInvoices, reports: viewReports, stock: viewStock, actions: viewActions, audit: viewAudit, more: viewMore,
       tasks: viewGuidedTasks, money: viewGuidedMoney }
-    : { dashboard: viewDashboard, chat: viewAssistant, data: viewData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
+    : { dashboard: viewDashboard, chat: viewAssistant, data: hashParam("tools") === "all" ? viewData : viewSimpleData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
       audit: viewAudit, settings: viewSettings };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
     h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
@@ -1988,9 +1988,9 @@ async function viewSimpleData(v) {
   } }, t("s_upload"));
   v.replaceChildren(h("h1", {}, plain("Your business records", "আপনার ব্যবসার হিসাব")),
     h("p", { class: "muted" }, canWrite() ? plain("Write a sale or expense in your own words. Check the preview, then save.", "বিক্রি বা খরচ নিজের ভাষায় লিখুন। মিলিয়ে দেখে তারপর সেভ করুন।") : plain("You can review records here. The owner or accountant can add and correct entries.", "এখানে হিসাব দেখতে পারবেন। মালিক বা হিসাবরক্ষক হিসাব যোগ বা ঠিক করতে পারবেন।")),
+    canWrite() ? quickEntryCard(load) : null,
     canWrite() ? h("div", { class: "pilot-inline" }, h("a", { href: "#chat?start=record", class: "btn primary" }, plain("Add or check money", "হিসাব লিখুন বা টাকা মেলান")), h("a", { href: "#chat?tab=offline", class: "text-link" }, plain("Offline drafts", "অফলাইন খসড়া"))) : null,
-    canWrite() ? h("details", {}, h("summary", {}, plain("Write a quick note instead", "নিজের ভাষায় লিখুন")), quickEntryCard(load)) : null,
-    canWrite() ? h("details", { class: "card", style: "margin-top:16px" }, h("summary", {}, plain("Import a file or a khata photo", "ফাইল বা খাতার ছবি থেকে হিসাব আনুন")),
+    canWrite() ? h("details", { class: "card", style: "margin-top:16px" }, h("summary", {}, plain("Import A File", "ফাইল থেকে হিসাব আনুন")),
       h("div", { class: "row", style: "margin-top:16px" }, file, upload), h("a", { class: "text-link", href: "#data?tools=all" }, plain("Photo scan and more import options", "ছবি স্ক্যান ও অন্যান্য সুবিধা"), icon("arrow", 16))) : null,
     h("div", { class: "card", style: "margin-top:16px" }, h("h2", {}, t("s_recent")), list));
   await load();
