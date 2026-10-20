@@ -452,3 +452,17 @@ class PartyLink(Base):
     party_id: Mapped[int] = mapped_column(ForeignKey("parties.id", ondelete="CASCADE"), index=True)
     locked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ItemBarcode(Base):
+    """A barcode or QR code printed on a product, kept apart from ``items`` so one product can carry several.
+
+    Codes are unique per business, never globally: two shops may well label their own goods the same way.
+    """
+    __tablename__ = "item_barcodes"
+    __table_args__ = (UniqueConstraint("business_id", "code", name="uq_barcode_business_code"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

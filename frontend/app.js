@@ -688,6 +688,85 @@ async function settleParty(r, resend) {
 const filedUnder = p => (p && p.name ? ` · filed under ${p.name}${p.invoice_no ? ` (${p.invoice_no})` : ""}` : "");
 const partyHint = p => (!p || !p.name ? "" : p.exact ? ` · files under ${p.name}` : ` · looks like ${p.name}?`);
 
+// ---------------------------------------------------------------- barcode / QR scanning
+// A shop scanner is a keyboard: it types the code and presses Enter, so the box below needs no permission
+// and no library. Where the browser has BarcodeDetector (no CDN is allowed by our CSP), the same box can
+// also read from the camera. An unknown code is never guessed at: the owner says which item it belongs to.
+const scannerReady = () => "BarcodeDetector" in window && window.isSecureContext;
+
+async function cameraScan(onCode, onStop) {
+  let stream, stop = false;
+  const video = h("video", { autoplay: true, playsinline: true, muted: true, class: "scan-video" });
+  const note = h("div", { class: "small muted" }, "Point the camera at the barcode.");
+  const box = h("div", { class: "scan-camera" }, video, note,
+    h("button", { class: "btn ghost sm", type: "button", onclick: () => { stop = true; cleanup(); onStop && onStop(); } }, "Stop camera"));
+  const cleanup = () => { stop = true; stream && stream.getTracks().forEach(t => t.stop()); box.remove(); };
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
+  catch { note.textContent = "The camera is not available. Use a scanner or type the code."; return box; }
+  video.srcObject = stream;
+  const detector = new BarcodeDetector();
+  const tick = async () => {
+    if (stop) return;
+    try {
+      const hits = await detector.detect(video);
+      if (hits.length) { const code = hits[0].rawValue; cleanup(); onCode(code); return; }
+    } catch { /* a frame that could not be read is not an error worth showing */ }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  box.cleanup = cleanup;
+  return box;
+}
+
+// Returns a row that turns scans into invoice lines. ``onItem`` gets {name, price, qty} per scan.
+function scanRow(onItem) {
+  const input = h("input", { type: "text", class: "grow", placeholder: "Scan a barcode, or type it and press Enter",
+    "aria-label": "Barcode", autocomplete: "off" });
+  const note = h("div", { class: "small muted" });
+  const host = h("div", {});
+  const fix = h("div", {});
+  const look = async code => {
+    if (!code.trim()) return;
+    fix.replaceChildren();
+    try {
+      const r = await api(`/api/stock/barcode?code=${encodeURIComponent(code.trim())}`);
+      if (r.found) {
+        onItem({ name: r.item.name, price: r.item.price, unit: r.item.unit });
+        const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        note.textContent = `${r.item.name} · ${money(r.item.price)} added at ${at}. ${r.item.qty} ${r.item.unit} left in stock.`;
+      } else {
+        note.textContent = `No item carries the code ${r.code}.`;
+        fix.replaceChildren(await attachRow(r.code, () => look(code)));
+      }
+    } catch (e) { note.textContent = e.message; }
+    input.value = ""; input.focus();
+  };
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); look(input.value); } });
+  const camera = scannerReady() ? h("button", { class: "btn ghost", type: "button", onclick: async e => {
+    e.preventDefault();
+    host.replaceChildren(await cameraScan(code => { host.replaceChildren(); look(code); }, () => host.replaceChildren()));
+  } }, "▣ Camera") : null;
+  const row = h("div", { class: "grid", style: "gap:6px" },
+    h("div", { class: "row" }, input, camera), note, fix, host);
+  row.focusScan = () => input.focus();
+  return row;
+}
+
+// An unknown code: attach it to one of the owner's items once, and every later scan finds it.
+async function attachRow(code, onDone) {
+  let items = [];
+  try { items = (await api("/api/stock")).items || []; } catch { /* offer nothing rather than a wrong list */ }
+  if (!items.length) return h("div", { class: "small muted" }, "Add the product under Stock first, then scan it again.");
+  const pick = h("select", {}, h("option", { value: "" }, "Which item is this?"),
+    items.map(i => h("option", { value: String(i.id) }, `${i.name} · ${money(i.cost_price)}`)));
+  pick.addEventListener("change", async () => {
+    if (!pick.value) return;
+    try { await api("/api/stock/barcode", { body: { code, item_id: Number(pick.value) } }); toast("Code saved", "ok"); onDone(); }
+    catch (e) { toast(e.message, "bad"); }
+  });
+  return h("div", { class: "row small" }, pick);
+}
+
 function invoiceForm(onDone) {
   const kind = h("select", {}, h("option", { value: "receivable" }, "Sale to a customer"), h("option", { value: "payable" }, "Bill from a supplier"));
   const party = h("input", { type: "text", placeholder: "Name" });
@@ -698,16 +777,31 @@ function invoiceForm(onDone) {
   const lines = h("div", { class: "grid", style: "gap:6px" });
   const total = h("b", { class: "num" }, money(0));
   const recalc = () => { let s = 0; lines.querySelectorAll(".inv-line").forEach(r => { const [, q, rt] = r.querySelectorAll("input"); s += (+q.value || 0) * (+rt.value || 0); }); total.textContent = money(s); };
-  const addLine = () => lines.appendChild(h("div", { class: "row inv-line" },
-    h("input", { type: "text", placeholder: "Item or service", class: "grow" }),
-    h("input", { type: "number", value: 1, min: 0, step: "any", style: "width:80px", oninput: recalc, "aria-label": "Quantity" }),
-    h("input", { type: "number", placeholder: "Rate ৳", min: 0, step: "any", style: "width:120px", oninput: recalc, "aria-label": "Rate" })));
+  const addLine = (desc = "", quantity = 1, rate = "") => lines.appendChild(h("div", { class: "row inv-line" },
+    h("input", { type: "text", placeholder: "Item or service", class: "grow", value: desc }),
+    h("input", { type: "number", value: quantity, min: 0, step: "any", style: "width:80px", oninput: recalc, "aria-label": "Quantity" }),
+    h("input", { type: "number", placeholder: "Rate ৳", min: 0, step: "any", style: "width:120px", oninput: recalc, "aria-label": "Rate", value: rate })));
   addLine();
+  // A scanned item lands as a line; scanning the same thing again just counts one more of it.
+  const scanned = ({ name, price }) => {
+    const rows = [...lines.querySelectorAll(".inv-line")];
+    const hit = rows.find(r => r.querySelector("input").value.trim().toLowerCase() === name.toLowerCase());
+    if (hit) { const q = hit.querySelectorAll("input")[1]; q.value = (+q.value || 0) + 1; }
+    else {
+      const first = rows[0], blank = first && ![...first.querySelectorAll("input")][0].value.trim();
+      if (blank) { const [d, q, rt] = first.querySelectorAll("input"); d.value = name; q.value = 1; rt.value = price; }
+      else addLine(name, 1, price);
+    }
+    issue.value = issue.value || today();
+    recalc();
+  };
+  const scan = scanRow(scanned);
   const err = h("div", { class: "small", style: "color:var(--critical)" });
   const m = modal("New invoice", h("div", { class: "grid", style: "gap:10px" },
     h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Type", kind), h("label", { class: "field" }, "Customer / supplier", party)),
     h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Invoice date", issue), h("label", { class: "field" }, "Due date", due, h("span", { class: "hint" }, "Leave empty for 30 days"))),
-    h("div", {}, h("div", { class: "small muted" }, "Items (quantity × rate)"), lines, h("button", { class: "btn ghost sm", onclick: addLine }, "+ Add item")),
+    h("div", {}, h("div", { class: "small muted" }, "Scan the item, or write it below"), scan),
+    h("div", {}, h("div", { class: "small muted" }, "Items (quantity × rate)"), lines, h("button", { class: "btn ghost sm", onclick: () => addLine() }, "+ Add item")),
     h("label", { class: "field" }, "Note", notes),
     h("label", { class: "row small" }, send, "Mark as sent now (otherwise saved as a draft)"),
     h("div", { class: "row" }, h("span", { class: "grow" }, "Total ", total), err)),
@@ -997,7 +1091,8 @@ async function viewStock(v) {
     body.replaceChildren(bar, items.length
       ? h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t stock-table" },
         h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map((x, i) => h("th", { class: i && i < 4 ? "r" : "" }, x))),
-        items.map(i => h("tr", {}, h("td", {}, i.name), h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
+        items.map(i => h("tr", {}, h("td", {}, i.name, (i.barcodes || []).length ? h("div", { class: "small muted num" }, i.barcodes[0]) : null),
+          h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
           h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))))
       : emptyState("No items yet. Add your products to track how much is left.", owner ? "Add item" : null, () => bar.firstChild.click()));
   }

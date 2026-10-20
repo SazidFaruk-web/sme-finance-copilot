@@ -880,3 +880,7 @@ button.avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .stock-table th:first-child, .stock-table td:first-child { width: 40%; }
 .stock-table th:last-child, .stock-table td:last-child { width: 90px; }
 .stock-table th.r, .stock-table td.r { width: 15%; font-variant-numeric: tabular-nums; }
+
+/* Barcode scanning on the invoice screen. */
+.scan-camera { display: grid; gap: 6px; justify-items: start; margin-top: 6px; }
+.scan-video { width: 100%; max-width: 320px; border-radius: 12px; background: #000; }

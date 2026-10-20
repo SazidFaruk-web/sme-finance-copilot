@@ -11,7 +11,7 @@ from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.orm import Session
 
 from sme_copilot.db import get_db
-from sme_copilot.models import Item, StockMovement, Transaction, User
+from sme_copilot.models import Item, ItemBarcode, StockMovement, Transaction, User
 from sme_copilot.security import audit
 from sme_copilot.tools import stock as S
 from sme_copilot.tools.textnorm import normalize
@@ -29,6 +29,11 @@ class ItemIn(BaseModel):
     reorder_level: float = Field(0, ge=0, le=1e9)
     cost_price: float = Field(0, ge=0, le=1e9)
     sold_this_month: float = Field(0, ge=0, le=1e9)
+
+
+class BarcodeIn(BaseModel):
+    code: str = Field(..., min_length=3, max_length=64)
+    item_id: int
 
 
 class AdjustIn(BaseModel):
@@ -90,6 +95,43 @@ def delete_item(item_id: int, user: User = Depends(require_owner), db: Session =
                  result={"name": name, "qty": qty, "movements": moves}, commit=False)
     db.commit()
     return {"deleted": item_id, "name": name}
+
+
+@router.get("/stock/barcode")
+def scan(code: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """What a scanner just read. Unknown codes are reported as unknown, never matched to something close."""
+    code = code.strip()
+    row = db.scalar(select(ItemBarcode).where(ItemBarcode.business_id == user.business_id,
+                                              ItemBarcode.code == code))
+    if row is None:
+        return {"found": False, "code": code, "item": None}
+    it = db.get(Item, row.item_id)
+    if it is None:
+        return {"found": False, "code": code, "item": None}
+    stock = next((r for r in S.stock_rows(db, user.business_id, as_of_today()) if r["id"] == it.id), None)
+    return {"found": True, "code": code,
+            "item": {"id": it.id, "name": it.name, "unit": it.unit, "price": float(it.cost_price or 0),
+                     "qty": (stock or {}).get("qty", 0), "status": (stock or {}).get("status", "ok")}}
+
+
+@router.post("/stock/barcode")
+def attach_barcode(body: BarcodeIn, user: User = Depends(require_owner),
+                   db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Teach the app a code once, so every later scan of that product finds it."""
+    it = _item(db, user, body.item_id)
+    code = body.code.strip()
+    existing = db.scalar(select(ItemBarcode).where(ItemBarcode.business_id == user.business_id,
+                                                   ItemBarcode.code == code))
+    if existing is not None and existing.item_id != it.id:
+        other = db.get(Item, existing.item_id)
+        raise HTTPException(409, f"that code already belongs to {other.name if other else 'another item'}")
+    if existing is None:
+        db.add(ItemBarcode(business_id=user.business_id, item_id=it.id, code=code))
+        db.flush()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="attach_barcode", tier=1, inputs={"item_id": it.id}, result={"item": it.name}, commit=False)
+    db.commit()
+    return {"code": code, "item_id": it.id, "name": it.name}
 
 
 @router.post("/stock/adjust")

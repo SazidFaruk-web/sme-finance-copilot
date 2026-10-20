@@ -8,7 +8,7 @@ from rapidfuzz import fuzz
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from sme_copilot.models import Item, StockMovement, Transaction
+from sme_copilot.models import Item, ItemBarcode, StockMovement, Transaction
 
 from .textnorm import normalize
 
@@ -116,6 +116,9 @@ def status_for(qty: float, reorder_level: float, days_left: float | None) -> str
 
 def stock_rows(session: Session, business_id: int, as_of: date) -> list[dict[str, Any]]:
     items = session.scalars(select(Item).where(Item.business_id == business_id).order_by(Item.name)).all()
+    codes: dict[int, list[str]] = {}
+    for bc in session.scalars(select(ItemBarcode).where(ItemBarcode.business_id == business_id)):
+        codes.setdefault(bc.item_id, []).append(bc.code)
     since = datetime.combine(as_of - timedelta(days=30), datetime.min.time())
     out = []
     for it in items:
@@ -129,6 +132,7 @@ def stock_rows(session: Session, business_id: int, as_of: date) -> list[dict[str
         days = round(qty / (sold / 30), 1) if sold > 0 and qty > 0 else (0.0 if sold > 0 else None)
         out.append({"id": it.id, "name": it.name, "unit": it.unit, "qty": round(qty, 3), "sold_30d": round(sold, 3),
                     "days_left": days, "reorder_level": it.reorder_level, "cost_price": float(it.cost_price or 0),
+                    "barcodes": sorted(codes.get(it.id, [])),
                     "status": status_for(qty, it.reorder_level, days)})
     return out
 

@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sme_copilot.models import Invoice, Item, Party, PartyLink, StockMovement
+from sme_copilot.models import Invoice, Item, ItemBarcode, Party, PartyLink, StockMovement
 from sme_copilot.tools.textnorm import normalize
 
 TARGET = 10          # named customers and suppliers per business
@@ -314,5 +314,39 @@ def seed_all(db: Session, business_id: int, book: str, today: date, target: int 
     out = {kind: len(seed_parties(db, business_id, kind, book, target)) for kind in ("customer", "supplier")}
     out["stock"] = len(seed_stock(db, business_id, book, today))
     out["invoices"] = len(seed_invoices(db, business_id, book, today))
+    out["barcodes"] = len(seed_barcodes(db, business_id))
     out["book"] = book
     return out
+
+
+def _ean13(digits12: str) -> str:
+    """Append the EAN-13 check digit, so demo codes are the shape a real scanner emits."""
+    odd = sum(int(d) for d in digits12[0::2])
+    even = sum(int(d) for d in digits12[1::2])
+    return digits12 + str((10 - (odd + even * 3) % 10) % 10)
+
+
+def seed_barcodes(db: Session, business_id: int, seed: int = 20261020) -> list[ItemBarcode]:
+    """Put a code on every item that has none, so scanning can be shown without labelling real stock first.
+
+    The prefix 200-299 is the range reserved for in-store use, which is exactly what these are.
+    """
+    rnd = random.Random(seed + business_id * 7)
+    have = {b.item_id for b in db.scalars(select(ItemBarcode).where(ItemBarcode.business_id == business_id))}
+    used = {b.code for b in db.scalars(select(ItemBarcode).where(ItemBarcode.business_id == business_id))}
+    made: list[ItemBarcode] = []
+    for it in db.scalars(select(Item).where(Item.business_id == business_id).order_by(Item.id)):
+        if it.id in have:
+            continue
+        for _ in range(20):
+            code = _ean13(f"2{business_id:02d}{rnd.randint(0, 999999999):09d}")
+            if code not in used:
+                break
+        else:
+            continue
+        used.add(code)
+        row = ItemBarcode(business_id=business_id, item_id=it.id, code=code)
+        db.add(row)
+        made.append(row)
+    db.flush()
+    return made
