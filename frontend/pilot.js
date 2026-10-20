@@ -126,17 +126,8 @@ export async function renderPilot(host, ctx, initialKind = "") {
   async function landing() {
     heading(say("What would help today?", "আজ কোন কাজে সাহায্য চান?"), say("Choose one thing. We’ll work through it together.", "একটি কাজ বাছুন। ধাপে ধাপে এগিয়ে যাব।"));
     if (S.user.max_tier >= 1) body.append(choices(catalog.workflows.filter(x => x.id !== "strategy"), x => start(x.id)));
-    const rows = await api("/api/pilot/cases");
-    if (rows.length) {
-      const list = h("div", { class: "pilot-saved" }, h("h2", {}, say("Pick up where you left off", "যেখান থেকে বাকি ছিল")));
-      let shown = 0;
-      const more = button(say("Show more", "আরও দেখুন"), append);
-      function append() {
-        rows.slice(shown, shown + 5).forEach(c => list.insertBefore(h("a", { class: "pilot-saved-row", href: `#${here}?case=${c.id}` }, h("strong", {}, txt(c.title)), h("span", {}, word(c.status))), more));
-        shown += 5; more.hidden = shown >= rows.length;
-      }
-      list.append(more); append(); body.append(list);
-    }
+    // Unfinished tasks are not offered here. This panel asks one question — what would help today —
+    // and a list of part-done work beside it turns that into a second decision. Tasks owns the list.
     body.append(h("div", { class: "pilot-links" }, link(say("Saved on this device", "এই ডিভাইসে রাখা"), "#chat?tab=offline"), link(say("Documents", "কাগজপত্র"), "#chat?tab=documents"), S.user.role === "owner" ? link(say("Reminder settings", "রিমাইন্ডার সেটিংস"), "#chat?tab=notifications") : null, link(say("Get human help", "মানুষের সাহায্য নিন"), "#chat?tab=help")));
     const unusual = h("details", { class: "pilot-help" }, h("summary", {}, say("Something else?", "অন্য কিছু?")));
     const note = h("textarea", { rows: 2, maxlength: 500, "aria-label": say("Describe the problem", "সমস্যাটি বলুন") });
