@@ -2024,7 +2024,9 @@ function askWhichItem(st, host) {
     const name = prompt("New item name", st.suggested_name || ""); if (!name) { sel.value = ""; return; }
     try { const r = await api("/api/items", { body: { name } }); link(r.id); } catch (e) { toast(e.message, "bad"); sel.value = ""; }
   });
-  host.replaceChildren(h("span", { class: "small" }, "Stock: "), sel, qty, h("button", { class: "btn ghost sm", onclick: done }, "Skip"));
+  host.replaceChildren(h("span", { class: "small" }, st.suggested_name
+    ? `Nothing in stock matches “${st.suggested_name}”. Which item was it? `
+    : "Which item came out of stock? "), sel, qty, h("button", { class: "btn ghost sm", onclick: done }, "Skip"));
 }
 
 function quickEntryCard(onSaved) {
@@ -2065,8 +2067,12 @@ function quickEntryCard(onSaved) {
         entry.value = "";
         const undo = h("button", { class: "btn", onclick: async () => { try { await api(`/api/data/transactions/${id}`, { method: "DELETE" }); preview.textContent = ""; if (onSaved) onSaved(); } catch (e) { toast(e.message, "bad"); } } }, "Undo");
         preview.replaceChildren(t("s_saved") + " ", undo);
-        if (d.stock && d.stock.ask_item) { const host = h("div", { class: "small", style: "margin-top:6px" }); preview.appendChild(host); askWhichItem(d.stock, host); }
-        setTimeout(() => { if (preview.contains(undo)) preview.textContent = ""; }, 6000);
+        const stockHost = d.stock && d.stock.ask_item ? h("div", { class: "small", style: "margin-top:6px" }) : null;
+        if (stockHost) { preview.appendChild(stockHost); askWhichItem(d.stock, stockHost); }
+        setTimeout(() => {
+          if (!preview.contains(undo)) return;
+          preview.replaceChildren(...(stockHost && stockHost.hasChildNodes() ? [stockHost] : []));
+        }, 6000);
         if (onSaved) onSaved();
       }
     } catch (e) { preview.textContent = ""; toast(e.message, "bad"); }
