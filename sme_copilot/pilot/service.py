@@ -42,7 +42,7 @@ def snapshot(db, bid, today):
             "payables": [inv(i) for i in invoices if i.kind == "payable" and i.status not in ("draft", "paid", "written_off") and i.amount > i.amount_paid],
             "obligations": [{"id": o.id, "name": o.name, "amount": o.amount, "date": o.next_due.isoformat()} for o in obligations]}
     data["fingerprint"] = digest([data, [(t.id, t.txn_date, t.amount, t.direction, t.category) for t in tx],
-                                 sources(db, today)])
+                                 sources(db, today), b.sector, b.district, (b.prefs or {}).get("about")])
     return data
 
 
@@ -50,7 +50,7 @@ def validate(question, value, today):
     if value is None:  # explicit "I don't know" is preserved, never silently converted to zero
         return None
     kind = question["type"]
-    if kind in ("money", "number"):
+    if kind in ("money", "number", "decimal"):
         try:
             if isinstance(value, bool):
                 raise ValueError()
@@ -98,6 +98,9 @@ def validate(question, value, today):
 
 def calculate(case, snap):
     a, kind = case.answers, case.kind
+    if kind == "strategy":
+        from .strategy import assess
+        return assess(a, date.fromisoformat(snap["today"]))
     if kind == "loan":
         result = loan(a, date.fromisoformat(snap["today"]))
         return {**result, "review_required": True}
@@ -135,6 +138,10 @@ def calculate(case, snap):
 def options(case, result):
     if case.status == "completed":
         return []
+    if case.kind == "strategy":
+        return [{"id": "save", "label": tr("Save plan for review", "পর্যালোচনার জন্য পরিকল্পনা রাখুন")},
+                {"id": "supplier", "label": tr("Prepare a supplier enquiry", "সরবরাহকারীর জন্য প্রশ্ন তৈরি")},
+                {"id": "wait", "label": tr("Wait and review later", "অপেক্ষা করে আবার দেখুন")}]
     if case.kind == "record":
         return [{"id": "save", "label": tr("Review and save", "দেখে সংরক্ষণ করুন")}]
     if case.kind == "collect":
@@ -165,7 +172,7 @@ def view(db, case, today):
             "next_question": next_question(case.kind, case.answers, pending), "remaining": len(pending),
             "checkpoint_due": len(case.answers) - case.checkpoint >= 6 and bool(pending),
             "snapshot": snap, "result": result or case.result,
-            "stale": case.status == "completed" and case.kind in ("loan", "stock", "shortfall", "paperwork")
+            "stale": case.status == "completed" and case.kind in ("loan", "stock", "shortfall", "paperwork", "strategy")
                      and (case.result.get("fingerprint") != snap["fingerprint"] or case.result.get("evidence_changed", False)),
             "options": options(case, result) if not pending else [],
             "preview": case.preview if case.preview.get("fingerprint") == snap["fingerprint"] else {},
@@ -184,6 +191,21 @@ def build_preview(db, case, today, action, text=None):
         fail("invalid_action")
     a, lang = case.answers, case.language
     body, destination = "", ""
+    if case.kind == "strategy":
+        if not a.get("review_date") or a["review_date"] < today.isoformat():
+            fail("need_information")
+        if action == "save" and result["status"] == "need_information":
+            fail("need_information")
+        if action == "supplier":
+            destination = tr("Your supplier — review the recipient before sharing", "আপনার সরবরাহকারী — শেয়ারের আগে প্রাপক যাচাই করুন")[lang]
+            body = tr(
+                f"Please provide a dated written quote for {a.get('item') or '[item]'}, quantity {a.get('quantity') or '[quantity]'}. Include delivery, preparation/installation, all charges, payment terms, usable capacity, warranty and product-specific storage conditions and shelf-life evidence. Please quote a smaller quantity and staged delivery too.",
+                f"{a.get('item') or '[পণ্য]'}, পরিমাণ {a.get('quantity') or '[পরিমাণ]'}-এর তারিখসহ লিখিত দাম দিন। পরিবহন, প্রস্তুতি/বসানো, সব চার্জ, পেমেন্টের শর্ত, ব্যবহারযোগ্য ধারণক্ষমতা, ওয়ারেন্টি এবং পণ্যের সংরক্ষণ শর্ত ও মেয়াদের প্রমাণ দিন। কম পরিমাণ ও ধাপে ধাপে সরবরাহের দামও দিন।")[lang]
+        else:
+            destination = tr("Your saved plan — review with your pilot facilitator", "আপনার সেভ করা পরিকল্পনা — পাইলট সহায়তাকারীর সঙ্গে দেখুন")[lang]
+            body = tr(
+                f"Planning draft: {a.get('item') or '[item]'}\nPurchase date: {a.get('buy_date') or '[unknown]'}\nReview date: {a['review_date']}\n\nDemand evidence: {a.get('evidence') or '[unknown]'}\nStorage plan: {a.get('storage_plan') or '[unknown]'}\nAuthority advice to verify: {a.get('rule_notes') or '[not yet checked]'}\n\nPending quote, storage and local regulatory review. No purchase or legal clearance has been made.",
+                f"পরিকল্পনার খসড়া: {a.get('item') or '[পণ্য]'}\nকেনার তারিখ: {a.get('buy_date') or '[অজানা]'}\nপর্যালোচনার তারিখ: {a['review_date']}\n\nচাহিদার প্রমাণ: {a.get('evidence') or '[অজানা]'}\nসংরক্ষণের পরিকল্পনা: {a.get('storage_plan') or '[অজানা]'}\nকর্তৃপক্ষের পরামর্শ যাচাই: {a.get('rule_notes') or '[যাচাই বাকি]'}\n\nদাম, সংরক্ষণ ও স্থানীয় নিয়ম যাচাই বাকি। কেনাকাটা বা আইনি অনুমোদন হয়নি।")[lang]
     if case.kind == "record":
         required = [q["id"] for q in qs if q["id"] not in ("note",)]
         if any(a.get(k) is None for k in required):
@@ -216,7 +238,7 @@ def build_preview(db, case, today, action, text=None):
             destination = tr("Your issuing local authority; confirm the correct office.", "আপনার স্থানীয় কর্তৃপক্ষ; সঠিক দপ্তর যাচাই করুন।")[lang]
         body = (f"To: {destination}\nSubject: Request for guidance — {rule['title'][lang]}\n\nBusiness: {snap['business']}\nActivity: {a.get('activity') or '[to complete]'}\nPeriod: {a.get('period') or '[to complete]'}\n\n{a['request']}\n\nDocuments available: {a.get('documents') or '[to complete]'}\n\nPlease advise the applicable requirements, prescribed form, fees and submission process.\n\nName and signature: __________________"
                 if lang == "en" else f"বরাবর\nসংশ্লিষ্ট কর্মকর্তা\nবিষয়: {rule['title'][lang]} সম্পর্কে সহায়তার আবেদন\n\nব্যবসা: {snap['business']}\nকার্যক্রম: {a.get('activity') or '[পূরণ করুন]'}\nসময়কাল: {a.get('period') or '[পূরণ করুন]'}\n\n{a['request']}\n\nপ্রস্তুত কাগজপত্র: {a.get('documents') or '[পূরণ করুন]'}\n\nপ্রযোজ্য শর্ত, নির্ধারিত ফরম, ফি ও দাখিলের পদ্ধতি জানালে উপকৃত হব।\n\nনাম ও স্বাক্ষর: __________________")
-    elif action == "supplier":
+    elif action == "supplier" and case.kind != "strategy":
         destination = tr("Supplier or lender — choose the recipient before sharing", "সরবরাহকারী বা ঋণদাতা — শেয়ারের আগে প্রাপক বাছুন")[lang]
         body = tr("Please send written prices, all charges and payment dates. Could we discuss a smaller order or more time to pay?",
                   "লিখিত দাম, সব চার্জ ও পেমেন্টের তারিখ পাঠাবেন। ছোট অর্ডার বা পেমেন্টের জন্য বাড়তি সময় নিয়ে আলোচনা করতে চাই।")[lang]
@@ -299,11 +321,11 @@ def commit_action(db, case, preview, today):
         db.add(alert); db.flush()
         db.add(ReminderJob(business_id=bid, case_id=case.id, alert_id=alert.id, due_date=due,
                           invoice_id=invoice_id or (int(a["invoice_id"]) if case.kind == "collect" else None),
-                          kind="renewal" if case.kind == "paperwork" else "payment"))
+                          kind="renewal" if case.kind == "paperwork" else "review" if case.kind == "strategy" else "payment"))
         effects["alert_id"] = alert.id
     case.result = {**preview["result"], "effects": effects, "action": preview["action"],
                    "test_quantity": preview["test_quantity"], "test_budget": preview["test_budget"],
                    "confirmed_on": today.isoformat(), "fingerprint": preview["fingerprint"],
-                   "human_review": "pending" if case.kind in ("loan", "paperwork") else "not_required"}
+                   "human_review": "pending" if case.kind in ("loan", "paperwork", "strategy") else "not_required"}
     case.status = "completed"
     return effects

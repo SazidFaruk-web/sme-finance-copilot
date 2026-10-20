@@ -4,6 +4,8 @@ import { zh } from "./i18n-zh.js?v=11";
 // Unsubmitted edits survive language changes in memory. Explicit offline drafts use IndexedDB.
 const edits = new Map();
 const WORDS = {
+  strategy_review: ["Worth checking before you commit", "সিদ্ধান্তের আগে যাচাই করুন"],
+  strategy_rethink: ["Adjust this plan before buying", "কেনার আগে পরিকল্পনা বদলান"],
   manageable: ["Looks manageable under these assumptions", "এই অনুমান অনুযায়ী সামলানো সম্ভব মনে হচ্ছে"],
   tight: ["Repayments look too tight", "কিস্তি দিতে টান পড়তে পারে"],
   need_information: ["We need more information", "আরও কিছু তথ্য দরকার"],
@@ -21,6 +23,15 @@ const WORDS = {
   delivered: ["Delivery confirmed", "পৌঁছানো নিশ্চিত"], unknown: ["Delivery needs checking", "পৌঁছেছে কি না যাচাই দরকার"], failed: ["Not delivered", "পৌঁছায়নি"], blocked: ["Provider setup needed", "সেবার সেটআপ দরকার"], cancelled: ["Cancelled", "বাতিল"],
 };
 const METRICS = {
+  protected_money_left: ["Money left after protected costs", "জরুরি খরচ রাখার পর থাকবে"],
+  plan_benefit: ["Benefit over the planned period", "পরিকল্পনার সময়ে সুবিধা"],
+  slow_benefit: ["Benefit with lower demand", "কম চাহিদায় সুবিধা"],
+  running_cost: ["Costs reserved for the whole period", "পুরো সময়ের জন্য রাখা খরচ"],
+  payback_months: ["Months to recover the purchase cost", "কেনার খরচ উঠতে মাস"],
+  equipment_units_needed: ["Machines for the stated capacity gap", "দেওয়া ধারণক্ষমতার ঘাটতির জন্য যন্ত্র"],
+  usable_units: ["Usable units after expected losses", "অপচয়ের পর ব্যবহারযোগ্য একক"],
+  unused_units: ["Units left unused", "অব্যবহৃত একক"],
+  effective_unit_cost: ["Full cost per unit used", "প্রতি ব্যবহৃত এককের পুরো খরচ"],
   amount: ["Amount", "পরিমাণ"], recorded_cash: ["Recorded money", "হিসাবের টাকা"], counted_cash: ["Counted money", "গুনে পাওয়া টাকা"], difference: ["Difference", "পার্থক্য"],
   outstanding: ["Still owed", "এখনও বাকি"], available_after_commitments: ["Available after essentials", "জরুরি খরচের পর থাকবে"], needed: ["Payment needed", "দিতে হবে"], gap_now: ["Gap today", "এখন ঘাটতি"], gap_if_collected: ["Gap if customers pay", "ক্রেতারা টাকা দিলে ঘাটতি"],
   net_received: ["Money you receive", "হাতে পাবেন"], total_repaid: ["Total to repay", "মোট ফেরত দিতে হবে"], cost: ["Total financing cost", "ঋণের মোট খরচ"], usual_minimum: ["Lowest money: usual sales", "স্বাভাবিক বিক্রিতে সর্বনিম্ন টাকা"], slow_minimum: ["Lowest money: slower sales", "কম বিক্রিতে সর্বনিম্ন টাকা"], reserve: ["Money to keep safe", "হাতে রাখতে হবে"],
@@ -81,7 +92,8 @@ export async function renderPilot(host, ctx, initialKind = "") {
     drawCase();
   }
   async function start(kind) {
-    const c = await api("/api/pilot/cases", { body: { kind, language: apiLang, request_key: crypto.randomUUID() } });
+    const c = await api("/api/pilot/cases", { body: { kind, language: apiLang, request_key: crypto.randomUUID(),
+      ...(kind === "strategy" && ["seasonal", "bulk", "equipment"].includes(params.get("plan")) ? { plan_type: params.get("plan") } : {}) } });
     location.hash = `#${here}?case=${c.id}`;
   }
   function heading(title, sub) { body.replaceChildren(h(ctx.embedded ? "h2" : "h1", { tabindex: "-1" }, title), ...(sub ? [h("p", { class: "pilot-intro" }, sub)] : [])); }
@@ -108,7 +120,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   }
   async function landing() {
     heading(say("What would help today?", "আজ কোন কাজে সাহায্য চান?"), say("Choose one thing. We’ll work through it together.", "একটি কাজ বাছুন। ধাপে ধাপে এগিয়ে যাব।"));
-    if (S.user.max_tier >= 1) body.append(choices(catalog.workflows, x => start(x.id)));
+    if (S.user.max_tier >= 1) body.append(choices(catalog.workflows.filter(x => x.id !== "strategy"), x => start(x.id)));
     const rows = await api("/api/pilot/cases");
     if (rows.length) {
       const list = h("div", { class: "pilot-saved" }, h("h2", {}, say("Pick up where you left off", "যেখান থেকে বাকি ছিল")));
@@ -133,7 +145,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     if (v == null) return say("Not known yet", "এখনও জানা নেই");
     if (q.type === "choice") return txt(q.options.find(x => x.value === String(v))?.label || v);
     if (q.type === "schedule") return `${number(v.length)} ${say("dated payments", "তারিখসহ পেমেন্ট")}`;
-    return q.type === "money" ? taka(v) : q.type === "number" ? number(v) : String(v);
+    return q.type === "money" ? taka(v) : ["number", "decimal"].includes(q.type) ? number(v) : String(v);
   }
   function answersPanel(open = false) {
     return h("details", { class: "pilot-answers", open }, h("summary", {}, say("Review or change my answers", "উত্তর দেখুন বা বদলান")),
@@ -200,7 +212,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
         const s = scheduleInput(q, value, v => edits.set(key, v)); input = s.element; getValue = s.value;
       } else {
         input = h(q.type === "text" ? "textarea" : "input", { id: "pilot-input", type: q.type === "date" ? "date" : "text", rows: q.type === "text" ? 3 : null,
-          inputmode: ["money", "number"].includes(q.type) ? "decimal" : null, required: true, maxlength: q.type === "text" ? 2000 : 32,
+          inputmode: ["money", "number", "decimal"].includes(q.type) ? "decimal" : null, required: true, maxlength: q.type === "text" ? 2000 : 32,
           value, "aria-labelledby": "pilot-question", oninput: e => edits.set(key, e.target.value) });
         if (q.type === "text") input.value = value;
         getValue = () => input.value;
@@ -223,9 +235,25 @@ export async function renderPilot(host, ctx, initialKind = "") {
   function results(result) {
     const box = h("section", { class: "pilot-card" }, h("h2", {}, word(result.status)));
     const entries = Object.entries(result.metrics || {});
-    const metric = ([key, v]) => h("div", { class: "pilot-metric" }, h("span", {}, say(...(METRICS[key] || [key, key]))), h("strong", {}, ["break_even_units", "unsold_items", "collection_days"].includes(key) ? v == null ? "—" : number(v) : taka(v)));
+    const metric = ([key, v]) => h("div", { class: "pilot-metric" }, h("span", {}, say(...(METRICS[key] || [key, key]))), h("strong", {}, ["break_even_units", "unsold_items", "collection_days", "payback_months", "usable_units", "unused_units", "equipment_units_needed"].includes(key) ? v == null ? "—" : number(v) : taka(v)));
     box.append(h("div", { class: "pilot-metrics" }, entries.slice(0, 3).map(metric)));
     if (entries.length > 3) box.append(h("details", {}, h("summary", {}, say("Show calculation", "হিসাব দেখুন")), h("div", { class: "pilot-metrics" }, entries.slice(3).map(metric))));
+    if (current.kind === "strategy") {
+      if (result.reason) box.append(h("p", {}, txt(result.reason)));
+      box.append(h("p", { class: "pilot-note" }, txt(result.assumption)),
+        h("p", { class: "notice" }, say("Storage and local rules still need review. Saving a plan is not permission to buy or store goods.", "সংরক্ষণ ও স্থানীয় নিয়ম যাচাই বাকি। পরিকল্পনা সেভ করা কেনা বা মজুতের অনুমতি নয়।")));
+      if (result.scenarios) {
+        const max = Math.max(1, ...result.scenarios.map(x => Math.abs(x.value)));
+        box.append(h("div", { class: "strategy-scenarios" }, result.scenarios.map(s =>
+          h("div", { class: "strategy-scenario" },
+            h("div", {}, h("span", {}, txt(s.label)), h("strong", {}, (s.value > 0 ? "+" : "") + taka(s.value))),
+            h("div", { class: "strategy-bar" + (s.value < 0 ? " loss" : ""), "aria-hidden": "true" },
+              h("span", { style: `width:${Math.abs(s.value) / max * 100}%` }))))));
+        box.append(h("details", {}, h("summary", {}, say("How these scenarios work", "এই তুলনা কীভাবে করা")), h("p", {}, txt(result.calculation)),
+          (result.reasons || []).slice(1).map(r => h("p", {}, txt(r)))));
+      }
+      box.append(sourcePanel("strategy"));
+    }
     if (current.kind === "loan") {
       if (result.slow) box.append(h("p", {}, say("In the slower case, the lowest money is ", "কম বিক্রির হিসাবে সর্বনিম্ন টাকা ") + taka(result.slow.minimum) + say(" on ", " তারিখ ") + result.slow.minimum_date + say(". You wanted to keep ", "। হাতে রাখতে চেয়েছেন ") + taka(result.metrics.reserve) + "."));
       box.append(h("p", { class: "pilot-note" }, say("A cash scenario, not loan approval. A pilot reviewer must check your quote and timing before you decide.", "এটি টাকার সম্ভাব্য চিত্র, ঋণের অনুমোদন নয়। সিদ্ধান্তের আগে পাইলট পর্যালোচককে প্রস্তাব ও সময় যাচাই করতে হবে।")));
@@ -239,9 +267,9 @@ export async function renderPilot(host, ctx, initialKind = "") {
     return box;
   }
   function sourcePanel(kind) {
-    const sourceList = catalog.sources.filter(s => kind === "loan" ? s.kind === "funding" : s.id === current?.answers.topic);
-    const panel = h("details", { class: "pilot-sources" }, h("summary", {}, kind === "loan" ? say("Where could I enquire?", "কোথায় খোঁজ নিতে পারি?") : say("Requirements and submission help", "শর্ত ও দাখিলের সহায়তা")));
-    panel.append(h("p", {}, say("These are enquiry routes. Eligibility, terms, required documents and deadlines need review for your business. No funding is guaranteed.", "এগুলো খোঁজ নেওয়ার পথ। আপনার ব্যবসার যোগ্যতা, শর্ত, কাগজপত্র ও শেষ তারিখ যাচাই করতে হবে। অর্থ পাওয়ার নিশ্চয়তা নয়।")));
+    const sourceList = catalog.sources.filter(s => kind === "strategy" ? s.kind === "strategy" : kind === "loan" ? s.kind === "funding" : s.id === current?.answers.topic);
+    const panel = h("details", { class: "pilot-sources" }, h("summary", {}, kind === "strategy" ? say("Storage rules to check", "মজুতের যে নিয়ম যাচাই করবেন") : kind === "loan" ? say("Where could I enquire?", "কোথায় খোঁজ নিতে পারি?") : say("Requirements and submission help", "শর্ত ও দাখিলের সহায়তা")));
+    panel.append(h("p", {}, kind === "strategy" ? say("These sources help a reviewer check what applies. They do not establish a permitted quantity or safe storage life for your plan.", "কোন নিয়ম প্রযোজ্য তা যাচাইয়ে এই উৎসগুলো সহায়ক। এগুলো আপনার পরিকল্পনার অনুমোদিত পরিমাণ বা নিরাপদ সংরক্ষণকাল নিশ্চিত করে না।") : say("These are enquiry routes. Eligibility, terms, required documents and deadlines need review for your business. No funding is guaranteed.", "এগুলো খোঁজ নেওয়ার পথ। আপনার ব্যবসার যোগ্যতা, শর্ত, কাগজপত্র ও শেষ তারিখ যাচাই করতে হবে। অর্থ পাওয়ার নিশ্চয়তা নয়।")));
     let offset = 0; const rows = h("div", {});
     const draw = () => { rows.replaceChildren(...sourceList.slice(offset, offset + 3).map(s => h("article", { class: "pilot-source" }, h("h3", {}, txt(s.title)), h("p", {}, s.authority), h("span", { class: "chip" }, word(s.status)), h("p", {}, txt(s.destination || s.audience)), s.documents ? h("p", {}, txt(s.documents)) : null, h("a", { href: s.url, target: "_blank", rel: "noopener noreferrer" }, say("Open official source", "সরকারি বা প্রতিষ্ঠানের উৎস দেখুন"))))); };
     draw(); panel.append(rows);
@@ -250,7 +278,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   }
   function drawCase() {
     heading(txt(current.title), current.status === "completed" ? say("Saved. You remain in control of the next step.", "সেভ হয়েছে। পরের পদক্ষেপ আপনার সিদ্ধান্ত।") : say("Your progress is saved as you go.", "এগোনোর সঙ্গে সঙ্গে উত্তর সেভ হয়।"));
-    body.append(h("div", { class: "pilot-inline" }, h("span", { class: "chip" }, word(current.status)), link(say("All saved tasks", "সব সেভ করা কাজ"), "#chat")));
+    body.append(h("div", { class: "pilot-inline" }, h("span", { class: "chip" }, word(current.status)), link(current.kind === "strategy" ? say("All plans", "সব পরিকল্পনা") : say("All saved tasks", "সব সেভ করা কাজ"), current.kind === "strategy" ? "#strategy" : "#chat")));
     if (current.status === "completed") {
       if (current.stale) body.append(h("p", { class: "notice" }, say("Records or sources have changed since this action was saved. Start a fresh check before relying on the comparison.", "কাজ সেভ হওয়ার পর হিসাব বা উৎস বদলেছে। তুলনার উপর নির্ভর করার আগে নতুন করে যাচাই করুন।")), button(say("Start a fresh check", "নতুন করে যাচাই"), () => start(current.kind)));
       body.append(results(current.result), answersPanel(), documents(current.documents));
@@ -295,7 +323,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
     await remember(await api(`/api/pilot/cases/${current.id}/preview`, { body: { version: current.version, action, language: apiLang, text } })); drawCase();
   }
   function documents(docs) {
-    const panel = h("details", { class: "pilot-documents", open: docs.length > 0 }, h("summary", {}, say("Documents and receipts", "কাগজপত্র ও রসিদ")));
+    const panel = h("details", { class: "pilot-documents", open: docs.length > 0 && current.kind !== "strategy" }, h("summary", {}, say("Documents and receipts", "কাগজপত্র ও রসিদ")));
     for (const d of docs) {
       const card = h("article", { class: "pilot-source" }, h("h3", {}, d.name), h("span", { class: "chip" }, word(d.stage)), link(say("Download", "ডাউনলোড"), `/api/pilot/documents/${d.id}/download`));
       if (!d.attachment) {
@@ -307,7 +335,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
         }));
       }
       if (d.reference) card.append(h("p", {}, say("Reference: ", "নম্বর: ") + d.reference));
-      if (S.user.role === "owner" && d.stage !== "accepted" && !d.attachment) {
+      if (S.user.role === "owner" && d.stage !== "accepted" && !d.attachment && current.kind !== "strategy") {
         const ref = h("input", { placeholder: say("Receipt / acknowledgement reference", "রসিদ / প্রাপ্তিস্বীকার নম্বর"), "aria-label": say("Receipt reference", "রসিদের নম্বর"), maxlength: 180 });
         card.append(ref, button(d.stage === "prepared" ? say("I have submitted it", "আমি দাখিল করেছি") : say("It was accepted / completed", "গৃহীত / সম্পন্ন হয়েছে"), async () => { await api(`/api/pilot/documents/${d.id}`, { method: "PATCH", body: { stage: d.stage === "prepared" ? "submitted" : "accepted", reference: ref.value } }); await loadCase(current.id); }));
       } panel.append(card);

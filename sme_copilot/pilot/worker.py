@@ -76,7 +76,7 @@ def due_jobs(db, today):
         if days <= 0:
             alert.status = "open"
         offsets = (30, 7, 1, 0) if job.kind == "renewal" else (3, 1, 0) if job.kind == "payment" else (0,)
-        if days in offsets:
+        if days in offsets and job.kind != "review":  # strategic reviews are in-app, not urgent owner SMS
             eligible.setdefault(job.business_id, []).append(job.id)
     return eligible
 
@@ -159,8 +159,8 @@ def main():
                     p.error("Only reconcile accepted/unknown deliveries using a provider report")
                 row.status = args.status
             else:
-                if row.status != "completed" or row.kind not in ("loan", "paperwork"):
-                    p.error("Only completed loan/paperwork cases require this review")
+                if row.status != "completed" or row.kind not in ("loan", "paperwork", "strategy"):
+                    p.error("Only completed loan/paperwork/strategy cases require this review")
                 row.result = {**row.result, "human_review": "reviewed", "reviewer": args.reviewer,
                               "review_note": args.note, "reviewed_at": utcnow().isoformat()}
             audit.record(db, actor=args.reviewer, actor_role="operator", business_id=row.business_id,
