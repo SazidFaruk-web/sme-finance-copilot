@@ -701,7 +701,6 @@ tr.flash td::before, .rec.flash::before, .alert-item.flash::before { content: ""
 
 /* ======== General (login palette; guided chrome for both modes lives in guided.css): welcome hero, icon-chip KPIs + progress bar, gradient quick actions */
 :root[data-style="general"] .sidebar { border-right: 0; }
-:root[data-style="general"] body:not(.simple) .nav .badge { background: #fff; color: #7c2d1a; }
 :root[data-style="general"] .hero-banner { display: block; position: relative; overflow: hidden; border-radius: calc(var(--radius) + 4px);
   padding: 22px 24px; margin-bottom: 16px; color: #fff; background: linear-gradient(120deg, #a84227 0%, #b8543a 55%, #c97b52 100%); }
 .hero-banner h1 { color: #fff; font-size: 22px; }
@@ -876,3 +875,8 @@ button.avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 
   .party-side { position: static; }
   .party-list { max-height: none; }
 }
+
+/* Stock: keep each number under its own heading instead of spreading across the whole page. */
+.stock-table th:first-child, .stock-table td:first-child { width: 40%; }
+.stock-table th:last-child, .stock-table td:last-child { width: 90px; }
+.stock-table th.r, .stock-table td.r { width: 15%; font-variant-numeric: tabular-nums; }

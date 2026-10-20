@@ -47,3 +47,22 @@ def test_seeding_twice_adds_nothing_and_keeps_names_with_activity(seeded):
     T.seed_parties(db, b.id, "customer", "food")
     assert T.seed_parties(db, b.id, "customer", "food") == []    # already there, nothing duplicated
     assert T.seed_stock(db, b.id, "food", TODAY) and T.seed_stock(db, b.id, "food", TODAY) == []
+
+
+def test_seeded_invoices_give_every_name_a_history(seeded):
+    db, b = seeded["db"], seeded["business"]
+    from sme_copilot.tools import parties as P
+    for kind in ("customer", "supplier"):
+        T.seed_parties(db, b.id, kind, "food")
+    T.seed_invoices(db, b.id, "food", TODAY)
+
+    rows = P.rows(db, b.id, "customer", TODAY)
+    named = [r for r in rows if r["named"]]
+    assert all(r["invoices"] > 0 for r in named)                  # nobody is left with an empty record
+    assert any(r["balance"] > 0 for r in named)                   # some money is still owed
+    assert any(r["overdue"] > 0 for r in named)                   # and some of it is late
+    assert any(r["balance"] == 0 for r in named)                  # others have settled up
+    assert any(r["every_days"] is not None for r in named)        # more than one visit, so a rhythm shows
+    assert all(r["invoiced"] >= r["paid"] for r in named)         # never paid more than billed
+
+    assert T.seed_invoices(db, b.id, "food", TODAY) == []         # running it again adds nothing

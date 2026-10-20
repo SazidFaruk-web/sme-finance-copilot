@@ -995,9 +995,10 @@ async function viewStock(v) {
         form("Adjust " + it.name, [["q", "Change (+ adds, − removes)"], ["r", "Reason", "count correction"]], "/api/stock/adjust", x => ({ item_id: it.id, qty_change: Number(x.q), reason: (x.r || "adjust").slice(0, 30) })); } }, "Adjust"),
       h("button", { class: "btn ghost", onclick: () => download("/api/stock/export", "stock.xlsx").catch(e => toast(e.message, "bad")) }, "Export Excel"));
     body.replaceChildren(bar, items.length
-      ? h("table", { class: "t" }, h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map(x => h("th", {}, x))),
+      ? h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t stock-table" },
+        h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map((x, i) => h("th", { class: i && i < 4 ? "r" : "" }, x))),
         items.map(i => h("tr", {}, h("td", {}, i.name), h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
-          h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))
+          h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))))
       : emptyState("No items yet. Add your products to track how much is left.", owner ? "Add item" : null, () => bar.firstChild.click()));
   }
   v.replaceChildren(h("h1", {}, t("stock")), body);

@@ -256,8 +256,63 @@ def drop_unused_parties(db: Session, business_id: int) -> int:
     return gone
 
 
+
+
+# Typical invoice size per book, so a kitchen bills in hundreds and an electronics shop in thousands.
+INVOICE_RANGE = {"food": (900, 9000), "electronics": (4000, 48000), "books": (1200, 16000), "clothing": (6000, 95000)}
+INVOICES_PER_PARTY = (2, 5)
+
+
+def seed_invoices(db: Session, business_id: int, book: str, today: date, seed: int = 20261020) -> list[Invoice]:
+    """Give every named party a short trading history: some paid, some still open, some already late.
+
+    Amounts and dates are invented, but the figures the app shows are not: balances, what is overdue and how
+    often someone comes are all counted back out of these rows, the same way they are for real records.
+    """
+    rnd = random.Random(seed + business_id * 31)
+    low, high = INVOICE_RANGE.get(book, INVOICE_RANGE[DEFAULT_BOOK])
+    used = {i.invoice_no for i in db.scalars(select(Invoice).where(Invoice.business_id == business_id))}
+    made: list[Invoice] = []
+    for party in db.scalars(select(Party).where(Party.business_id == business_id).order_by(Party.id)):
+        if any(normalize(i.counterparty) == normalize(party.name) for i in invoices_of_kind(db, business_id, party.kind)):
+            continue                                        # already has records of its own; leave them alone
+        prefix = "INV" if party.kind == "customer" else "BILL"
+        for n in range(rnd.randint(*INVOICES_PER_PARTY)):
+            issued = today - timedelta(days=rnd.randint(5, 110))
+            due = issued + timedelta(days=rnd.choice([7, 15, 30]))
+            amount = float(round(rnd.uniform(low, high), -1))
+            roll = rnd.random()
+            if roll < 0.55:                                  # settled
+                paid, paid_on, status = amount, due - timedelta(days=rnd.randint(0, 6)), "paid"
+            elif roll < 0.75:                                # part payment against it
+                paid, paid_on, status = float(round(amount * rnd.uniform(0.2, 0.7), -1)), issued + timedelta(days=5), "partial"
+            else:                                            # still to be settled
+                paid, paid_on, status = 0.0, None, "open"
+            if paid_on and paid_on > today:
+                paid_on = today
+            no = f"{prefix}-{business_id:02d}{party.id:03d}{n + 1}"
+            if no in used:
+                continue
+            used.add(no)
+            inv = Invoice(business_id=business_id, kind=INVOICE_KIND[party.kind], invoice_no=no,
+                          counterparty=party.name, counterparty_phone=party.phone, amount=amount, amount_paid=paid,
+                          issue_date=issued, due_date=due, paid_date=paid_on, status=status,
+                          notes=party.note or "", source="demo")
+            db.add(inv)
+            db.flush()
+            db.add(PartyLink(invoice_id=inv.id, party_id=party.id, locked=False))
+            made.append(inv)
+    db.flush()
+    return made
+
+
+def invoices_of_kind(db: Session, business_id: int, kind: str) -> list[Invoice]:
+    return list(db.scalars(select(Invoice).where(Invoice.business_id == business_id,
+                                                 Invoice.kind == INVOICE_KIND[kind])))
+
 def seed_all(db: Session, business_id: int, book: str, today: date, target: int = TARGET) -> dict[str, int]:
     out = {kind: len(seed_parties(db, business_id, kind, book, target)) for kind in ("customer", "supplier")}
     out["stock"] = len(seed_stock(db, business_id, book, today))
+    out["invoices"] = len(seed_invoices(db, business_id, book, today))
     out["book"] = book
     return out
