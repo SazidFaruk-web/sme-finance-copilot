@@ -1,6 +1,27 @@
 # Sources located during desk research on 2026-10-17. Publication is NOT professional review.
 # A reviewer must supply reviewed_by, reviewed_on, effective_from and valid_until to publish.
 sources:
+  - id: food_stock_law
+    title: {en: Food production and storage law (2023), bn: খাদ্য উৎপাদন ও মজুত আইন (২০২৩)}
+    authority: Ministry of Law — Bangladesh Laws
+    url: https://bdlaws.minlaw.gov.bd/act-print-1438.html
+    kind: strategy
+    audience: food_business
+    destination: {en: 'Ask the Directorate General of Food and a qualified local reviewer to check applicability, licensing, current orders and the 2024 rules for this exact business and commodity.', bn: 'খাদ্য অধিদপ্তর ও যোগ্য স্থানীয় পর্যালোচকের সঙ্গে এই ব্যবসা ও পণ্যের প্রযোজ্যতা, লাইসেন্স, বর্তমান আদেশ ও ২০২৪ সালের বিধিমালা যাচাই করুন।'}
+  - id: stock_controls
+    title: {en: Commodity storage controls, bn: পণ্য মজুতের নিয়ন্ত্রণ}
+    authority: Ministry of Law — Bangladesh Laws
+    url: https://bdlaws.minlaw.gov.bd/act-details-262.html
+    kind: strategy
+    audience: bangladesh
+    destination: {en: 'Ask the relevant commodity authority and local licensing office to identify current orders for your item, quantity, duration and business activity.', bn: 'আপনার পণ্য, পরিমাণ, সময় ও ব্যবসার জন্য বর্তমান আদেশ সংশ্লিষ্ট পণ্য কর্তৃপক্ষ ও স্থানীয় লাইসেন্স দপ্তরে যাচাই করুন।'}
+  - id: food_storage
+    title: {en: Food storage and handling guidance, bn: খাদ্য সংরক্ষণ ও ব্যবহারের নির্দেশনা}
+    authority: Bangladesh Food Safety Authority
+    url: https://bfsa.gov.bd/pages/static-pages/6922dce1933eb65569e128bd
+    kind: strategy
+    audience: food_business
+    destination: {en: 'Confirm the specific product, processing method, packaging, storage life and food-business duties with BFSA and a qualified local reviewer. General guidance is not a mango storage protocol.', bn: 'নির্দিষ্ট পণ্য, প্রক্রিয়া, প্যাকেট, সংরক্ষণকাল ও খাদ্য ব্যবসার দায়িত্ব বিএফএসএ ও যোগ্য স্থানীয় পর্যালোচকের সঙ্গে যাচাই করুন। সাধারণ নির্দেশনা আম সংরক্ষণের নির্দিষ্ট পদ্ধতি নয়।'}
   - id: trade
     title: {en: Dhaka South trade licence, bn: ঢাকা দক্ষিণ ট্রেড লাইসেন্স}
     authority: Dhaka South City Corporation

@@ -28,7 +28,7 @@ Simple bookkeeping, dues, backups and reminders are foundations already offered 
 
 ## Product experience
 
-Preserve six destinations (owner decision, 19 October 2026):
+Preserve six mobile navigation destinations, with Strategy added to the desktop sidebar and More on mobile (20 October 2026):
 
 | Destination | Contents |
 |---|---|
@@ -38,6 +38,7 @@ Preserve six destinations (owner decision, 19 October 2026):
 | Money | This month and Money ahead; decision tools linked from the relevant context. |
 | Records | Add, review, correct, import and reconcile records. |
 | More | People, documents, stock, business details, support and specialist tools. |
+| Strategy | Long-term seasonal stock, bulk purchasing and equipment plans; accessed through More on mobile. |
 
 The AI Assistant combines chat with a guided task panel (owner decision, 19 October 2026). Financial actions still follow the guided pattern:
 
@@ -78,6 +79,29 @@ Ask about purchase, delivery/setup and selling costs, price, quantity, demand ev
 Offer a smaller test, supplier discussion or waiting. Preorders are an alternative to investigate, not a guaranteed funding source. Save test quantity, budget and review date; later capture actual units and money received. A smaller batch is still blocked when it would breach the chosen reserve or has non-positive per-item contribution. The stock register remains the place for detailed inventory and adjustments.
 
 ## Government rules and paperwork
+
+### Strategy extension — 20 October 2026
+
+The owner requested a dedicated future-planning section: seasonal stock (for example mango products for later use), bulk inputs such as sugar, and equipment/cold-storage expansion. The implementation adds a business-scoped `strategy` guided case with three branches. Desktop navigation exposes Strategy; mobile keeps its six destinations and opens Strategy from More.
+
+Starting ideas use the business sector, description and name to identify broad food/drink context. The optional local model can rank only three approved topics and select approved questions; rules work without it. These are starting questions, not evidence of demand or purchase recommendations. Current implementation asks the owner for demand evidence and quotes; it does not infer product-level growth from incomplete daily sales totals.
+
+For stock, enter the same form/unit for purchase price, later price, usage and capacity. The scenario uses existing stock first, subtracts expected losses, caps benefit at units actually needed, and compares avoided later purchases with the entire batch cost plus preparation, storage/power/backup and financing or tied-up-money costs. The downside halves total usage and assigns no cash value to unused stock. For equipment, compare incremental receipts with running costs and the entire purchase/setup cost over the chosen period; show payback months only when monthly contribution is positive. The downside uses the owner's lower receipt estimate. This is an incremental comparison, not a business-profit forecast or a loan affordability check.
+
+Both branches reserve all entered commitments, household needs, the owner's reserve and the plan's running costs before showing money left. Equipment planning also compares evidenced peak capacity needs with existing usable capacity and the added capacity of each machine, rounding up the remaining gap to a whole-machine count. Buying more or less than that count is flagged for review, not automatically ordered. This deliberately conservative screen does not assume future sales pay essential bills. Future quoted prices remain assumptions, not predictions. Capacity overflow, a plan longer than the stated storage life, cash pressure or negative scenario benefit leads to adjustment. Missing facts prevent saving a complete comparison; the owner can still save a follow-up or prepare an enquiry.
+
+Plans reuse optimistic versions, single-use action previews, document storage, export/deletion and offline case progress. Business-profile changes also invalidate comparisons. Confirming saves a review draft and an in-app review reminder, with no purchase or external message. Strategy review reminders are excluded from SMS. New and changed evidence marks human review pending. The operator's existing `--review-case` command supports Strategy; review completion does not by itself establish legal clearance.
+
+**Source register, researched 20 October 2026:** all entries remain enquiry-only and require human applicability review. No commodity quantity limit, licence requirement, permitted holding period or product shelf life has been encoded as approved guidance.
+
+| Source | Evidence and required follow-up |
+|---|---|
+| [Control of Essential Commodities Act, 1956, section 3](https://bdlaws.minlaw.gov.bd/act-details-262.html) | Provides for notified orders concerning commodity storage and related activity. Identify applicable current orders; the Act alone does not supply a universal stock limit. |
+| [Food production/storage law, 2023](https://bdlaws.minlaw.gov.bd/act-print-1438.html) | Additional food-storage legal framework to assess for the specific business and commodity. Do not substitute the repealed 1979 ordinance. |
+| [2024 implementing rules, official Gazette](https://www.dpp.gov.bd/upload_file/gazettes/54290_55402.pdf) | Located for reviewer follow-up; numeric limits and applicability have not been professionally verified or encoded. |
+| [BFSA storage and handling guidance](https://bfsa.gov.bd/pages/static-pages/6922dce1933eb65569e128bd) | General food-handling guidance; the page could be found in search but direct retrieval failed during this research. Do not treat it as a verified mango/pulp shelf-life protocol. Confirm product, packaging, process, cold chain and failure handling with a qualified reviewer. |
+
+The active source directory includes the two laws and BFSA page for daily change checks and weekly human review. Before enabling substantive regulatory conclusions, add the applicable orders, exact scope, effective dates and review evidence. Winter mango storage requires a verified product-specific process; owning freezers does not prove that whole fruit, pulp and ready-to-drink juice can be held equally long.
 
 Determine applicability from location, actual activity, registration, business structure and period. Distinguish registration, filing and payment. Do not apply a universal trade-licence renewal date, fee or document checklist. Start with a reviewed DSCC process. Use current NBR material for income tax and VAT/turnover tax; do not hardcode stale thresholds or extensions.
 

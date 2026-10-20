@@ -21,7 +21,7 @@ Use this hierarchy and calm visual language as inspiration. Build an original bu
 
 ## Information hierarchy and disclosure
 
-- Default to the guided Home, including for first-time visitors. Keep six primary navigation choices: Home, AI Assistant, Tasks, Money, Records, and More (owner decision 2026-10-19: the assistant sits directly below Home). Use small sets of page tabs to organize related information. The assistant is called **AI Assistant** everywhere (formerly “Copilot”); the product name SME Finance Copilot is unchanged.
+- Default to the guided Home, including for first-time visitors. Keep six mobile navigation choices: Home, Record Entry, AI Assistant, Tasks, Money, and More. The desktop sidebar also exposes Strategy (20 October 2026); mobile reaches it through More. Use small sets of page tabs to organize related information. The assistant is called **AI Assistant** everywhere (formerly “Copilot”); the product name SME Finance Copilot is unchanged.
 - **Home has a strict two-card budget: recorded money and one next step.** Include a short greeting, the balance's as-of date and source, one primary action, and an optional “How to do it” disclosure. Home is an entry point, not a dashboard of everything the app can do.
 - Do not add secondary recommendations, monthly totals, action shortcuts, recent activity, upcoming payments, reminder lists, approval queues, forecast previews, or duplicate AI Assistant invitations to Home. Collapsing those feeds on Home still adds choices; give them a destination instead.
 - **Agreed exception (owner decision, 2026-10-19): the market price drawer.** Home may show one minimised edge tab, **Prices**, that opens a half-width drawer from the right with public market prices for the owner's kind of business and a one-line next-month outlook. It is not a third card: it starts closed, stays closed until the owner opens it, remembers that choice, and never pushes Home's two cards aside. Each outlook names the month, shows its possible range, and is written in words with a sign (never colour or arrow alone). Prices state their month and source and are labelled as market averages, not live shop prices. Do not add other content to the drawer or other drawers to Home.
@@ -39,6 +39,14 @@ Use this hierarchy and calm visual language as inspiration. Build an original bu
 - **Agreed exception (owner decision, 2026-10-19): the first-visit tour.** After setup, a new account gets one short tour: a small card beside each tab and the main settings (price tab, language, account menu), with Back, Next and Skip tour on every step, Esc to leave, and a replay button in Settings. It runs once per account on this device and never interrupts later visits.
 
 ## Guidance and AI behavior
+
+### Strategy (owner decision, 20 October 2026)
+
+Strategy is a separate long-term planning destination, linked from the desktop sidebar and first in More on mobile. Keep six readable mobile navigation choices; do not add Strategy content to Home. It starts with at most three business-relevant planning choices: seasonal stock, bulk purchases and equipment expansion, followed by saved plans. Use the owner's business description to select starting topics; distinguish model selection from rules fallback.
+
+Each plan uses the existing one-question guided flow, six-answer checkpoints, edit/backtracking, saved progress, reviewable drafts and in-app follow-ups. Show three leading amounts and a compact comparison of owner-estimated demand, lower demand and keeping the current approach. Calculations, assumptions, storage checklist and official sources stay available on demand. A saved plan is a draft for review, never a purchase, a loan acceptance or legal permission.
+
+Ask about product form and units, real quotes, demand evidence, storage capacity and life, spoilage, power/backup, preparation/delivery, financing, essential payments and household needs. Equipment planning includes additional receipts, running costs and capacity evidence. Do not promise seasonal availability or infer shelf life from owning a freezer. Regulatory applicability depends on commodity, quantity, duration, activity and location; never invent a universal permitted stock limit. Unknown costs remain unknown. Money calculations are deterministic; model-selected questions cannot bypass required facts.
 
 Every recommendation follows **what → why → how → next action**. For example: “Follow up with Karim” → “Their bill is overdue” → “Check the bill, review the reminder, then confirm” → “Review reminder.” Use actual names, amounts, and dates from the business's records.
 

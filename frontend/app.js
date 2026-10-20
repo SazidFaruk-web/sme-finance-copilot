@@ -8,7 +8,7 @@ import { icon } from "./icons.js?v=13";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=21";
 import { greetingName } from "./guidance.js?v=20";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=22";
-import { renderPilot } from "./pilot.js?v=24";
+import { renderPilot } from "./pilot.js?v=25";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=11";
 import { createMarketDrawer } from "./market.js?v=6";
@@ -16,6 +16,7 @@ import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
 import { renderSettings } from "./settings.js?v=1";
+import { renderStrategy } from "./strategy.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -440,14 +441,14 @@ async function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "data", "chat", "invoices", "parties", "reports", "stock", "settings"];
-const SIMPLE_ROUTES = ["dashboard", "data", "chat", "tasks", "money", "more"];
+const ROUTES = ["dashboard", "data", "chat", "strategy", "invoices", "parties", "reports", "stock", "settings"];
+const SIMPLE_ROUTES = ["dashboard", "data", "chat", "tasks", "money", "strategy", "more"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties" };
-const ICONS = { dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
+const ICONS = { strategy: "↗", dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
 const routes = () => S.mode === "simple" ? SIMPLE_ROUTES : ROUTES
-  .filter(r => !S.home || S.home.nav.includes(r) || r === "dashboard" || r === "settings");
+  .filter(r => !S.home || S.home.nav.includes(r) || ["dashboard", "settings", "strategy"].includes(r));
 const plain = (en, bn, cn) => S.ui === "bn" ? bn : S.ui === "zh" && cn ? cn : L(en);
-const simpleLabel = r => ({ chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Record Entry", "হিসাব এন্ট্রি"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
+const simpleLabel = r => ({ strategy: plain("Strategy", "পরিকল্পনা", "经营规划"), chat: plain("AI Assistant", "এআই সহকারী"), tasks: plain("Tasks", "কাজ"), money: plain("Money", "টাকা"), data: plain("Record Entry", "হিসাব এন্ট্রি"), more: plain("More", "আরও") }[r] || t(SIMPLE_LABELS[r] || r));
 const showWidget = id => !S.home || S.home.widgets.includes(id);
 
 // Appearance changes update tokens in place so current forms and workflows survive.
@@ -553,7 +554,7 @@ function renderShell() {
   document.title = plain("SME Copilot", "এসএমই কোপাইলট");
   const simple = S.mode === "simple";
   const nav = h("nav", { class: "nav", "aria-label": plain("Main navigation", "প্রধান মেনু") }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
-    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", chat: "chat", tasks: "check", money: "bill", data: "book", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple ? simpleLabel(r) : t(r)),
+    .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", chat: "chat", tasks: "check", money: "bill", data: "book", strategy: "arrow", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple || r === "strategy" ? simpleLabel(r) : t(r)),
       r === "actions" ? h("span", { class: "badge hidden", id: "pend-badge" }, "0") : null,
       r === "invoices" || r === "stock" ? h("span", { class: "badge hidden", id: "badge-" + r }, "0") : null)));
   const name = S.user.full_name || S.user.username;
@@ -600,7 +601,7 @@ function route() {
   const r = (location.hash || "#dashboard").slice(1).split("?")[0];
   const name = (S.mode === "simple" ? [...ROUTES, "tasks", "money", "more"] : routes()).includes(r) && (r !== "audit" || S.user.max_tier >= 1) ? r : "dashboard";
   document.querySelectorAll(".nav a").forEach(a => {
-    const active = a.id === "nav-" + (S.mode === "simple" && !SIMPLE_ROUTES.includes(name) ? "more" : name);
+    const active = a.id === "nav-" + (S.mode === "simple" && (!SIMPLE_ROUTES.includes(name) || name === "strategy" && matchMedia("(max-width: 800px)").matches) ? "more" : name);
     a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   marketDrawer(name === "dashboard");
@@ -613,9 +614,9 @@ function route() {
   const views = S.mode === "simple"
     ? { dashboard: viewSimpleHome, chat: viewAssistant, data: hashParam("tools") === "all" ? viewData : viewSimpleData, parties: viewParties, financing: viewPilotFunding, settings: viewSimpleSettings,
       invoices: viewInvoices, reports: viewReports, stock: viewStock, actions: viewActions, audit: viewAudit, more: viewMore,
-      tasks: viewGuidedTasks, money: viewGuidedMoney }
+      tasks: viewGuidedTasks, money: viewGuidedMoney, strategy: viewStrategy }
     : { dashboard: viewDashboard, chat: viewAssistant, data: hashParam("tools") === "all" ? viewData : viewSimpleData, invoices: viewInvoices, parties: viewParties, reports: viewReports, stock: viewStock, financing: viewPilotFunding, actions: viewActions,
-      audit: viewAudit, settings: viewSettings };
+      audit: viewAudit, settings: viewSettings, strategy: viewStrategy };
   views[name](v).catch(e => v.replaceChildren(h("div", { class: "notice warn", role: "alert" }, plain("We couldn't load this page. ", "পাতাটি আনা যায়নি। "), e.message,
     h("button", { class: "btn", onclick: route }, plain("Try again", "আবার চেষ্টা")))));
 }
@@ -1949,6 +1950,7 @@ function askWithContext(text) {
 }
 
 async function viewPilotFunding(v) { await renderPilot(v, guidedContext(), "loan"); }
+async function viewStrategy(v) { await renderStrategy(v, guidedContext(), renderPilot); }
 
 function guidedContext() {
   return { h, api, S, money, fmtDate, canWrite, lineChart, reload: route,
@@ -1993,6 +1995,7 @@ function reminderDialog(task, asOf) {
 
 async function viewMore(v) {
   const items = [
+    ["strategy", "arrow", plain("Strategy", "ভবিষ্যৎ পরিকল্পনা", "经营规划"), plain("Plan seasonal stock, bulk purchases and equipment.", "মৌসুমি পণ্য, বেশি পরিমাণে কেনা ও যন্ত্রের পরিকল্পনা করুন।", "规划季节库存、批量采购和设备。")],
     ["chat", "chat", plain("Ask AI Assistant", "এআই সহকারীকে জিজ্ঞাসা"), plain("Get help understanding your business and choosing a next step.", "ব্যবসা বুঝতে ও পরের কাজ বেছে নিতে সাহায্য নিন।")],
     ["parties", "people", plain("Customers & suppliers", "ক্রেতা ও সরবরাহকারী"), plain("Look up who owes you and whom you owe.", "কার কাছে পাওনা ও কাকে টাকা দিতে হবে দেখুন।")],
     ["invoices", "bill", plain("Bills & invoices", "বিল ও চালান"), plain("Track customer bills and what you owe suppliers.", "ক্রেতার বিল ও সরবরাহকারীর পাওনা দেখুন।")],

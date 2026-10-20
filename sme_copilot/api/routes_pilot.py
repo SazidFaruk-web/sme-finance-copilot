@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from sme_copilot.config import get_settings
 from sme_copilot.db import get_db
-from sme_copilot.models import Alert, User, utcnow
+from sme_copilot.models import Alert, Business, User, utcnow
 from sme_copilot.security import audit
 from sme_copilot.pilot.definitions import KINDS, questions
 from sme_copilot.pilot.knowledge import sources
@@ -69,9 +69,16 @@ def document_list(user: User = Depends(current_user), db: Session = Depends(get_
 
 
 class CreateCase(BaseModel):
-    kind: Literal["record", "collect", "shortfall", "loan", "stock", "paperwork"]
+    kind: Literal["record", "collect", "shortfall", "loan", "stock", "paperwork", "strategy"]
     language: Literal["en", "bn"] = "en"
     request_key: str = Field(min_length=8, max_length=80)
+    plan_type: Literal["seasonal", "bulk", "equipment"] | None = None
+
+
+@router.get("/strategy")
+def strategy_ideas(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    from sme_copilot.pilot.strategy import ideas
+    return ideas(db.get(Business, user.business_id))
 
 
 @router.post("/cases")
@@ -81,7 +88,10 @@ def create(body: CreateCase, user: User = Depends(require_tier(1)), db: Session 
         if old.kind != body.kind:
             fail("conflict", 409)
         return view(db, old, as_of_today())
-    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump())
+    if body.plan_type and body.kind != "strategy":
+        fail("invalid_question")
+    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump(exclude={"plan_type"}),
+                      answers={"plan_type": body.plan_type} if body.plan_type else {})
     db.add(case)
     try:
         db.flush()
@@ -98,6 +108,7 @@ def cases(user: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.scalars(select(GuidedCase).where(GuidedCase.business_id == user.business_id)
                       .order_by(GuidedCase.updated_at.desc()).limit(100))
     return [{"id": c.id, "kind": c.kind, "title": KINDS[c.kind], "status": c.status,
+             "item": c.answers.get("item") if c.kind == "strategy" else None,
              "updated_at": c.updated_at.isoformat(), "result": c.result} for c in rows]
 
 
@@ -225,7 +236,7 @@ async def attachment(case_id: int, file: UploadFile = File(...), user: User = De
         case.preview = {}
     else:
         case.result = {**case.result, "evidence_changed": True,
-                       "human_review": "pending" if case.kind in ("loan", "paperwork") else "not_required"}
+                       "human_review": "pending" if case.kind in ("loan", "paperwork", "strategy") else "not_required"}
     case.version += 1
     case.updated_at = utcnow()
     db.add(d); db.flush(); event(db, user, case, "guided_attachment"); db.commit()

@@ -39,17 +39,18 @@ def next_question(kind, answered, pending):
     # Early branch questions must stay first. Reordering only affects the next three
     # already-applicable questions, so a model cannot skip required information.
     selected = None
-    if answered and kind != "record":
+    if answered and kind != "record" and not (kind == "strategy" and "plan_type" not in answered):
         selected = select_id({"goal": kind, "known_fields": sorted(answered),
                               "unknown_fields": [k for k, v in answered.items() if v is None]}, [q["id"] for q in pending[:3]])
     q = next((q for q in pending if q["id"] == selected), pending[0])
-    return {**q, "why": tr("This helps us check the facts before preparing your next action.",
+    return {**q, "why": q.get("why") or tr("This helps us check the facts before preparing your next action.",
                            "পরের কাজ প্রস্তুতের আগে তথ্যগুলো যাচাই করতে এটি দরকার।"),
             "selected_by": "model" if selected else "rules"}
 
 
 def choose_goal(text):
     terms = {
+        "strategy": r"season|bulk|expand|freezer|machine|মৌসুম|মজুত|যন্ত্র|ফ্রিজ|পরিকল্পনা",
         "loan": r"loan|rin|kisti|ঋণ|কিস্তি|borrow",
         "paperwork": r"tax|vat|licen|কর|লাইসেন্স|কাগজ|ভ্যাট",
         "stock": r"stock|product|ponno|পণ্য|মাল কিন|mal kin",

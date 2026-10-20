@@ -6,6 +6,7 @@ def tr(en, bn):
 
 
 KINDS = {
+    "strategy": tr("Plan for the future", "ভবিষ্যতের পরিকল্পনা"),
     "record": tr("Record or check money", "হিসাব লিখুন বা টাকা মেলান"),
     "collect": tr("Collect a customer payment", "ক্রেতার বাকি আদায় করুন"),
     "shortfall": tr("Plan an upcoming payment", "সামনের পেমেন্টের পরিকল্পনা"),
@@ -36,6 +37,9 @@ RECORD_TYPES = opts(("sale", "Sale / daily sales", "বিক্রি / দি�
 
 def questions(kind, a, snapshot):
     """Conditional sequence: changing an early answer removes irrelevant downstream steps."""
+    if kind == "strategy":
+        from .strategy import strategy_questions
+        return strategy_questions(a, snapshot)
     dateq = q("date", "When did this happen?", "কবে হয়েছে?", "date")
     due = q("due_date", "When is it due?", "কবে দিতে হবে?", "date")
     follow = q("review_date", "When should we remind you?", "কবে মনে করিয়ে দেব?", "date")
