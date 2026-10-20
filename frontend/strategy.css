@@ -40,3 +40,7 @@
 @media (max-width: 800px) {
   body.simple #nav-strategy { display: none; }
 }
+.strategy-section-title {
+  margin: 8px 0 4px; font-size: 15px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-secondary);
+}

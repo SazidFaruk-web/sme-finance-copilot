@@ -1,0 +1,333 @@
+/* Goal roadmaps. All colour comes from the app's tokens, so both themes and both styles follow.
+   Meaning is never carried by colour alone: every season, phase and warning is also worded. */
+
+.gp-page { max-width: 980px; margin: 0 auto; }
+.gp-page h1 { margin: 8px 0 12px; font-size: clamp(27px, 4vw, 36px); line-height: 1.2; }
+.gp-page h1:focus { outline: none; }
+.gp-page :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.gp-intro { max-width: 60ch; color: var(--text-secondary); font-size: 17px; line-height: 1.6; }
+.gp-status { color: var(--text-secondary); font-size: 15px; min-height: 22px; }
+
+/* ---------------------------------------------------------------- the one question */
+.gp-form { margin-top: 28px; display: grid; gap: 12px; }
+.gp-label { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.gp-label-small { margin-top: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.gp-input {
+  width: 100%; box-sizing: border-box; padding: 18px 20px; font: inherit; font-size: 18px; line-height: 1.55;
+  color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 20px; resize: vertical; min-height: 104px;
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+.gp-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); outline: none; }
+.gp-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+.gp-example {
+  font: inherit; font-size: 14px; padding: 9px 15px; min-height: 40px; cursor: pointer;
+  color: var(--text-secondary); background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; transition: background .15s var(--ease), color .15s var(--ease);
+}
+.gp-example:hover { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+.gp-horizons { display: flex; flex-wrap: wrap; gap: 8px; }
+.gp-horizon {
+  font: inherit; font-size: 15px; padding: 11px 18px; min-height: 44px; cursor: pointer;
+  color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+}
+.gp-horizon[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.gp-submit { justify-self: start; margin-top: 8px; padding: 14px 28px; font-size: 17px; }
+
+.gp-known { margin: 20px 0 4px; padding: 22px 24px; background: var(--surface-2); border-radius: 20px; }
+.gp-known-lead { margin: 0 0 14px; font-size: 15px; color: var(--text-secondary); }
+.gp-known dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 18px; margin: 0; }
+.gp-known dt { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.gp-known dd { margin: 4px 0 0; font-size: 21px; font-weight: 650; color: var(--text-primary); }
+.gp-known-note { margin: 16px 0 0; font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+/* ---------------------------------------------------------------- the plan: hero and figures */
+.gp-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 28px; flex-wrap: wrap;
+  padding: 30px 32px; margin-bottom: 20px; border-radius: 26px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface-2));
+  border: 1px solid var(--border);
+}
+.gp-hero-text { flex: 1 1 320px; min-width: 0; }
+.gp-hero h1 { margin: 6px 0 10px; }
+.gp-hero-sub { margin: 0; max-width: 54ch; font-size: 16px; line-height: 1.6; color: var(--text-secondary); }
+.gp-hero-when { margin: 16px 0 0; font-size: 15px; color: var(--text-secondary); }
+.gp-hero-when b { font-size: 19px; color: var(--text-primary); }
+.gp-hero-ring { flex: 0 0 auto; margin: 0; display: grid; justify-items: center; gap: 8px; }
+.gp-hero-ring figcaption { font-size: 13px; color: var(--text-secondary); text-align: center; max-width: 170px; }
+.gp-hero-out_of_reach { background: linear-gradient(135deg, var(--warn-soft), var(--surface-2)); }
+
+.rm-ring-track { stroke: var(--border); }
+.rm-ring-fill { stroke: var(--accent); transition: stroke-dasharray .5s var(--ease); }
+.rm-ring-label { fill: var(--text-primary); font-size: 22px; font-weight: 700; }
+.rm-ring-caption { fill: var(--text-secondary); font-size: 12px; }
+
+.gp-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 24px 0 28px; }
+.gp-figures > div { padding: 20px 22px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 20px; }
+.gp-figures dt { font-size: 13px; color: var(--text-secondary); }
+.gp-figures dd { margin: 6px 0 0; font-size: 27px; font-weight: 700; letter-spacing: -.01em; }
+.gp-figures p { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+
+.gp-price { padding: 22px 24px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface-1); }
+/* Once the owner has settled the price it is a quiet line, not a second hero. */
+.gp-price-set { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; padding: 14px 22px; background: var(--surface-2); }
+.gp-price-set .gp-price-head > div { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.gp-price-set .gp-price-figure { margin: 0; font-size: 20px; }
+.gp-price-set .text-link { font-size: 14px; }
+.gp-price-figure { margin: 6px 0 0; font-size: 30px; font-weight: 700; }
+.gp-price-range, .gp-price-label { margin: 6px 0 0; font-size: 14px; color: var(--text-secondary); }
+.gp-price-note { margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: var(--text-muted); max-width: 70ch; }
+.gp-price-privacy { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); }
+.gp-price-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.gp-price-input, .gp-adjust-controls input, .gp-adjust-controls select {
+  font: inherit; font-size: 16px; padding: 11px 14px; min-height: 44px; min-width: 150px;
+  color: var(--text-primary); background: var(--page); border: 1px solid var(--border); border-radius: var(--btn-radius);
+}
+.gp-reasons { margin: 0 0 20px; padding: 16px 20px 16px 38px; border-radius: 18px; background: var(--warn-soft); color: var(--text-primary); font-size: 15px; line-height: 1.6; }
+.gp-stale { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+
+/* ---------------------------------------------------------------- pieces the layouts share */
+.rm-chip {
+  display: inline-block; padding: 5px 11px; border-radius: 999px; background: var(--surface-2);
+  color: var(--text-secondary); font-size: 12.5px; font-weight: 600; letter-spacing: .01em;
+}
+.rm-amount { margin: 10px 0 6px; font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.rm-amount-unit { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.rm-actions { margin: 12px 0 0; padding-inline-start: 20px; font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+.rm-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 16px; margin-top: 28px; }
+.rm-card { padding: 22px 24px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 22px; min-width: 0; }
+.rm-card h3, .rm-card h4 { margin: 12px 0 0; font-size: 18px; line-height: 1.4; }
+.rm-card p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.65; color: var(--text-secondary); }
+.rm-card-no { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-inline-end: 8px;
+  border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-size: 13px; }
+.rm-finish { margin: 22px 0 0; font-size: 17px; font-weight: 600; text-align: center; color: var(--text-primary); }
+.rm-note { margin: 16px 0 0; font-size: 14px; line-height: 1.65; color: var(--text-secondary); }
+
+/* Each phase keeps a quiet left edge in its own colour, always alongside its written label. */
+.rm-kind-start { border-inline-start: 4px solid var(--c-teal); }
+.rm-kind-save { border-inline-start: 4px solid var(--accent); }
+.rm-kind-borrow { border-inline-start: 4px solid var(--warn); }
+.rm-kind-buy { border-inline-start: 4px solid var(--in); }
+.rm-kind-repay { border-inline-start: 4px solid var(--c-purple); }
+.rm-kind-review { border-inline-start: 4px solid var(--text-muted); }
+
+/* 1 — quick win ---------------------------------------------------------- */
+.rm-quickwin {
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+  padding: 36px 34px; border-radius: 26px; background: var(--in-soft); border: 1px solid var(--border);
+}
+.rm-quickwin-mark svg { width: 72px; height: 72px; }
+.rm-quickwin-mark path { stroke: var(--in); }
+.rm-quickwin-lead { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--in); }
+.rm-quickwin-figure { margin: 6px 0 0; font-size: 40px; font-weight: 750; letter-spacing: -.02em; }
+.rm-quickwin-when { margin: 6px 0 0; font-size: 16px; color: var(--text-secondary); }
+.rm-quickwin-text { margin: 14px 0 0; max-width: 56ch; font-size: 15.5px; line-height: 1.65; color: var(--text-secondary); }
+
+/* 2 — two steps ---------------------------------------------------------- */
+.rm-twostep { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; }
+.rm-twostep-card {
+  flex: 1 1 220px; padding: 26px 26px 28px; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 24px; min-width: 0;
+}
+.rm-twostep-card h3 { margin: 12px 0 0; font-size: 19px; line-height: 1.35; }
+.rm-twostep-card p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.65; color: var(--text-secondary); }
+.rm-twostep-link { align-self: center; font-size: 24px; color: var(--text-muted); }
+
+/* 3 — vertical stepper --------------------------------------------------- */
+.rm-stepper { list-style: none; margin: 0; padding: 0; }
+.rm-step { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: 18px; padding-bottom: 22px; }
+.rm-step::before {
+  content: ""; position: absolute; inset-inline-start: 21px; top: 44px; bottom: 0; width: 2px; background: var(--border);
+}
+.rm-step:last-child { padding-bottom: 0; }
+.rm-step:last-child::before { display: none; }
+.rm-step-dot {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--surface-2); border: 2px solid var(--border); color: var(--text-primary);
+  font-size: 16px; font-weight: 700;
+}
+.rm-kind-save > .rm-step-dot { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.rm-kind-buy > .rm-step-dot { background: var(--in-soft); border-color: var(--in); color: var(--in); }
+.rm-kind-borrow > .rm-step-dot { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.rm-step-body { padding: 2px 0 0; min-width: 0; }
+.rm-step-body h3 { margin: 10px 0 0; font-size: 19px; line-height: 1.4; }
+.rm-step-body p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.65; color: var(--text-secondary); max-width: 62ch; }
+.rm-step.rm-kind-start, .rm-step.rm-kind-save, .rm-step.rm-kind-buy,
+.rm-step.rm-kind-borrow, .rm-step.rm-kind-repay, .rm-step.rm-kind-review { border-inline-start: none; }
+.rm-stepper-tight .rm-step { padding-bottom: 16px; }
+
+/* 4 — season bars -------------------------------------------------------- */
+.rm-bars-wrap { overflow-x: auto; padding-bottom: 6px; }
+.rm-bars { display: flex; align-items: flex-end; gap: 10px; min-height: 230px; min-width: min-content; padding: 10px 2px 0; }
+.rm-bar { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; flex: 1 1 42px; min-width: 42px; height: 230px; }
+.rm-bar-fill { display: block; width: 100%; border-radius: 10px 10px 4px 4px; background: var(--accent); }
+.rm-bar-value { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.rm-bar-month { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.rm-bar-tag { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); }
+.rm-season-peak .rm-bar-fill { background: var(--accent); }
+.rm-season-normal .rm-bar-fill { background: var(--series-2); }
+.rm-season-low .rm-bar-fill { background: var(--neutral-soft); border: 1px dashed var(--axis); border-bottom: none; }
+.rm-bars-key { display: flex; flex-wrap: wrap; gap: 18px; margin: 14px 0 0; font-size: 13px; color: var(--text-secondary); }
+.rm-key { display: inline-flex; align-items: center; gap: 7px; }
+.rm-key i { width: 14px; height: 14px; border-radius: 4px; background: var(--series-2); }
+.rm-key.rm-season-peak i { background: var(--accent); }
+.rm-key.rm-season-low i { background: var(--neutral-soft); border: 1px dashed var(--axis); }
+
+/* 5 — staircase ---------------------------------------------------------- */
+.rm-stair-wrap { overflow-x: auto; padding-bottom: 30px; }
+/* An explicit height, so each step's percentage resolves against the climb, not its own content. */
+.rm-stair { display: flex; align-items: flex-end; gap: 4px; height: 250px; min-width: min-content; padding-top: 26px; box-sizing: content-box; }
+.rm-stair-step {
+  position: relative; flex: 1 1 54px; min-width: 54px; min-height: 26px;
+  background: linear-gradient(180deg, var(--accent), var(--series-2));
+  border-radius: 10px 10px 0 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+}
+.rm-stair-total { margin-top: -22px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.rm-stair-month { position: absolute; bottom: -22px; font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; }
+.rm-stair-goal {
+  display: grid; align-content: end; gap: 2px; height: 100%; box-sizing: border-box; margin-inline-start: 10px; padding: 10px 14px;
+  border-inline-start: 3px dashed var(--accent); color: var(--accent-ink); white-space: nowrap;
+}
+.rm-stair-goal span { font-size: 12px; }
+.rm-stair-goal b { font-size: 17px; }
+.rm-layout-staircase .rm-cards { margin-top: 44px; }
+
+/* 6 — quarter grid ------------------------------------------------------- */
+.rm-quarters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.rm-quarter { padding: 22px 22px 18px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 22px; }
+.rm-quarter header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.rm-quarter-no { font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); }
+.rm-quarter header b { font-size: 19px; }
+.rm-quarter ul { list-style: none; margin: 12px 0 0; padding: 0; }
+.rm-quarter li { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: 14.5px; color: var(--text-secondary); }
+.rm-quarter li b { margin-inline-start: auto; color: var(--text-primary); }
+.rm-quarter-season { font-style: normal; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); }
+.rm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--series-2); flex: 0 0 auto; }
+.rm-dot.rm-season-peak { background: var(--accent); }
+.rm-dot.rm-season-low { background: var(--border); }
+.rm-quarter footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
+
+/* 7 — split rail --------------------------------------------------------- */
+.rm-rail { display: flex; align-items: stretch; gap: 0; border-radius: 20px; overflow: hidden; min-height: 94px; }
+.rm-rail-own, .rm-rail-borrow { display: grid; align-content: center; gap: 4px; padding: 18px 22px; min-width: 110px; }
+.rm-rail-own { background: var(--accent-soft); color: var(--accent-ink); }
+.rm-rail-borrow { background: var(--warn-soft); color: var(--warn); }
+.rm-rail-own span, .rm-rail-borrow span { font-size: 13px; }
+.rm-rail-own b, .rm-rail-borrow b { font-size: 21px; color: var(--text-primary); }
+.rm-rail-join { width: 3px; background: var(--border); }
+.rm-rail-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 24px; margin-top: 26px; }
+.rm-rail-head { margin: 0 0 14px; font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-ink); }
+.rm-rail-head-alt { color: var(--warn); }
+.rm-rail-columns .rm-card { margin-bottom: 14px; }
+.rm-illustrative { margin-top: 22px; font-size: 14px; color: var(--text-secondary); }
+.rm-illustrative summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
+
+/* 8 — year bands --------------------------------------------------------- */
+.rm-years { display: grid; gap: 16px; }
+.rm-year { padding: 20px 22px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 22px; }
+.rm-year header { display: flex; align-items: baseline; gap: 12px; }
+.rm-year header h3 { margin: 0; font-size: 22px; letter-spacing: .01em; }
+.rm-year header b { font-size: 18px; color: var(--accent-ink); }
+.rm-year-count { margin-inline-start: auto; font-size: 13px; color: var(--text-secondary); }
+/* Twelve columns, so a part-year lines up under the same months as a full one. */
+.rm-year-cells { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 16px; }
+.rm-cell { display: grid; gap: 5px; justify-items: center; min-width: 0; }
+.rm-cell i { display: block; width: 100%; height: 52px; border-radius: 9px; background: var(--surface-2);
+  background-image: linear-gradient(to top, var(--series-2) var(--fill), transparent var(--fill)); }
+.rm-cell.rm-season-peak i { background-image: linear-gradient(to top, var(--accent) var(--fill), transparent var(--fill)); }
+.rm-cell.rm-season-low i { outline: 1px dashed var(--axis); outline-offset: -1px;
+  background-image: linear-gradient(to top, var(--neutral-soft) var(--fill), transparent var(--fill)); }
+.rm-cell-off i { background: transparent; border: 1px dashed var(--border); }
+.rm-cell-off em { opacity: .4; }
+.rm-cell em { font-style: normal; font-size: 11px; color: var(--text-secondary); overflow: hidden; }
+
+/* 9 — two tracks --------------------------------------------------------- */
+.rm-tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px; }
+.rm-track { padding: 24px 26px; border-radius: 22px; border: 1px solid var(--border); }
+.rm-track-in { background: var(--in-soft); }
+.rm-track-out { background: var(--warn-soft); }
+.rm-track h3 { margin: 0 0 10px; font-size: 19px; }
+.rm-track p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--text-secondary); }
+
+/* 10 — milestone arc ----------------------------------------------------- */
+.rm-arc-wrap { overflow-x: auto; }
+.rm-arc { display: block; width: 100%; min-width: 580px; height: auto; }
+.rm-arc-line { stroke: var(--border); stroke-width: 3; stroke-dasharray: 2 8; stroke-linecap: round; }
+.rm-arc-point circle { fill: var(--surface-1); stroke: var(--accent); stroke-width: 3; }
+.rm-arc-point text { fill: var(--text-primary); font-size: 14px; font-weight: 700; }
+.rm-arc-point.rm-kind-buy circle { fill: var(--in-soft); stroke: var(--in); }
+.rm-arc-point.rm-kind-borrow circle { fill: var(--warn-soft); stroke: var(--warn); }
+.rm-arc-when { fill: var(--text-secondary); font-size: 12px; font-weight: 500; }
+.rm-arc-point { border: none; }
+.rm-arc-target { margin: 6px 0 0; text-align: center; font-size: 16px; font-weight: 600; }
+
+/* 11 — runway gauge ------------------------------------------------------ */
+.rm-gauge { display: flex; align-items: center; gap: 34px; flex-wrap: wrap; padding: 28px 30px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 24px; }
+.rm-gauge-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 22px; flex: 1 1 260px; margin: 0; }
+.rm-gauge-figures dt { font-size: 13px; color: var(--text-secondary); }
+.rm-gauge-figures dd { margin: 5px 0 0; font-size: 23px; font-weight: 700; }
+.rm-layout-runway-gauge .rm-stepper { margin-top: 28px; }
+
+/* 12 — gap review -------------------------------------------------------- */
+.rm-gap { padding: 24px 26px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 22px; }
+.rm-gap-bar { height: 22px; border-radius: 999px; background: repeating-linear-gradient(135deg,
+  var(--surface-2), var(--surface-2) 8px, var(--neutral-soft) 8px, var(--neutral-soft) 16px); overflow: hidden; }
+.rm-gap-reach { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.rm-gap-labels { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; color: var(--text-secondary); }
+.rm-gap-labels b { color: var(--text-primary); font-size: 16px; }
+.rm-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; margin-top: 26px; }
+.rm-options article { padding: 22px 24px; background: var(--surface-2); border-radius: 22px; }
+.rm-options h3 { margin: 0 0 8px; font-size: 17px; line-height: 1.4; }
+.rm-options p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--text-secondary); }
+.rm-layout-gap-review .rm-stepper { margin-top: 26px; }
+
+/* ---------------------------------------------------------------- tail of the plan page */
+.gp-extras { margin-top: 32px; display: grid; gap: 10px; }
+.gp-watchouts summary, .gp-adjust summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--text-secondary); font-size: 15px; }
+.gp-watchouts ul { margin: 0 0 8px; padding-inline-start: 20px; font-size: 14.5px; line-height: 1.75; color: var(--text-secondary); max-width: 74ch; }
+.gp-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 0; border-top: 1px solid var(--border); }
+.gp-adjust-row label { font-size: 15px; font-weight: 600; }
+.gp-adjust-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.gp-adjust-hint { margin: 0 0 4px; font-size: 13px; line-height: 1.6; color: var(--text-muted); max-width: 70ch; }
+.gp-remove { margin-top: 14px; color: var(--out); border-color: var(--out); }
+.gp-footnote, .gp-written { margin: 18px 0 0; font-size: 13px; line-height: 1.65; color: var(--text-muted); max-width: 78ch; }
+.gp-written { margin-top: 6px; }
+.gp-plan-page .text-link { display: inline-block; margin-top: 22px; }
+
+/* ---------------------------------------------------------------- entry block in Strategy */
+.gp-entry { margin: 8px 0 36px; padding: 28px 30px; border-radius: 26px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); border: 1px solid var(--border); }
+.gp-entry-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.gp-entry h2 { margin: 0 0 8px; font-size: 24px; line-height: 1.3; }
+.gp-entry-head p { margin: 0; max-width: 56ch; font-size: 15.5px; line-height: 1.65; color: var(--text-secondary); }
+.gp-list-title { margin: 26px 0 12px; font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); }
+.gp-list { display: grid; gap: 10px; }
+.gp-list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding: 16px 20px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 18px;
+  text-decoration: none; color: var(--text-primary);
+}
+.gp-list-row:hover { border-color: var(--accent); }
+.gp-list-row strong { display: block; font-size: 16px; }
+.gp-list-head { display: block; margin-top: 3px; font-size: 13.5px; color: var(--text-secondary); }
+.gp-list-meta { display: grid; justify-items: end; gap: 3px; }
+.gp-list-meta b { font-size: 17px; }
+.gp-list-meta span { font-size: 12.5px; color: var(--text-secondary); }
+.gp-list-row-blocked .gp-list-meta span { color: var(--warn); }
+
+@media (max-width: 720px) {
+  .gp-hero { padding: 24px 22px; gap: 20px; }
+  .gp-hero-ring { margin-inline: auto; }
+  .gp-entry, .rm-quickwin, .rm-gauge { padding: 22px 20px; }
+  .gp-figures dd { font-size: 24px; }
+  .rm-twostep-link { display: none; }
+  .rm-rail { flex-direction: column; }
+  .rm-rail-join { width: auto; height: 3px; }
+  .rm-stair-step, .rm-bar { min-width: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-ring-fill, .gp-input, .gp-example { transition: none; }
+}

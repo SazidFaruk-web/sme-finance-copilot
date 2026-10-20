@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     market_data_url: str = ""  # override the HDX CSV location (operator setting)
     market_forecast_model: str = "amazon/chronos-bolt-small"  # "" = statistical estimate only
 
+    # --- Goal roadmaps (Strategy) --------------------------------------------------------
+    goal_roadmap_model: bool = True  # let the local model word the roadmap; reviewed wording is always the fallback
+    # Online price lookup for a goal whose price the owner does not know. The item wording leaves this
+    # machine when the owner presses the lookup button, so it is off unless an operator turns it on,
+    # and it is refused outright in LOCAL_ONLY_MODE.
+    goal_price_lookup: bool = False
+    goal_price_search_url: str = "https://html.duckduckgo.com/html/?q={query}"
+
     @property
     def languages(self) -> list[str]:
         out = [x.strip() for x in self.app_languages.split(",") if x.strip() in ("en", "bn", "zh")]

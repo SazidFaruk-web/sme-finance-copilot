@@ -1,0 +1,120 @@
+# Indicative price ranges for things a small business in Bangladesh commonly saves up for.
+#
+# These are NOT quotes. They exist so a roadmap can be drafted when the owner does not yet know a
+# price, and every one of them is shown to the owner as a range to confirm or replace before the
+# plan is saved. Ranges were read from publicly advertised retail listings in Bangladesh and are
+# deliberately wide; a real quote from a supplier always replaces them.
+#
+# reviewed: the date a human last checked the range. Stale entries are still shown, with their date.
+# match:    case-insensitive regular expression against the owner's item wording (English or Bangla).
+# low/high: taka. The midpoint is used as the planning figure.
+
+reviewed: 2026-10-20
+currency: BDT
+note:
+  en: Typical advertised range in Bangladesh, not a quote. Ask a supplier for a written price.
+  bn: বাংলাদেশে সাধারণত বিজ্ঞাপিত দামের সীমা, কোনো প্রস্তাব নয়। সরবরাহকারীর কাছ থেকে লিখিত দাম নিন।
+  zh: 孟加拉国常见的广告价格区间，不是报价。请向供应商索取书面价格。
+
+items:
+  - id: oven_commercial
+    match: "(commercial|bakery|deck|industrial|big|large|gas|convection).{0,20}(oven|ওভেন)|(oven|ওভেন).{0,20}(commercial|bakery|deck|industrial|big|large)"
+    label: {en: Commercial or bakery oven, bn: বাণিজ্যিক বা বেকারি ওভেন, zh: 商用或烘焙烤箱}
+    low: 120000
+    high: 400000
+
+  - id: oven_small
+    match: "oven|ওভেন|মাইক্রোওয়েভ|microwave"
+    label: {en: Household or small oven, bn: ঘরোয়া বা ছোট ওভেন, zh: 家用或小型烤箱}
+    low: 12000
+    high: 45000
+
+  - id: grill_machine
+    match: "grill|গ্রিল|rotisserie|shawarma|শর্মা|barbecue|bbq"
+    label: {en: Chicken grill or rotisserie machine, bn: মুরগি গ্রিল বা রোটিসারি যন্ত্র, zh: 烤鸡或旋转烤肉机}
+    low: 18000
+    high: 95000
+
+  - id: deep_freezer
+    match: "deep freez|ডিপ ফ্রিজ|chest freez|freezer|ফ্রিজার"
+    label: {en: Deep freezer, bn: ডিপ ফ্রিজার, zh: 冷柜}
+    low: 32000
+    high: 110000
+
+  - id: refrigerator
+    match: "refrigerator|fridge|ফ্রিজ|chiller|display cooler|বেভারেজ কুলার"
+    label: {en: Refrigerator or display chiller, bn: ফ্রিজ বা ডিসপ্লে চিলার, zh: 冰箱或展示冷柜}
+    low: 30000
+    high: 150000
+
+  - id: generator
+    match: "generator|জেনারেটর|ips|আইপিএস|inverter|solar"
+    label: {en: Generator, IPS or solar backup, bn: জেনারেটর, আইপিএস বা সোলার ব্যাকআপ, zh: 发电机、UPS 或太阳能备用电源}
+    low: 25000
+    high: 200000
+
+  - id: mixer_grinder
+    match: "mixer|মিক্সার|grinder|গ্রাইন্ডার|blender|ব্লেন্ডার|dough|আটা মাখা|kneader"
+    label: {en: Commercial mixer, grinder or blender, bn: বাণিজ্যিক মিক্সার, গ্রাইন্ডার বা ব্লেন্ডার, zh: 商用搅拌机或研磨机}
+    low: 9000
+    high: 85000
+
+  - id: fryer
+    match: "fryer|ফ্রায়ার|deep fry|চুলা|stove|burner|cooker|কুকার|cooking range"
+    label: {en: Commercial fryer, burner or cooking range, bn: বাণিজ্যিক ফ্রায়ার, বার্নার বা চুলা, zh: 商用油炸锅、灶头或炉具}
+    low: 7000
+    high: 70000
+
+  - id: sewing_machine
+    match: "sewing|সেলাই|stitch|embroider|এমব্রয়ডারি|overlock"
+    label: {en: Sewing or embroidery machine, bn: সেলাই বা এমব্রয়ডারি মেশিন, zh: 缝纫或绣花机}
+    low: 9000
+    high: 120000
+
+  - id: motorcycle
+    match: "motorcycle|motorbike|মোটরসাইকেল|bike|scooter|স্কুটার"
+    label: {en: Motorcycle or scooter, bn: মোটরসাইকেল বা স্কুটার, zh: 摩托车或踏板车}
+    low: 110000
+    high: 300000
+
+  - id: delivery_van
+    match: "van|ভ্যান|pickup|পিকআপ|truck|ট্রাক|covered van|delivery vehicle|car|গাড়ি"
+    label: {en: Delivery van, pickup or small truck, bn: ডেলিভারি ভ্যান, পিকআপ বা ছোট ট্রাক, zh: 送货车、皮卡或小货车}
+    low: 450000
+    high: 1800000
+
+  - id: rickshaw_van
+    match: "rickshaw|রিকশা|cycle van|ঠেলা|cart|ভ্যানগাড়ি|cycle|সাইকেল"
+    label: {en: Cycle van, rickshaw or cart, bn: সাইকেল ভ্যান, রিকশা বা ঠেলাগাড়ি, zh: 三轮车、人力车或手推车}
+    low: 14000
+    high: 70000
+
+  - id: computer
+    match: "computer|কম্পিউটার|laptop|ল্যাপটপ|desktop|pc\\b|pos |point of sale|পিওএস"
+    label: {en: Computer, laptop or POS terminal, bn: কম্পিউটার, ল্যাপটপ বা পিওএস, zh: 电脑、笔记本或收银终端}
+    low: 28000
+    high: 130000
+
+  - id: printer
+    match: "printer|প্রিন্টার|photocopy|ফটোকপি|scanner|স্ক্যানার|label print"
+    label: {en: Printer, photocopier or label printer, bn: প্রিন্টার, ফটোকপি বা লেবেল প্রিন্টার, zh: 打印机、复印机或标签打印机}
+    low: 9000
+    high: 220000
+
+  - id: shop_fitting
+    match: "counter|কাউন্টার|shelf|শেলফ|rack|র‍্যাক|display|ডিসপ্লে|showcase|signboard|সাইনবোর্ড|furniture|আসবাব"
+    label: {en: Counters, shelving or display fittings, bn: কাউন্টার, শেলফ বা ডিসপ্লে, zh: 柜台、货架或陈列设施}
+    low: 15000
+    high: 150000
+
+  - id: renovation
+    match: "renovat|সংস্কার|মেরামত|repair|decorat|সাজসজ্জা|interior|paint|রং করা|extension"
+    label: {en: Shop renovation or fit-out, bn: দোকান সংস্কার বা সাজসজ্জা, zh: 店铺翻新或装修}
+    low: 40000
+    high: 400000
+
+  - id: shop_space
+    match: "shop space|দোকান|dokan|place of my own|নিজের জায়গা|own place|premises|floor|building|ভবন|land|জমি|godown|গুদাম|warehouse"
+    label: {en: Own shop space or premises, bn: নিজের দোকান বা জায়গা, zh: 自有店铺或场地}
+    low: 800000
+    high: 6000000
