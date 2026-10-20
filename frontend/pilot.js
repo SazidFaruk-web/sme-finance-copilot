@@ -4,6 +4,7 @@ import { zh } from "./i18n-zh.js?v=11";
 // Unsubmitted edits survive language changes in memory. Explicit offline drafts use IndexedDB.
 const edits = new Map();
 const WORDS = {
+  strategy_start: ["Here’s a starting point", "এখান থেকে শুরু করুন"],
   strategy_review: ["Worth checking before you commit", "সিদ্ধান্তের আগে যাচাই করুন"],
   strategy_rethink: ["Adjust this plan before buying", "কেনার আগে পরিকল্পনা বদলান"],
   manageable: ["Looks manageable under these assumptions", "এই অনুমান অনুযায়ী সামলানো সম্ভব মনে হচ্ছে"],
@@ -63,6 +64,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   const link = (label, href) => h("a", { class: "text-link", href }, label);
   const errorText = e => {
     const errors = {
+      invalid_choice: ["Choose from the options shown.", "দেখানো বিকল্প থেকে বাছুন।"],
       conflict: ["This task changed. Reload it before continuing.", "কাজটি বদলেছে। আবার খুলে এগিয়ে যান।"], records_changed: ["Your records changed. Review the updated comparison first.", "হিসাব বদলেছে। নতুন তুলনা আগে দেখুন।"],
       need_information: ["Fill in the missing information before saving this action.", "কাজ সেভ করার আগে বাকি তথ্য দিন।"], invalid_number: ["Enter a valid amount or whole quantity.", "সঠিক পরিমাণ বা পূর্ণ সংখ্যা দিন।"], invalid_date: ["Check the date and try again.", "তারিখ যাচাই করে আবার চেষ্টা করুন।"], invalid_phone: ["Enter your Bangladesh mobile number.", "আপনার বাংলাদেশের মোবাইল নম্বর দিন।"],
       purchase_too_tight: ["Even this batch leaves too little for essentials. Try supplier terms or wait.", "এই ছোট চালানেও জরুরি টাকা কম পড়বে। সরবরাহকারীর শর্ত নিয়ে কথা বলুন বা অপেক্ষা করুন।"],
@@ -143,7 +145,8 @@ export async function renderPilot(host, ctx, initialKind = "") {
   function answerValue(q) {
     const v = current.answers[q.id];
     if (v == null) return say("Not known yet", "এখনও জানা নেই");
-    if (q.type === "choice") return txt(q.options.find(x => x.value === String(v))?.label || v);
+    if (["choice", "suggest"].includes(q.type)) return txt(q.options.find(x => x.value === String(v))?.label || v);
+    if (q.type === "multi") return v.map(x => txt(q.options.find(o => o.value === x)?.label || x)).join(" · ");
     if (q.type === "schedule") return `${number(v.length)} ${say("dated payments", "তারিখসহ পেমেন্ট")}`;
     return q.type === "money" ? taka(v) : ["number", "decimal"].includes(q.type) ? number(v) : String(v);
   }
@@ -205,7 +208,22 @@ export async function renderPilot(host, ctx, initialKind = "") {
     const panel = h("section", { class: "pilot-card", "aria-labelledby": "pilot-question" }, h("span", { class: "eyebrow" }, say("One step at a time", "একবারে একটি ধাপ")), h("h2", { id: "pilot-question", tabindex: "-1" }, txt(q.label)));
     if (q.why) panel.append(h("details", {}, h("summary", {}, say("Why this question?", "এই প্রশ্ন কেন?")), h("p", {}, txt(q.why))));
     if (q.type === "choice") panel.append(choices(q.options, o => saveAnswer(q, o.value), choicePage));
+    else if (q.type === "multi") {
+      let selected = Array.isArray(value) ? [...value] : [];
+      const form = h("form", { class: "pilot-form", onsubmit: e => { e.preventDefault(); guard(() => saveAnswer(q, selected)); } });
+      const next = h("button", { type: "submit", class: "btn primary", disabled: !selected.length }, say("Continue", "পরের ধাপ"));
+      for (const o of q.options) {
+        const checkbox = h("input", { type: "checkbox", value: o.value, checked: selected.includes(o.value), onchange: e => {
+          selected = e.target.checked ? [...selected, o.value] : selected.filter(x => x !== o.value);
+          edits.set(key, selected); next.disabled = !selected.length;
+        } });
+        form.append(h("label", { class: "pilot-select" }, checkbox, h("span", {}, txt(o.label))));
+      }
+      form.append(next); panel.append(form);
+    }
     else {
+      if (["suggest", "date"].includes(q.type) && q.options?.length) panel.append(choices(q.options, o => saveAnswer(q, o.value)));
+      if (q.suggestion != null && ["money", "number", "decimal"].includes(q.type)) panel.append(button(say("Use the recorded amount: ", "হিসাবের পরিমাণ ব্যবহার: ") + taka(q.suggestion), () => saveAnswer(q, q.suggestion)));
       let input, getValue;
       const form = h("form", { class: "pilot-form", onsubmit: e => { e.preventDefault(); guard(() => saveAnswer(q, getValue())); } });
       if (q.type === "schedule") {
@@ -227,13 +245,20 @@ export async function renderPilot(host, ctx, initialKind = "") {
         recognition.onerror = () => { message.textContent = say("Voice was unavailable. Please type your answer.", "কথা লেখা যায়নি। উত্তর টাইপ করুন।"); };
         recognition.start();
       }));
-      form.append(h("button", { type: "submit", class: "btn primary" }, say("Continue", "পরের ধাপ"))); panel.append(form);
+      form.append(h("button", { type: "submit", class: "btn primary" }, say("Continue", "পরের ধাপ")));
+      if (["suggest", "date"].includes(q.type) && q.options?.length) panel.append(h("details", { class: "pilot-custom", open: edits.get(key + ":open"), ontoggle: e => edits.set(key + ":open", e.target.open) }, h("summary", {}, q.type === "date" ? say("Choose another date", "অন্য তারিখ বাছুন") : say("Something else", "অন্য কিছু")), form));
+      else panel.append(form);
     }
-    panel.append(h("div", { class: "pilot-inline" }, button(say("I don’t know", "জানি না"), () => saveAnswer(q, null)), button(say("Do this later", "পরে করব"), () => control("pause"))));
+    panel.append(h("div", { class: "pilot-inline" }, button(q.optional ? say("No reminder yet", "এখন রিমাইন্ডার নয়") : say("I don’t know", "জানি না"), () => saveAnswer(q, null)), button(say("Do this later", "পরে করব"), () => control("pause"))));
     return panel;
   }
   function results(result) {
     const box = h("section", { class: "pilot-card" }, h("h2", {}, word(result.status)));
+    if (result.preliminary) {
+      box.append(h("p", {}, txt(result.reason)), h("p", { class: "strategy-next" }, txt(result.next_action)),
+        h("p", { class: "pilot-note" }, txt(result.assumption)), sourcePanel("strategy"));
+      return box;
+    }
     const entries = Object.entries(result.metrics || {});
     const metric = ([key, v]) => h("div", { class: "pilot-metric" }, h("span", {}, say(...(METRICS[key] || [key, key]))), h("strong", {}, ["break_even_units", "unsold_items", "collection_days", "payback_months", "usable_units", "unused_units", "equipment_units_needed"].includes(key) ? v == null ? "—" : number(v) : taka(v)));
     box.append(h("div", { class: "pilot-metrics" }, entries.slice(0, 3).map(metric)));
@@ -283,7 +308,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
       if (current.stale) body.append(h("p", { class: "notice" }, say("Records or sources have changed since this action was saved. Start a fresh check before relying on the comparison.", "কাজ সেভ হওয়ার পর হিসাব বা উৎস বদলেছে। তুলনার উপর নির্ভর করার আগে নতুন করে যাচাই করুন।")), button(say("Start a fresh check", "নতুন করে যাচাই"), () => start(current.kind)));
       body.append(results(current.result), answersPanel(), documents(current.documents));
       if (current.kind === "record" && current.result.status === "check_records") body.append(link(say("Review and correct records", "হিসাব দেখে ঠিক করুন"), "#data?tools=all"));
-      if (current.result.human_review === "pending") body.append(h("p", { class: "notice" }, say("Waiting for pilot reviewer. Preparing this task does not submit an application or accept a loan.", "পাইলট পর্যালোচকের অপেক্ষায়। এই কাজ প্রস্তুত করলে আবেদন দাখিল বা ঋণ গ্রহণ হয় না।")));
+      if (current.result.human_review === "pending" && !current.result.preliminary) body.append(h("p", { class: "notice" }, say("Waiting for pilot reviewer. Preparing this task does not submit an application or accept a loan.", "পাইলট পর্যালোচকের অপেক্ষায়। এই কাজ প্রস্তুত করলে আবেদন দাখিল বা ঋণ গ্রহণ হয় না।")));
       if (current.result.test_quantity) body.append(stockOutcome());
       if (current.result.effects?.alert_id && S.user.max_tier >= 1) body.append(reminderControls(current.result.effects.alert_id));
       if (current.kind === "shortfall" && current.result.action === "collect") body.append(link(say("Choose a customer payment to follow up", "কোন ক্রেতার বাকি চাইবেন বাছুন"), "#chat?start=collect"));
@@ -297,8 +322,14 @@ export async function renderPilot(host, ctx, initialKind = "") {
       body.append(h("section", { class: "pilot-card" }, h("h2", {}, say("A good place to pause", "এখানে একটু বিরতি নিতে পারেন")), h("p", {}, say("Six answers saved. Review what we know, then choose whether to go deeper.", "ছয়টি উত্তর রাখা হয়েছে। তথ্য দেখে চাইলে আরও এগিয়ে যান।")), answersPanel(true), h("div", { class: "pilot-inline" }, button(say("Continue deeper", "আরও এগিয়ে যান"), () => control("continue"), true), button(say("Save for later", "পরে করার জন্য রাখুন"), () => control("pause"))))); return;
     }
     const q = editing ? current.questions.find(x => x.id === editing) : current.next_question;
-    if (q) { const panel = question(q); body.append(panel, answersPanel()); requestAnimationFrame(() => { if (panel.isConnected) panel.querySelector("h2").focus({ preventScroll: true }); }); return; }
+    if (q) {
+      const panel = question(q); body.append(panel, answersPanel());
+      if (current.kind === "strategy" && current.answers._strategy_depth === "costs") body.append(button(say("Back to my starting plan", "শুরুর পরিকল্পনায় ফিরুন"), () => control("simplify")));
+      if (current.kind === "strategy" && !current.answers._strategy_flow) body.append(button(say("Use the shorter guided plan", "ছোট ধাপের পরিকল্পনা ব্যবহার"), () => control("simplify")));
+      requestAnimationFrame(() => { if (panel.isConnected) panel.querySelector("h2").focus({ preventScroll: true }); }); return;
+    }
     body.append(results(current.result));
+    if (current.can_deepen && !current.preview?.token) body.append(button(say("Check the costs (optional)", "খরচ যাচাই (ইচ্ছা হলে)"), () => control("deepen")));
     const preview = current.preview;
     if (preview?.token) {
       const panel = h("section", { class: "pilot-card pilot-review" }, h("h2", {}, say("Review the action", "কাজটি যাচাই করুন")));

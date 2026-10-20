@@ -17,7 +17,7 @@ PLAN_TYPES = opts(
 )
 
 
-def strategy_questions(a, snap):
+def detail_questions(a, snap):
     initial = [
         q("plan_type", "What would you like to plan?", "কী পরিকল্পনা করতে চান?", "choice", PLAN_TYPES),
     ]
@@ -78,8 +78,18 @@ def strategy_questions(a, snap):
     ]
 
 
+def strategy_questions(a, snap):
+    if a.get("_strategy_flow") == "guided":
+        from .strategy_guide import guide_questions
+        return guide_questions(a, snap)
+    return detail_questions(a, snap)
+
+
 def assess(a, today):
-    required = [x["id"] for x in strategy_questions(a, {"cash": 0})
+    if a.get("_strategy_flow") == "guided" and a.get("_strategy_depth") != "costs":
+        from .strategy_guide import starter_result
+        return starter_result(a)
+    required = [x["id"] for x in detail_questions(a, {"cash": 0})
                 if x["id"] not in ("rule_notes",)]
     missing = [k for k in required if a.get(k) is None or a.get(k) == ""]
     base = {"review_required": True, "regulatory_status": "needs_review",

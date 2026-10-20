@@ -8,6 +8,7 @@ _TMP = tempfile.mkdtemp(prefix="smecopilot-test-")
 os.environ["APP_ENV"] = "test"
 os.environ["DATA_DIR"] = _TMP
 os.environ["LLM_PROFILE"] = "rules-offline"
+os.environ["STRATEGY_QUESTION_MODEL"] = "false"  # tests never contact a real model
 os.environ["LLM_SHARED_ONLY"] = "false"
 os.environ["LOCAL_ONLY_MODE"] = "false"
 # Test-only Fernet key (not a secret; generated for this repository's tests).

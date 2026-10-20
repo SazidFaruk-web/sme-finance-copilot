@@ -39,6 +39,11 @@
 .pilot-checkbox { display: flex; align-items: center; gap: 12px; padding: 16px 0; }
 .pilot-checkbox input { width: 22px; height: 22px; }
 .pilot-status { color: var(--accent); min-height: 1.7em; margin-top: 20px; }
+.pilot-select { display: flex; gap: 14px; align-items: center; min-height: 60px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-1); cursor: pointer; }
+.pilot-select:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.pilot-select input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+.pilot-custom form { margin-top: 12px; }
+.strategy-next { font-weight: 600; line-height: 1.6; }
 .pilot-page[aria-busy=true] button { pointer-events: none; opacity: .65; }
 .pilot-offline-shell { max-width: 800px; padding: 28px; margin: 0 auto; }
 .pilot-page :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }

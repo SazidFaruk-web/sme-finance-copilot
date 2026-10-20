@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     pilot_sms_sid: str = ""
     pilot_source_checks: bool = False
     pilot_question_model: bool = False  # optional shared LLM ordering; deterministic fallback always available
+    strategy_question_model: bool = True  # short Strategy follow-ups; local model only, with rules fallback
     # Illustrative loan terms and generic compliance dates. Unset = on only for APP_ENV=demo (the seeded demo
     # business, e.g. for judges); never enable for a real pilot. "false" turns it off even in demo.
     allow_illustrative_guidance: bool | None = None

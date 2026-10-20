@@ -1,6 +1,6 @@
 # Bangladesh SME Finance Copilot
 
-Agreed product specification and pilot operating plan. Research recorded **17 October 2026**; implementation notes updated **19 October 2026**. Read together with [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). This plan applies to every contributor and agent.
+Agreed product specification and pilot operating plan. Research recorded **17 October 2026**; implementation notes updated **20 October 2026**. Read together with [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). This plan applies to every contributor and agent.
 
 ## Promise and first audience
 
@@ -83,6 +83,8 @@ Offer a smaller test, supplier discussion or waiting. Preorders are an alternati
 ### Strategy extension — 20 October 2026
 
 The owner requested a dedicated future-planning section: seasonal stock (for example mango products for later use), bulk inputs such as sugar, and equipment/cold-storage expansion. The implementation adds a business-scoped `strategy` guided case with three branches. Desktop navigation exposes Strategy; mobile keeps its six destinations and opens Strategy from More.
+
+**Usability revision, 20 October 2026:** new Strategy cases begin with a short discovery guide, typically five answers after the goal is chosen. Items have recorded or clearly optional contextual suggestions, needs allow multiple selections, readiness and follow-up use buttons, and reminder dates have shortcuts plus a no-reminder option. The LLM receives only approved choice IDs and selected values, chooses one applicable follow-up, and cannot invent question IDs or facts. That choice is stored with the case, with a rules fallback. Initial output gives a practical next step and no financial metrics or affordability conclusion. Detailed comparison is an explicit optional step; all missing costs still prevent a complete comparison. Returning to the short plan preserves relevant entered details; changing the item invalidates its old quantities/quotes. Legacy plans retain their existing calculations and can switch to this shorter experience. These internal flow markers are server-managed, not answerable model fields.
 
 Starting ideas use the business sector, description and name to identify broad food/drink context. The optional local model can rank only three approved topics and select approved questions; rules work without it. These are starting questions, not evidence of demand or purchase recommendations. Current implementation asks the owner for demand evidence and quotes; it does not infer product-level growth from incomplete daily sales totals.
 
@@ -190,6 +192,7 @@ Configuration:
 ALLOW_ILLUSTRATIVE_GUIDANCE=false
 PILOT_SOURCE_CHECKS=true
 PILOT_QUESTION_MODEL=true
+STRATEGY_QUESTION_MODEL=true
 PILOT_HELP_CONTACT=Your real pilot facilitator contact
 PILOT_SMS_ENABLED=false
 PILOT_SMS_API_TOKEN=

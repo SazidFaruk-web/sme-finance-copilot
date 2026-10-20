@@ -4,10 +4,20 @@ import pytest
 from sqlalchemy import select
 
 from tests.test_api import client, login  # noqa: F401
-from tests.test_pilot import start, post, confirm
+from tests.test_pilot import post, confirm
 from sme_copilot.models import Business, Transaction
 from sme_copilot.pilot.models import CaseDocument, ReminderJob
 from sme_copilot.pilot.strategy import assess, strategy_questions, ideas
+
+
+def start(client, h, kind, **answers):
+    """Keep regression coverage of existing detailed comparisons."""
+    from uuid import uuid4
+    c = post(client, h, "cases", {"kind": kind, "strategy_mode": "detailed", "request_key": str(uuid4())})
+    while c["next_question"]:
+        key = c["next_question"]["id"]
+        c = post(client, h, f"cases/{c['id']}/answer", {"version": c["version"], "question_id": key, "value": answers[key]})
+    return c
 
 
 def stock_answers(**changes):
@@ -121,7 +131,7 @@ def test_branch_edits_drop_irrelevant_answers_and_invalidate_preview(client):
 @pytest.mark.parametrize("value", ["NaN", "Infinity", -1, 101])
 def test_invalid_loss_percentage_rejected(client, value):
     h = login(client)
-    c = post(client, h, "cases", {"kind": "strategy", "plan_type": "bulk", "request_key": "strategy-invalid"})
+    c = post(client, h, "cases", {"kind": "strategy", "plan_type": "bulk", "strategy_mode": "detailed", "request_key": "strategy-invalid"})
     assert client.post(f"/api/pilot/cases/{c['id']}/answer", headers=h,
                        json={"version": c["version"], "question_id": "loss_percent", "value": value}).status_code == 422
 

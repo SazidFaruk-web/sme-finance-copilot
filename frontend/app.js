@@ -8,7 +8,7 @@ import { icon } from "./icons.js?v=13";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=21";
 import { greetingName } from "./guidance.js?v=20";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=22";
-import { renderPilot } from "./pilot.js?v=25";
+import { renderPilot } from "./pilot.js?v=26";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=11";
 import { createMarketDrawer } from "./market.js?v=5";
@@ -16,7 +16,8 @@ import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
 import { renderSettings } from "./settings.js?v=1";
-import { renderStrategy } from "./strategy.js?v=1";
+import { renderStrategy } from "./strategy.js?v=2";
+import { updateMarkdown } from "./markdown.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)
 const T = {
@@ -1173,8 +1174,9 @@ function viewChat(v) {
   // The opening line is requested when the app loads (startGreeting), so it is usually ready before this tab opens.
   startGreeting();
   const greetText = h("div", { class: "text" }, S.greeting ? S.greeting : S.greetingDone ? fixedGreeting() : h("div", { class: "typing" }, L("Thinking…")));
+  if (S.greeting || S.greetingDone) updateMarkdown(greetText, S.greeting || fixedGreeting());
   log.appendChild(h("div", { class: "msg bot" }, greetText));
-  if (!S.greetingDone) S.greetingReq.then(() => { if (greetText.isConnected) greetText.replaceChildren(S.greeting || fixedGreeting()); });
+  if (!S.greetingDone) S.greetingReq.then(() => { if (greetText.isConnected) updateMarkdown(greetText, S.greeting || fixedGreeting()); });
   log.appendChild(chips);
   v.replaceChildren(h("div", { class: "card panel chat-panel" }, log,
     h("div", { class: "composer" }, input, mic, h("button", { class: "btn primary", onclick: () => send() }, t("send"))),
@@ -1190,7 +1192,7 @@ async function streamChat(text, bot, log) {
   if (r.status === 401) { logout(true); return; }
   if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
   const reader = r.body.getReader(); const dec = new TextDecoder();
-  let buf = ""; const textEl = h("div", { class: "text" }); const progress = h("div", { class: "meta" });
+  let buf = "", reply = "", paint = 0; const textEl = h("div", { class: "text" }); const progress = h("div", { class: "meta" });
   bot.replaceChildren(progress, textEl);
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
@@ -1202,11 +1204,16 @@ async function streamChat(text, bot, log) {
       if (!ev || !data) continue;
       const p = JSON.parse(data);
       if (ev === "tool") { if (S.mode !== "simple") progress.appendChild(toolChip(p)); }
-      else if (ev === "delta") { textEl.textContent += p.text; log.scrollTop = log.scrollHeight; }
-      else if (ev === "done") renderBotMessage(bot, p, text);
+      else if (ev === "delta") {
+        reply += p.text;
+        if (!paint) paint = requestAnimationFrame(() => { paint = 0; if (textEl.isConnected) { updateMarkdown(textEl, reply); log.scrollTop = log.scrollHeight; } });
+      }
+      else if (ev === "done") { cancelAnimationFrame(paint); paint = 0; renderBotMessage(bot, p, text); }
       else if (ev === "error") bot.replaceChildren(h("div", { class: "notice warn" }, p.detail));
     }
   }
+  cancelAnimationFrame(paint);
+  if (textEl.isConnected) updateMarkdown(textEl, reply);
   log.scrollTop = log.scrollHeight;
 }
 
@@ -1224,8 +1231,9 @@ function renderBotMessage(bot, d, question) {
     d.latency_ms ? h("span", { class: "chip" }, `${Math.round(d.latency_ms)} ms`) : null,
     d.refused ? h("span", { class: "chip bad" }, "refused (policy)") : null);
   const parts = [];
+  const answer = h("div", { class: "text" }); updateMarkdown(answer, d.reply);
   if (S.mode === "simple") {  // plain answer + anything that needs the owner's action; details stay in Advanced
-    parts.push(h("div", { class: "text" }, d.reply));
+    parts.push(answer);
     for (const pa of d.pending_actions || []) parts.push(confirmCard(pa));
     bot.replaceChildren(...parts);
     if ((d.pending_actions || []).length) refreshPending();
@@ -1233,7 +1241,7 @@ function renderBotMessage(bot, d, question) {
   }
   if (d.fallback) parts.push(h("div", { class: "notice warn small", style: "margin-bottom:6px" },
     `⚠ ${d.requested_profile} did not answer${d.profile ? `; this reply is from ${d.profile}` : ""}. Reason: ${d.fallback_reason}`));
-  parts.push(h("div", { class: "text" }, d.reply), meta);
+  parts.push(answer, meta);
   if (d.ungrounded_numbers && d.ungrounded_numbers.length) parts.push(h("div", { class: "notice warn small", style: "margin-top:6px" },
     `⚠ Could not verify these numbers against your data: ${d.ungrounded_numbers.join(", ")}. Treat them with caution.`));
   for (const pa of d.pending_actions || []) parts.push(confirmCard(pa));

@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from sme_copilot.models import Alert, Business, Invoice, InvoicePayment, Obligation, Transaction
+from sme_copilot.models import Alert, Business, Invoice, InvoicePayment, Item, Obligation, Transaction
 from .calculations import loan, money, stock
 from .definitions import KINDS, questions, tr
 from .knowledge import sources
@@ -36,7 +36,9 @@ def snapshot(db, bid, today):
     def inv(i):
         return {"id": i.id, "name": i.counterparty, "outstanding": money(max(0, i.amount - i.amount_paid)),
                 "due_date": i.due_date.isoformat(), "status": i.status, "kind": i.kind}
-    data = {"business": b.name, "today": today.isoformat(), "cash": money(cash), "record_count": len(tx),
+    data = {"business": b.name, "business_context": f"{b.sector} {(b.prefs or {}).get('about', '')}",
+            "items": list(db.scalars(select(Item.name).where(Item.business_id == bid).order_by(Item.id).limit(3))),
+            "today": today.isoformat(), "cash": money(cash), "record_count": len(tx),
             "opening_confirmed": b.opening_balance_date is not None,
             "receivables": [inv(i) for i in invoices if i.kind == "receivable" and i.status not in ("draft", "paid", "written_off") and i.amount > i.amount_paid],
             "payables": [inv(i) for i in invoices if i.kind == "payable" and i.status not in ("draft", "paid", "written_off") and i.amount > i.amount_paid],
@@ -66,6 +68,11 @@ def validate(question, value, today):
         if str(value) not in [o["value"] for o in question["options"]]:
             fail("invalid_choice")
         return str(value)
+    if kind == "multi":
+        allowed = {o["value"] for o in question["options"]}
+        if not isinstance(value, list) or not 1 <= len(value) <= len(allowed) or any(not isinstance(v, str) or v not in allowed for v in value) or len(set(value)) != len(value):
+            fail("invalid_choice")
+        return value
     if kind == "date":
         try:
             d = date.fromisoformat(value)
@@ -139,9 +146,10 @@ def options(case, result):
     if case.status == "completed":
         return []
     if case.kind == "strategy":
-        return [{"id": "save", "label": tr("Save plan for review", "পর্যালোচনার জন্য পরিকল্পনা রাখুন")},
+        rows = [{"id": "save", "label": tr("Save this starting plan", "শুরুর পরিকল্পনাটি রাখুন") if result and result.get("preliminary") else tr("Save plan for review", "পর্যালোচনার জন্য পরিকল্পনা রাখুন")},
                 {"id": "supplier", "label": tr("Prepare a supplier enquiry", "সরবরাহকারীর জন্য প্রশ্ন তৈরি")},
                 {"id": "wait", "label": tr("Wait and review later", "অপেক্ষা করে আবার দেখুন")}]
+        return rows[:2] if result and result.get("preliminary") else rows
     if case.kind == "record":
         return [{"id": "save", "label": tr("Review and save", "দেখে সংরক্ষণ করুন")}]
     if case.kind == "collect":
@@ -170,7 +178,8 @@ def view(db, case, today):
     return {"id": case.id, "kind": case.kind, "title": KINDS[case.kind], "status": case.status,
             "version": case.version, "answers": case.answers, "questions": qs,
             "next_question": next_question(case.kind, case.answers, pending), "remaining": len(pending),
-            "checkpoint_due": len(case.answers) - case.checkpoint >= 6 and bool(pending),
+            "can_deepen": case.kind == "strategy" and case.status == "active" and bool(case.answers.get("plan_type")) and bool(case.answers.get("item")) and not pending and bool((result or {}).get("preliminary")),
+            "checkpoint_due": len([k for k in case.answers if not k.startswith('_')]) - case.checkpoint >= 6 and bool(pending),
             "snapshot": snap, "result": result or case.result,
             "stale": case.status == "completed" and case.kind in ("loan", "stock", "shortfall", "paperwork", "strategy")
                      and (case.result.get("fingerprint") != snap["fingerprint"] or case.result.get("evidence_changed", False)),
@@ -192,7 +201,7 @@ def build_preview(db, case, today, action, text=None):
     a, lang = case.answers, case.language
     body, destination = "", ""
     if case.kind == "strategy":
-        if not a.get("review_date") or a["review_date"] < today.isoformat():
+        if (not result.get("preliminary") and not a.get("review_date")) or (a.get("review_date") and a["review_date"] < today.isoformat()):
             fail("need_information")
         if action == "save" and result["status"] == "need_information":
             fail("need_information")
@@ -204,8 +213,10 @@ def build_preview(db, case, today, action, text=None):
         else:
             destination = tr("Your saved plan — review with your pilot facilitator", "আপনার সেভ করা পরিকল্পনা — পাইলট সহায়তাকারীর সঙ্গে দেখুন")[lang]
             body = tr(
-                f"Planning draft: {a.get('item') or '[item]'}\nPurchase date: {a.get('buy_date') or '[unknown]'}\nReview date: {a['review_date']}\n\nDemand evidence: {a.get('evidence') or '[unknown]'}\nStorage plan: {a.get('storage_plan') or '[unknown]'}\nAuthority advice to verify: {a.get('rule_notes') or '[not yet checked]'}\n\nPending quote, storage and local regulatory review. No purchase or legal clearance has been made.",
-                f"পরিকল্পনার খসড়া: {a.get('item') or '[পণ্য]'}\nকেনার তারিখ: {a.get('buy_date') or '[অজানা]'}\nপর্যালোচনার তারিখ: {a['review_date']}\n\nচাহিদার প্রমাণ: {a.get('evidence') or '[অজানা]'}\nসংরক্ষণের পরিকল্পনা: {a.get('storage_plan') or '[অজানা]'}\nকর্তৃপক্ষের পরামর্শ যাচাই: {a.get('rule_notes') or '[যাচাই বাকি]'}\n\nদাম, সংরক্ষণ ও স্থানীয় নিয়ম যাচাই বাকি। কেনাকাটা বা আইনি অনুমোদন হয়নি।")[lang]
+                f"Planning draft: {a.get('item') or '[item]'}\nPurchase date: {a.get('buy_date') or '[unknown]'}\nReview date: {a.get('review_date') or '[not set]'}\n\nDemand evidence: {a.get('evidence') or '[unknown]'}\nStorage plan: {a.get('storage_plan') or '[unknown]'}\nAuthority advice to verify: {a.get('rule_notes') or '[not yet checked]'}\n\nPending quote, storage and local regulatory review. No purchase or legal clearance has been made.",
+                f"পরিকল্পনার খসড়া: {a.get('item') or '[পণ্য]'}\nকেনার তারিখ: {a.get('buy_date') or '[অজানা]'}\nপর্যালোচনার তারিখ: {a.get('review_date') or '[ঠিক হয়নি]'}\n\nচাহিদার প্রমাণ: {a.get('evidence') or '[অজানা]'}\nসংরক্ষণের পরিকল্পনা: {a.get('storage_plan') or '[অজানা]'}\nকর্তৃপক্ষের পরামর্শ যাচাই: {a.get('rule_notes') or '[যাচাই বাকি]'}\n\nদাম, সংরক্ষণ ও স্থানীয় নিয়ম যাচাই বাকি। কেনাকাটা বা আইনি অনুমোদন হয়নি।")[lang]
+            if result.get("preliminary"):
+                body = f"{a.get('item') or '[item]'}\n\n{result['reason'][lang]}\n{result['next_action'][lang]}\n\n{result['assumption'][lang]}"
     if case.kind == "record":
         required = [q["id"] for q in qs if q["id"] not in ("note",)]
         if any(a.get(k) is None for k in required):

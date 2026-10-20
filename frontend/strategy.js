@@ -1,5 +1,5 @@
 // Strategy uses the existing scoped cases, reviewed actions and offline progress.
-import "./strategy-copy.js?v=1";
+import "./strategy-copy.js?v=2";
 export async function renderStrategy(host, ctx, renderPilot) {
   const { h, api, S } = ctx;
   const say = (en, bn, zh) => S.ui === "bn" ? bn : S.ui === "zh" ? zh : en;
@@ -23,7 +23,7 @@ export async function renderStrategy(host, ctx, renderPilot) {
   const title = h("h1", { tabindex: "-1" }, say("Strategy", "ভবিষ্যৎ পরিকল্পনা", "经营规划"));
   const status = h("p", { role: "status", "aria-live": "polite" });
   page.append(h("span", { class: "eyebrow" }, say("A little further ahead", "একটু দূরের কথা ভাবুন", "为未来做好准备")), title,
-    h("p", { class: "strategy-intro" }, say("Make room for what comes next. One plan at a time.", "পরের ধাপের জন্য প্রস্তুত হোন। একবারে একটি পরিকল্পনা।", "为下一步做好准备。一次专注一个计划。")));
+    h("p", { class: "strategy-intro" }, say("Start with a few choices. Check the numbers when you’re ready.", "কয়েকটি বিকল্প দিয়ে শুরু করুন। প্রস্তুত হলে হিসাব দেখবেন।", "先做几个选择。准备好后再核对数字。")));
   status.textContent = say("Loading your planning options…", "পরিকল্পনার বিকল্প আনা হচ্ছে…", "正在加载规划选项…");
   page.append(status);
   host.replaceChildren(page);

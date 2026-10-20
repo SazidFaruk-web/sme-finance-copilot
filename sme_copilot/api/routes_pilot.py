@@ -73,6 +73,7 @@ class CreateCase(BaseModel):
     language: Literal["en", "bn"] = "en"
     request_key: str = Field(min_length=8, max_length=80)
     plan_type: Literal["seasonal", "bulk", "equipment"] | None = None
+    strategy_mode: Literal["guided", "detailed"] = "guided"
 
 
 @router.get("/strategy")
@@ -90,8 +91,10 @@ def create(body: CreateCase, user: User = Depends(require_tier(1)), db: Session 
         return view(db, old, as_of_today())
     if body.plan_type and body.kind != "strategy":
         fail("invalid_question")
-    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump(exclude={"plan_type"}),
-                      answers={"plan_type": body.plan_type} if body.plan_type else {})
+    answers = {"plan_type": body.plan_type} if body.plan_type else {}
+    if body.kind == "strategy" and body.strategy_mode == "guided":
+        answers["_strategy_flow"] = "guided"
+    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump(exclude={"plan_type", "strategy_mode"}), answers=answers)
     db.add(case)
     try:
         db.flush()
@@ -134,8 +137,16 @@ def answer(case_id: int, body: Answer, user: User = Depends(require_tier(1)), db
     if not question:
         fail("invalid_question")
     values = {**case.answers, body.question_id: validate(question, body.value, today)}
+    metadata = set()
+    if case.kind == "strategy" and values.get("_strategy_flow") == "guided":
+        from sme_copilot.pilot.strategy_guide import META, prepare
+        metadata = META
+        values = prepare(values, body.question_id)
     valid_ids = {q["id"] for q in questions(case.kind, values, snap)}
-    values = {k: v for k, v in values.items() if k in valid_ids}
+    if metadata:
+        from sme_copilot.pilot.strategy import detail_questions
+        valid_ids |= {q["id"] for q in detail_questions(values, snap)}
+    values = {k: v for k, v in values.items() if k in valid_ids or k in metadata}
     updated = db.execute(update(GuidedCase).where(GuidedCase.id == case.id, GuidedCase.version == body.version,
                          GuidedCase.status.in_(["active", "paused"]))
                          .values(answers=values, version=GuidedCase.version + 1, preview={}, result={}, status="active",
@@ -148,7 +159,7 @@ def answer(case_id: int, body: Answer, user: User = Depends(require_tier(1)), db
 
 class Control(BaseModel):
     version: int
-    action: Literal["pause", "continue", "reopen", "complete"]
+    action: Literal["pause", "continue", "reopen", "complete", "deepen", "simplify"]
 
 
 @router.post("/cases/{case_id}/control")
@@ -160,9 +171,23 @@ def control(case_id: int, body: Control, user: User = Depends(require_tier(1)), 
     state = "paused" if body.action == "pause" else "completed" if body.action == "complete" else "active"
     if body.action == "complete" and case.status != "completed":
         fail("review_first", 409)
+    changes = {}
+    if body.action == "deepen":
+        if case.kind != "strategy" or case.answers.get("_strategy_flow") != "guided" or case.answers.get("_strategy_depth") == "costs" or not case.answers.get("plan_type") or not case.answers.get("item"):
+            fail("invalid_action")
+        qs = questions(case.kind, case.answers, snapshot(db, user.business_id, as_of_today()))
+        if any(q["id"] not in case.answers for q in qs):
+            fail("finish_questions")
+        changes = {"answers": {**case.answers, "_strategy_depth": "costs"}, "result": {}}
+    if body.action == "simplify":
+        if case.kind != "strategy":
+            fail("invalid_action")
+        values = {**case.answers, "_strategy_flow": "guided"}
+        values.pop("_strategy_depth", None)
+        changes = {"answers": values, "result": {}}
     changed = db.execute(update(GuidedCase).where(GuidedCase.id == case.id, GuidedCase.version == body.version)
-                         .values(status=state, checkpoint=len(case.answers), version=GuidedCase.version + 1,
-                                 preview={}, updated_at=utcnow()))
+                         .values(status=state, checkpoint=len([k for k in case.answers if not k.startswith('_')]), version=GuidedCase.version + 1,
+                                 preview={}, updated_at=utcnow(), **changes))
     if changed.rowcount != 1:
         fail("conflict", 409)
     if body.action == "complete":
