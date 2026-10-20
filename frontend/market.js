@@ -4,6 +4,7 @@
 // text, never markup. Direction is always written in words with a sign, never by colour or arrow alone.
 
 const KEY = "market_drawer";  // "open" | "closed" in this browser; default closed
+const SEEN_KEY = "market_seen";  // the sharp price moves this browser has already been shown
 const FIRST_BATCH = 5;
 
 const COPY = {
@@ -125,6 +126,7 @@ export function createMarketDrawer({ h, api, S }) {
   let open = false, data = null, failed = false, loading = false, showAll = false, root = null, disabled = false;
   let entering = false;  // slide in only when the owner opens it, not on every redraw
   let catalog = null, query = "", saving = false, saveFailed = false;
+  let seenSig = null;  // in-memory fallback for the badge when storage is blocked
   const c = () => COPY[S.ui] || COPY.en;
   const locale = () => LOCALES[S.ui] || "en-GB";
   const num = (v, digits = 2) => new Intl.NumberFormat(locale(), { maximumFractionDigits: digits }).format(v);
@@ -138,6 +140,13 @@ export function createMarketDrawer({ h, api, S }) {
   const remember = v => { try { localStorage.setItem(KEY, v ? "open" : "closed"); } catch { /* private mode */ } };
   const wasOpen = () => { try { return localStorage.getItem(KEY) === "open"; } catch { return false; } };
   const moved = item => Math.abs(item.change_1m_pct || 0);
+  // The tab counts only the sharp moves the owner has not opened yet, so the number clears once they look
+  // and comes back when a new month lands or a different item moves. The panel itself always lists them.
+  const signature = () => `${data?.latest_observation || ""}|` +
+    (data?.items || []).filter(x => moved(x) >= (data.big_move_pct || 10)).map(x => x.id).sort().join(",");
+  const seen = () => { try { return localStorage.getItem(SEEN_KEY) ?? seenSig; } catch { return seenSig; } };
+  const markSeen = () => { seenSig = signature(); try { localStorage.setItem(SEEN_KEY, seenSig); } catch { /* private mode */ } };
+  const unseenBig = () => (data?.big_moves && signature() !== seen() ? data.big_moves : 0);
 
   function outlook(item) {
     const f = item.forecast, t = c();
@@ -258,7 +267,9 @@ export function createMarketDrawer({ h, api, S }) {
 
   function draw(focusId) {
     if (!root) return;
-    const t = c(), n = data?.big_moves || 0;
+    const t = c();
+    if (open && data?.big_moves) markSeen();  // the open panel states every sharp move; the tab need not flag them again
+    const n = unseenBig();
     root.classList.toggle("open", open);
     const tab = h("button", { class: "market-tab" + (open ? "" : " glow"), type: "button", "aria-expanded": String(open), "aria-controls": "market-panel",
       "aria-label": (open ? t.close : t.open) + (n ? `. ${t.badge(n)}` : ""), onclick: () => setOpen(!open, true) }, trendIcon(), h("span", {}, t.tab),

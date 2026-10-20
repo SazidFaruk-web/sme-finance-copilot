@@ -20,7 +20,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         h.setdefault("X-Content-Type-Options", "nosniff")
         h.setdefault("X-Frame-Options", "DENY")
         h.setdefault("Referrer-Policy", "no-referrer")
-        h.setdefault("Permissions-Policy", "geolocation=(), camera=(), microphone=(self)")
+        # The camera is the app's own barcode scanner on the invoice screen, as the microphone is for voice
+        # entry: allowed for this origin only, never for anything embedded.
+        h.setdefault("Permissions-Policy", "geolocation=(), camera=(self), microphone=(self)")
         h.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         h.setdefault("Content-Security-Policy", CSP)
         if request.url.path.startswith("/api/"):

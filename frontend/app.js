@@ -11,7 +11,7 @@ import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=22";
 import { renderPilot } from "./pilot.js?v=26";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=11";
-import { createMarketDrawer } from "./market.js?v=5";
+import { createMarketDrawer } from "./market.js?v=6";
 import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
@@ -442,7 +442,7 @@ async function logout(expired) {
 }
 
 // ------------------------------------------------------------------ shell
-const ROUTES = ["dashboard", "data", "chat", "strategy", "invoices", "parties", "reports", "stock", "financing", "actions", "audit", "settings"];
+const ROUTES = ["dashboard", "data", "chat", "strategy", "invoices", "parties", "reports", "stock", "settings"];
 const SIMPLE_ROUTES = ["dashboard", "data", "chat", "tasks", "money", "strategy", "more"];
 const SIMPLE_LABELS = { dashboard: "s_home", chat: "s_ask", data: "s_add", parties: "s_parties" };
 const ICONS = { strategy: "↗", dashboard: "▦", chat: "✦", data: "⇪", invoices: "≣", parties: "☺", reports: "◔", stock: "▤", financing: "৳", actions: "✓", audit: "⛓", settings: "⚙" };
@@ -561,8 +561,6 @@ function renderShell() {
   const name = S.user.full_name || S.user.username;
   const search = simple ? null : h("input", { type: "search", class: "top-search", placeholder: t("search_ph"), "aria-label": t("search_ph"),
     onkeydown: e => { if (e.key === "Enter" && e.target.value.trim()) location.hash = "#data?q=" + encodeURIComponent(e.target.value.trim()); } });
-  const range = simple ? null : h("select", { "aria-label": t("range"), onchange: e => { const p = e.target.value; e.target.selectedIndex = 0; if (p) location.hash = "#reports?period=" + p; } },
-    [["", "▦ " + t("range")], ["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"]].map(([v, l]) => h("option", { value: v }, l)));
   const avatar = accountMenu(name);
   const modelSel = h("select", { id: "model-select", disabled: S.models.shared_only, title: S.models.shared_only ? "Shared model managed by the server" : "Switch the LLM per request (providers.yaml)", onchange: e => { S.profile = e.target.value; savePref("profile", S.profile); } },
     S.models.profiles.filter(p => p.adapter !== "rules").map(p => h("option", { value: p.name, selected: p.name === S.profile, disabled: !p.available },
@@ -575,7 +573,7 @@ function renderShell() {
     h("div", { class: "main" },
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),
         simple ? null : h("span", { class: "chip", id: "asof" }, S.user.as_of ? "as of " + S.user.as_of : ""), search,
-        h("span", { class: "grow" }), range, simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
+        h("span", { class: "grow" }), simple ? null : privacy, simple ? null : h("label", { class: "row small" }, t("model"), modelSel),
         simple ? (langs().length > 1 ? h("select", { class: "btn language-toggle", "aria-label": t("language"), onchange: e => setPref("ui", e.target.value) },
           langs().map(([code, name]) => h("option", { value: code, lang: code, selected: code === S.ui }, name))) : null) : settingsMenu(), themeButton(), avatar),
       h("main", { class: "view", id: "view" }))));
@@ -670,6 +668,106 @@ async function viewInvoices(v) {
   await load();
 }
 
+// ---------------------------------------------------------------- customers and suppliers, from anywhere
+// One written name, one question. The server only ever suggests a close match; the owner's yes or no decides,
+// and a yes is remembered as a spelling of that name so the same entry files itself next time.
+async function askIsThisThem(q) {
+  const ok = await confirmDialog({
+    title: `Is this ${q.name}?`, confirmLabel: "Yes, same person", action: "match_party",
+    rows: [["You wrote", q.written], [q.kind === "supplier" ? "On your supplier list" : "On your customer list", q.name],
+      ["Names look alike", Math.round(q.score) + "%"]],
+    note: `Yes files this under ${q.name} and remembers your spelling. Cancel keeps the name exactly as you wrote it.` });
+  if (ok) { ok.bg.remove(); return { party_id: q.id }; }
+  return { party_declined: true };
+}
+// A save that came back asking "is this him?": ask, then send the owner's answer and return the real result.
+async function settleParty(r, resend) {
+  const q = r.data && r.data.party;
+  if (!q || r.data.recorded || !r.data.needs_confirm || !q.id) return r;
+  return resend(await askIsThisThem(q));
+}
+const filedUnder = p => (p && p.name ? ` · filed under ${p.name}${p.invoice_no ? ` (${p.invoice_no})` : ""}` : "");
+const partyHint = p => (!p || !p.name ? "" : p.exact ? ` · files under ${p.name}` : ` · looks like ${p.name}?`);
+
+// ---------------------------------------------------------------- barcode / QR scanning
+// A shop scanner is a keyboard: it types the code and presses Enter, so the box below needs no permission
+// and no library. Where the browser has BarcodeDetector (no CDN is allowed by our CSP), the same box can
+// also read from the camera. An unknown code is never guessed at: the owner says which item it belongs to.
+const scannerReady = () => "BarcodeDetector" in window && window.isSecureContext;
+
+async function cameraScan(onCode, onStop) {
+  let stream, stop = false;
+  const video = h("video", { autoplay: true, playsinline: true, muted: true, class: "scan-video" });
+  const note = h("div", { class: "small muted" }, "Point the camera at the barcode.");
+  const box = h("div", { class: "scan-camera" }, video, note,
+    h("button", { class: "btn ghost sm", type: "button", onclick: () => { stop = true; cleanup(); onStop && onStop(); } }, "Stop camera"));
+  const cleanup = () => { stop = true; stream && stream.getTracks().forEach(t => t.stop()); box.remove(); };
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
+  catch { note.textContent = "The camera is not available. Use a scanner or type the code."; return box; }
+  video.srcObject = stream;
+  const detector = new BarcodeDetector();
+  const tick = async () => {
+    if (stop) return;
+    try {
+      const hits = await detector.detect(video);
+      if (hits.length) { const code = hits[0].rawValue; cleanup(); onCode(code); return; }
+    } catch { /* a frame that could not be read is not an error worth showing */ }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  box.cleanup = cleanup;
+  return box;
+}
+
+// Returns a row that turns scans into invoice lines. ``onItem`` gets {name, price, qty} per scan.
+function scanRow(onItem) {
+  const input = h("input", { type: "text", class: "grow", placeholder: "Scan a barcode, or type it and press Enter",
+    "aria-label": "Barcode", autocomplete: "off" });
+  const note = h("div", { class: "small muted" });
+  const host = h("div", {});
+  const fix = h("div", {});
+  const look = async code => {
+    if (!code.trim()) return;
+    fix.replaceChildren();
+    try {
+      const r = await api(`/api/stock/barcode?code=${encodeURIComponent(code.trim())}`);
+      if (r.found) {
+        onItem({ name: r.item.name, price: r.item.price, unit: r.item.unit });
+        const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        note.textContent = `${r.item.name} · ${money(r.item.price)} added at ${at}. ${r.item.qty} ${r.item.unit} left in stock.`;
+      } else {
+        note.textContent = `No item carries the code ${r.code}.`;
+        fix.replaceChildren(await attachRow(r.code, () => look(code)));
+      }
+    } catch (e) { note.textContent = e.message; }
+    input.value = ""; input.focus();
+  };
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); look(input.value); } });
+  const camera = scannerReady() ? h("button", { class: "btn ghost", type: "button", onclick: async e => {
+    e.preventDefault();
+    host.replaceChildren(await cameraScan(code => { host.replaceChildren(); look(code); }, () => host.replaceChildren()));
+  } }, "▣ Camera") : null;
+  const row = h("div", { class: "grid", style: "gap:6px" },
+    h("div", { class: "row" }, input, camera), note, fix, host);
+  row.focusScan = () => input.focus();
+  return row;
+}
+
+// An unknown code: attach it to one of the owner's items once, and every later scan finds it.
+async function attachRow(code, onDone) {
+  let items = [];
+  try { items = (await api("/api/stock")).items || []; } catch { /* offer nothing rather than a wrong list */ }
+  if (!items.length) return h("div", { class: "small muted" }, "Add the product under Stock first, then scan it again.");
+  const pick = h("select", {}, h("option", { value: "" }, "Which item is this?"),
+    items.map(i => h("option", { value: String(i.id) }, `${i.name} · ${money(i.cost_price)}`)));
+  pick.addEventListener("change", async () => {
+    if (!pick.value) return;
+    try { await api("/api/stock/barcode", { body: { code, item_id: Number(pick.value) } }); toast("Code saved", "ok"); onDone(); }
+    catch (e) { toast(e.message, "bad"); }
+  });
+  return h("div", { class: "row small" }, pick);
+}
+
 function invoiceForm(onDone) {
   const kind = h("select", {}, h("option", { value: "receivable" }, "Sale to a customer"), h("option", { value: "payable" }, "Bill from a supplier"));
   const party = h("input", { type: "text", placeholder: "Name" });
@@ -680,23 +778,42 @@ function invoiceForm(onDone) {
   const lines = h("div", { class: "grid", style: "gap:6px" });
   const total = h("b", { class: "num" }, money(0));
   const recalc = () => { let s = 0; lines.querySelectorAll(".inv-line").forEach(r => { const [, q, rt] = r.querySelectorAll("input"); s += (+q.value || 0) * (+rt.value || 0); }); total.textContent = money(s); };
-  const addLine = () => lines.appendChild(h("div", { class: "row inv-line" },
-    h("input", { type: "text", placeholder: "Item or service", class: "grow" }),
-    h("input", { type: "number", value: 1, min: 0, step: "any", style: "width:80px", oninput: recalc, "aria-label": "Quantity" }),
-    h("input", { type: "number", placeholder: "Rate ৳", min: 0, step: "any", style: "width:120px", oninput: recalc, "aria-label": "Rate" })));
+  const addLine = (desc = "", quantity = 1, rate = "") => lines.appendChild(h("div", { class: "row inv-line" },
+    h("input", { type: "text", placeholder: "Item or service", class: "grow", value: desc }),
+    h("input", { type: "number", value: quantity, min: 0, step: "any", style: "width:80px", oninput: recalc, "aria-label": "Quantity" }),
+    h("input", { type: "number", placeholder: "Rate ৳", min: 0, step: "any", style: "width:120px", oninput: recalc, "aria-label": "Rate", value: rate })));
   addLine();
+  // A scanned item lands as a line; scanning the same thing again just counts one more of it.
+  const scanned = ({ name, price }) => {
+    const rows = [...lines.querySelectorAll(".inv-line")];
+    const hit = rows.find(r => r.querySelector("input").value.trim().toLowerCase() === name.toLowerCase());
+    if (hit) { const q = hit.querySelectorAll("input")[1]; q.value = (+q.value || 0) + 1; }
+    else {
+      const first = rows[0], blank = first && ![...first.querySelectorAll("input")][0].value.trim();
+      if (blank) { const [d, q, rt] = first.querySelectorAll("input"); d.value = name; q.value = 1; rt.value = price; }
+      else addLine(name, 1, price);
+    }
+    issue.value = issue.value || today();
+    recalc();
+  };
+  const scan = scanRow(scanned);
   const err = h("div", { class: "small", style: "color:var(--critical)" });
   const m = modal("New invoice", h("div", { class: "grid", style: "gap:10px" },
     h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Type", kind), h("label", { class: "field" }, "Customer / supplier", party)),
     h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Invoice date", issue), h("label", { class: "field" }, "Due date", due, h("span", { class: "hint" }, "Leave empty for 30 days"))),
-    h("div", {}, h("div", { class: "small muted" }, "Items (quantity × rate)"), lines, h("button", { class: "btn ghost sm", onclick: addLine }, "+ Add item")),
+    h("div", {}, h("div", { class: "small muted" }, "Scan the item, or write it below"), scan),
+    h("div", {}, h("div", { class: "small muted" }, "Items (quantity × rate)"), lines, h("button", { class: "btn ghost sm", onclick: () => addLine() }, "+ Add item")),
     h("label", { class: "field" }, "Note", notes),
     h("label", { class: "row small" }, send, "Mark as sent now (otherwise saved as a draft)"),
     h("div", { class: "row" }, h("span", { class: "grow" }, "Total ", total), err)),
     [h("button", { class: "btn primary", onclick: async () => {
       const ls = [...lines.querySelectorAll(".inv-line")].map(r => { const [d, q, rt] = r.querySelectorAll("input"); return { description: d.value.trim(), quantity: +q.value || 1, rate: +rt.value || 0 }; }).filter(l => l.description);
       try {
-        await api("/api/books/invoices", { body: { kind: kind.value, counterparty: party.value, issue_date: issue.value || null, due_date: due.value || null, notes: notes.value, send: send.checked, lines: ls } });
+        const pk = kind.value === "receivable" ? "customer" : "supplier";
+        const written = party.value.trim();
+        const look = written ? await api(`/api/parties/match/lookup?kind=${pk}&name=${encodeURIComponent(written)}`).catch(() => null) : null;
+        const answer = look && look.suggestion && !look.exact ? await askIsThisThem({ ...look.suggestion, written, kind: pk }) : {};
+        await api("/api/books/invoices", { body: { kind: kind.value, counterparty: party.value, issue_date: issue.value || null, due_date: due.value || null, notes: notes.value, send: send.checked, lines: ls, party_id: answer.party_id ?? null } });
         m.remove(); toast("Invoice saved", "ok"); onDone && onDone();
       } catch (e) { err.textContent = e.message; }
     } }, "Save invoice")]);
@@ -726,7 +843,7 @@ function paymentForm(inv, onDone) {
 // ------------------------------------------------------------------ reports
 async function viewReports(v) {
   let kind = "pnl";
-  const period = h("select", {}, [["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"], ["custom", "Custom dates"]]
+  const period = h("select", { "aria-label": t("range") }, [["month", "This month"], ["last_month", "Last month"], ["quarter", "This quarter"], ["year", "This year"], ["custom", "Custom dates"]]
     .map(([k, l]) => h("option", { value: k }, l)));
   const start = h("input", { type: "date", class: "hidden", "aria-label": "Start date" });
   const end = h("input", { type: "date", class: "hidden", "aria-label": "End date", value: today() });
@@ -761,28 +878,139 @@ async function viewReports(v) {
 
 // ------------------------------------------------------------------ customers & suppliers (baki ledger)
 async function viewParties(v) {
-  let kind = "customer";
-  const body = h("div", {});
+  let kind = "customer", open = null, filter = "";
+  const owner = S.user.role === "owner";
+  const body = h("div", {}), side = h("div", { class: "party-side-body" });
+  const label = () => (kind === "customer" ? "Customer" : "Supplier");
   const bar = h("div", { class: "tabs" }, [["customer", "Customers (they owe you)"], ["supplier", "Suppliers (you owe them)"]].map(([k, l], i) =>
-    h("button", { class: i ? "" : "active", onclick: e => { bar.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); kind = k; load(); } }, l)));
+    h("button", { class: i ? "" : "active", onclick: e => { bar.querySelectorAll("button").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); kind = k; open = null; filter = ""; load(); } }, l)));
+
+  // Every figure below is counted by the server from stored invoices; this only puts it into words.
+  function habit(d) {
+    const out = [];
+    if (!d.invoices) out.push(`On your list by name. No ${kind === "customer" ? "invoices" : "bills"} recorded yet.`);
+    else {
+      out.push(kind === "customer"
+        ? `Bought ${money(d.invoiced)} from you across ${d.invoices} invoice${d.invoices === 1 ? "" : "s"}.`
+        : `Billed you ${money(d.invoiced)} across ${d.invoices} bill${d.invoices === 1 ? "" : "s"}.`);
+      if (d.every_days != null) out.push(d.regular ? `Comes back about every ${Math.round(d.every_days)} days.` : `Comes rarely: about every ${Math.round(d.every_days)} days.`);
+      if (d.balance > 0.005) out.push(kind === "customer" ? `Still owes you ${money(d.balance)}.` : `You still owe ${money(d.balance)}.`);
+      if (d.overdue > 0.005) out.push(`${money(d.overdue)} of that is past its due date.`);
+      if (d.last_date) out.push(`Last one on ${fmtDate(d.last_date)}.`);
+    }
+    return out.join(" ");
+  }
+
+  function nameForm(existing) {
+    const name = h("input", { type: "text", maxlength: "200", value: existing?.name || "" });
+    const phone = h("input", { type: "tel", maxlength: "40", value: existing?.phone || "", placeholder: "01XXXXXXXXX" });
+    const email = h("input", { type: "email", maxlength: "120", value: existing?.email || "" });
+    const note = h("input", { type: "text", maxlength: "500", value: existing?.note || "", placeholder: "What they buy, how they pay" });
+    const err = h("div", { class: "small", style: "color:var(--critical)" });
+    const save = h("button", { class: "btn primary" }, existing ? "Save" : "Add to list");
+    save.onclick = async () => {
+      if (!name.value.trim()) { err.textContent = "Enter a name."; name.focus(); return; }
+      save.disabled = true;
+      const payload = { name: name.value.trim(), phone: phone.value.trim(), email: email.value.trim(), note: note.value.trim() };
+      try {
+        const d = existing
+          ? await api(`/api/parties/${existing.id}`, { method: "PATCH", body: payload })
+          : await api("/api/parties", { body: { kind, ...payload } });
+        m.remove(); toast(`${d.name} saved`, "ok"); open = d.id; load();
+      } catch (e) { err.textContent = e.message; save.disabled = false; }
+    };
+    const m = modal(existing ? `Edit ${existing.name}` : `New ${label().toLowerCase()}`, h("div", { class: "grid", style: "gap:10px" },
+      h("label", { class: "field" }, "Name", name),
+      h("div", { class: "grid g-2e" }, h("label", { class: "field" }, "Phone", phone), h("label", { class: "field" }, "Email", email)),
+      h("label", { class: "field" }, "Note", note),
+      h("p", { class: "small muted", style: "margin:0" }, `Once named, ${name.value.trim() || "they"} stay on your list whether or not an invoice mentions them. New invoices are matched to this name automatically.`),
+      err), [save]);
+    name.focus();
+  }
+
+  async function removeParty(d) {
+    const ok = await confirmDialog({ title: `Remove ${d.name} from the list?`, danger: true, action: "delete_party",
+      confirmLabel: "Remove from list",
+      rows: [["Name", d.name], [kind === "customer" ? "Owes you" : "You owe", money(d.balance)], ["Invoices", String(d.invoices)]],
+      note: "Only the name card is removed. Every invoice and payment stays exactly as it is." });
+    if (!ok) return;
+    try { await api(`/api/parties/${d.id}`, { method: "DELETE" }); ok.bg.remove(); toast(`${d.name} removed`); open = null; load(); }
+    catch (e) { ok.bg.remove(); toast(e.message, "bad"); }
+  }
+
+  function detailCard(d) {
+    const line = (k, val) => (val ? h("div", { class: "party-fact" }, h("dt", {}, k), h("dd", {}, val)) : null);
+    return h("div", { class: "party-detail" },
+      h("button", { class: "text-link", onclick: () => { open = null; drawSide(lastRows); } }, "← All " + label().toLowerCase() + "s"),
+      h("h3", {}, d.name),
+      h("dl", { class: "party-facts" },
+        line("Phone", d.phone), line("Email", d.email),
+        line(kind === "customer" ? "Owes you" : "You owe", d.balance > 0.005 ? money(d.balance) : "Nothing outstanding"),
+        line("Past due", d.overdue > 0.005 ? money(d.overdue) : null),
+        line(kind === "customer" ? "Bought from you" : "Billed you", d.invoices ? money(d.invoiced) : null),
+        line("How often", d.every_days != null ? `About every ${Math.round(d.every_days)} days` : null),
+        line("Note", d.note)),
+      h("p", { class: "party-habit" }, h("span", { class: "small muted" }, "AI Assistant · from your records"), h("span", {}, habit(d))),
+      h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" },
+        d.invoices ? h("button", { class: "btn ghost sm", onclick: () => showLedger(d.name, kind) }, "See every invoice") : null,
+        owner ? h("button", { class: "btn ghost sm", onclick: () => nameForm(d) }, "Edit") : null,
+        owner ? h("button", { class: "btn ghost sm danger-text", onclick: () => removeParty(d) }, "Remove") : null));
+  }
+
+  let lastRows = [];
+  function drawSide(rows) {
+    lastRows = rows;
+    const named = rows.filter(r => r.named);
+    const shown = named.filter(r => !filter || r.name.toLowerCase().includes(filter.toLowerCase()));
+    const chosen = open != null ? named.find(r => r.id === open) : null;
+    if (chosen) { side.replaceChildren(detailCard(chosen)); return; }
+    const search = h("input", { type: "search", class: "party-search", placeholder: `Search ${label().toLowerCase()}s`, value: filter,
+      "aria-label": `Search ${label().toLowerCase()}s`, oninput: e => { filter = e.target.value; drawSide(lastRows); } });
+    const list = h("ul", { class: "party-list" }, shown.length ? shown.map(r => h("li", {},
+      h("button", { class: "party-row", onclick: () => { open = r.id; drawSide(lastRows); } },
+        h("span", { class: "party-name" }, r.name),
+        h("span", { class: "party-sub small muted" }, r.invoices
+          ? `${r.invoices} ${kind === "customer" ? "invoice" : "bill"}${r.invoices === 1 ? "" : "s"} · ${money(r.invoiced)}`
+          : "No records yet"),
+        r.balance > 0.005 ? h("span", { class: "party-bal" + (r.overdue > 0.005 ? " late" : "") }, money(r.balance)) : null)))
+      : [h("li", { class: "small muted", style: "padding:10px" }, filter ? "No name matches that search." : "No names yet.")]);
+    const unnamed = rows.filter(r => !r.named);
+    side.replaceChildren(search, list,
+      unnamed.length ? h("details", { class: "party-unnamed" }, h("summary", {}, `${unnamed.length} name${unnamed.length === 1 ? "" : "s"} only on invoices`),
+        h("p", { class: "small muted" }, "These appear on invoices but are not on your list yet."),
+        h("ul", { class: "party-list" }, unnamed.map(r => h("li", {}, h("button", { class: "party-row", disabled: !owner,
+          onclick: async () => { try { const d = await api("/api/parties", { body: { kind, name: r.name } }); open = d.id; toast(`${d.name} added`, "ok"); load(); } catch (e) { toast(e.message, "bad"); } } },
+        h("span", { class: "party-name" }, r.name), h("span", { class: "party-sub small muted" }, "Add to list"))))))
+        : null);
+  }
+
   async function load() {
-    const d = await api(`/api/books/parties?kind=${kind}`);
-    if (!d.rows.length) { body.replaceChildren(emptyState(kind === "customer" ? "No customer invoices yet." : "No supplier bills yet.")); return; }
+    const [d, p] = await Promise.all([api(`/api/books/parties?kind=${kind}`), api(`/api/parties?kind=${kind}`)]);
     body.replaceChildren(
       h("div", { class: "grid g-kpi", style: "margin-bottom:16px" },
         h("div", { class: "card kpi" }, h("div", { class: "label" }, "Total balance"), h("div", { class: "value num" }, money(d.total_balance))),
         h("div", { class: "card kpi" }, h("div", { class: "label" }, "Overdue"), h("div", { class: "value num", style: d.total_overdue > 0 ? "color:var(--critical)" : "" }, money(d.total_overdue)))),
-      h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t" },
-        h("tr", {}, ["Name", "Invoices", "Billed", "Paid", "Balance", "Overdue", "Last activity"].map((x, i) => h("th", { class: i && i < 6 ? "r" : "" }, x))),
-        d.rows.map(p => h("tr", {},
-          h("td", {}, h("button", { class: "btn ghost", onclick: () => showLedger(p.name, kind) }, p.name)),
-          h("td", { class: "r" }, p.invoices), h("td", { class: "r" }, money(p.invoiced)), h("td", { class: "r" }, money(p.paid)),
-          h("td", { class: "r", style: "font-weight:600" }, money(p.balance)),
-          h("td", { class: "r", style: p.overdue > 0 ? "color:var(--critical)" : "" }, money(p.overdue)),
-          h("td", { class: "small muted" }, p.last_date || "–")))))));
+      d.rows.length
+        ? h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t" },
+          h("tr", {}, ["Name", "Invoices", "Billed", "Paid", "Balance", "Overdue", "Last activity"].map((x, i) => h("th", { class: i && i < 6 ? "r" : "" }, x))),
+          d.rows.map(r => h("tr", {},
+            h("td", {}, h("button", { class: "btn ghost", onclick: () => showLedger(r.name, kind) }, r.name)),
+            h("td", { class: "r" }, r.invoices), h("td", { class: "r" }, money(r.invoiced)), h("td", { class: "r" }, money(r.paid)),
+            h("td", { class: "r", style: "font-weight:600" }, money(r.balance)),
+            h("td", { class: "r", style: r.overdue > 0 ? "color:var(--critical)" : "" }, money(r.overdue)),
+            h("td", { class: "small muted" }, r.last_date || "–"))))))
+        : emptyState(kind === "customer" ? "No customer invoices yet." : "No supplier bills yet."));
+    drawSide(p.rows);
   }
+
   v.replaceChildren(h("h1", {}, t(S.mode === "simple" ? "s_parties" : "parties")),
-    h("p", { class: "small muted" }, "Click a name to see every invoice and payment with the running balance."), bar, body);
+    h("p", { class: "small muted" }, "Click a name to see every invoice and payment with the running balance."),
+    bar,
+    h("div", { class: "party-split" }, body,
+      h("aside", { class: "party-side", "aria-label": "Customer and supplier list" },
+        h("div", { class: "party-side-head" }, h("h2", { class: "grow" }, "Your list"),
+          h("button", { class: "btn primary sm", disabled: !owner, title: owner ? "" : "Owner only", onclick: () => nameForm(null) }, "+ Add a name")),
+        side)));
   await load();
 }
 async function showLedger(name, kind) {
@@ -808,19 +1036,65 @@ async function viewStock(v) {
     try { await api(path, { body: mk(vals) }); load(); } catch (e) { toast(e.message, "bad"); }
   };
   const num = x => (x === "" || x == null ? 0 : Number(x));
+  const field = (label, el) => h("label", { class: "field" }, label, el);
+  const qtyBox = () => h("input", { type: "number", min: "0", step: "any", value: "0" });
+  // Four plain questions: what it is, what is on the shelf, what it costs, how fast it goes. Unit, reorder
+  // level and other names keep their defaults; Adjust and the sales records fill in the rest over time.
+  function addItemForm() {
+    const name = h("input", { type: "text", maxlength: "120" }), qty = qtyBox(), price = qtyBox(), sold = qtyBox();
+    const err = h("div", { class: "small", style: "color:var(--critical)" });
+    const save = h("button", { class: "btn primary" }, "Add item");
+    save.onclick = async () => {
+      const label = name.value.trim();
+      if (!label) { err.textContent = "Enter an item name."; name.focus(); return; }
+      save.disabled = true;
+      try {
+        await api("/api/items", { body: { name: label, opening_qty: num(qty.value), cost_price: num(price.value), sold_this_month: num(sold.value) } });
+        m.remove(); toast(`${label} added`); load();
+      } catch (e) { err.textContent = e.message; save.disabled = false; }
+    };
+    const m = modal("New item", h("div", { class: "grid", style: "gap:10px" },
+      field("Item name", name),
+      h("div", { class: "grid g-2e" }, field("Quantity remaining", qty), field("Price ৳", price)),
+      field("Sold this month", sold),
+      h("p", { class: "small muted", style: "margin:0" }, "Sold this month only works out how many days of stock are left. It does not change your money records."),
+      err), [save]);
+    name.focus();
+  }
+  // Removing is for an item the shop no longer keeps. The money records that mention it are never touched.
+  function removeItemForm(items) {
+    const pick = h("select", {}, items.map(i => h("option", { value: String(i.id) }, `${i.name} · ${i.qty} ${i.unit} left`)));
+    const err = h("div", { class: "small", style: "color:var(--critical)" });
+    const go = h("button", { class: "btn danger" }, "Remove item");
+    go.onclick = async () => {
+      const it = items.find(i => String(i.id) === pick.value);
+      if (!it) return;
+      const ok = await confirmDialog({ title: `Remove ${it.name}?`, danger: true, action: "delete_item", confirmLabel: "Remove item",
+        rows: [["Item", it.name], ["On the shelf", `${it.qty} ${it.unit}`], ["Sold in 30 days", String(it.sold_30d)]],
+        note: "The item and its stock history are removed. Your sales and expense records stay as they are." });
+      if (!ok) return;
+      try { await api(`/api/items/${it.id}`, { method: "DELETE" }); ok.bg.remove(); m.remove(); toast(`${it.name} removed`); load(); }
+      catch (e) { ok.bg.remove(); err.textContent = e.message; }
+    };
+    const m = modal("Remove an item", h("div", { class: "grid", style: "gap:10px" },
+      h("p", { class: "small muted", style: "margin:0" }, "Choose the item to take off your stock list."),
+      field("Item", pick), err), [go]);
+  }
   async function load() {
     const { items } = await api("/api/stock");
     const bar = h("div", { class: "row", style: "margin-bottom:12px" },
-      h("button", { class: "btn primary", disabled: !owner, title: owner ? "" : "Owner only", onclick: () => form("New item", [["name", "Name"], ["unit", "Unit", "pcs"], ["opening_qty", "Opening quantity", "0"], ["reorder_level", "Reorder level", "0"], ["cost_price", "Cost price ৳", "0"], ["aliases", "Other names (comma separated)"]], "/api/items",
-        x => ({ name: x.name, unit: x.unit || "pcs", opening_qty: num(x.opening_qty), reorder_level: num(x.reorder_level), cost_price: num(x.cost_price), aliases: x.aliases.split(",").map(a => a.trim()).filter(Boolean) })) }, "Add item"),
+      h("button", { class: "btn primary", disabled: !owner, title: owner ? "" : "Owner only", onclick: addItemForm }, "Add item"),
+      h("button", { class: "btn ghost", disabled: !owner || !items.length, title: owner ? "" : "Owner only", onclick: () => removeItemForm(items) }, "Remove"),
       h("button", { class: "btn ghost", disabled: !owner || !items.length, onclick: () => {
         const name = prompt("Adjust which item? " + items.map(i => i.name).join(", ")); const it = items.find(i => i.name.toLowerCase() === (name || "").trim().toLowerCase()); if (!it) return;
         form("Adjust " + it.name, [["q", "Change (+ adds, − removes)"], ["r", "Reason", "count correction"]], "/api/stock/adjust", x => ({ item_id: it.id, qty_change: Number(x.q), reason: (x.r || "adjust").slice(0, 30) })); } }, "Adjust"),
       h("button", { class: "btn ghost", onclick: () => download("/api/stock/export", "stock.xlsx").catch(e => toast(e.message, "bad")) }, "Export Excel"));
     body.replaceChildren(bar, items.length
-      ? h("table", { class: "t" }, h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map(x => h("th", {}, x))),
-        items.map(i => h("tr", {}, h("td", {}, i.name), h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
-          h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))
+      ? h("div", { class: "card" }, h("div", { class: "scroll" }, h("table", { class: "t stock-table" },
+        h("tr", {}, ["Item", "Sold 30d", "Remaining", "Days left", "Status"].map((x, i) => h("th", { class: i && i < 4 ? "r" : "" }, x))),
+        items.map(i => h("tr", {}, h("td", {}, i.name, (i.barcodes || []).length ? h("div", { class: "small muted num" }, i.barcodes[0]) : null),
+          h("td", { class: "r" }, i.sold_30d), h("td", { class: "r" }, `${i.qty} ${i.unit}`),
+          h("td", { class: "r" }, i.days_left ?? "–"), h("td", {}, h("span", { class: "chip " + BADGE[i.status][0] }, BADGE[i.status][1])))))))
       : emptyState("No items yet. Add your products to track how much is left.", owner ? "Add item" : null, () => bar.firstChild.click()));
   }
   v.replaceChildren(h("h1", {}, t("stock")), body);
@@ -870,7 +1144,7 @@ function quickActions(d) {
     tile("✎", "Add record", "Sale, expense or payment", () => { location.hash = "#data"; }, !w),
     tile("≣", "New invoice", "Bill a customer", () => invoiceForm(() => { location.hash = "#invoices"; }), !w),
     tile("✉", "Send reminder", rem ? "To the customer who is most late" : "See who owes you", e => rem ? runTool(rem.name, rem.args) : (location.hash = "#parties"), !w && !!rem),
-    tile("৳", "Find loans", "Matched to your numbers", () => { location.hash = "#financing"; })));
+    tile("▤", "Stock", "What is left on the shelf", () => { location.hash = "#stock"; })));
 }
 function pendingActions(c) {
   const card = (n, label, href, tone) => h("a", { class: `pa-card t-${tone}${n ? "" : " zero"}`, href },
@@ -908,8 +1182,8 @@ function insightSections(d, recsP) {
 }
 function tipCard() {
   return h("div", { class: "card tip-card" }, h("h2", {}, "💡 " + t("tip")),
-    h("p", { class: "small" }, "Lenders look at regular records. Recording every sale and uploading bank or bKash statements raises your loan-readiness score."),
-    h("a", { class: "btn sm", href: "#financing" }, "Check my loan readiness"));
+    h("p", { class: "small" }, "Lenders look at regular records. Recording every sale and uploading bank or bKash statements keeps your books ready when you need them."),
+    h("a", { class: "btn sm", href: "#data" }, "Record today’s sales"));
 }
 
 async function viewDashboard(v) {
@@ -1520,13 +1794,15 @@ async function viewData(v) {
   entry.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(async () => {
     if (!entry.value.trim()) { preview.textContent = ""; return; }
     const p = await api("/api/data/entry/preview", { body: { text: entry.value } });
-    preview.textContent = p.amount ? `→ ${p.direction === "in" ? "Income" : p.direction === "out" ? "Expense" : "?"} ${money(p.amount)} · ${p.category} · ${p.channel} · ${p.txn_date}${p.counterparty ? " · " + p.counterparty : ""}${p.quantity ? ` · qty ${p.quantity} ${p.item}` : ""} (confidence ${Math.round(p.confidence * 100)}%)` : `Missing: ${p.missing.join(", ")}`;
+    preview.textContent = p.amount ? `→ ${p.direction === "in" ? "Income" : p.direction === "out" ? "Expense" : "?"} ${money(p.amount)} · ${p.category} · ${p.channel} · ${p.txn_date}${p.counterparty ? " · " + p.counterparty : ""}${p.quantity ? ` · qty ${p.quantity} ${p.item}` : ""} (confidence ${Math.round(p.confidence * 100)}%)${partyHint(p.party)}` : `Missing: ${p.missing.join(", ")}`;
   }, 250); });
   const record = h("button", { class: "btn primary", disabled: !canWrite, onclick: async () => {
     if (!entry.value.trim()) return;
     const btn = record; btn.classList.add("loading"); btn.disabled = true; preview.replaceChildren(h("span", { class: "skeleton-line" }));
-    try { const r = await api("/api/data/entry", { body: { text: entry.value } });
-      toast(r.data.recorded ? "Recorded ✓" : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning || r.data.preview || ""}`, r.data.recorded ? "ok" : "warn");
+    try {
+      let r = await api("/api/data/entry", { body: { text: entry.value } });
+      r = await settleParty(r, extra => api("/api/data/entry", { body: { text: entry.value, ...extra } }));
+      toast(r.data.recorded ? "Recorded ✓" + filedUnder(r.data.party) : `Not recorded: ${r.data.missing?.join(", ") || r.data.duplicate_warning || r.data.preview || ""}`, r.data.recorded ? "ok" : "warn");
       preview.textContent = "";
       if (r.data.recorded) { S.flashId = r.data.transaction_id; entry.value = ""; }
       if (r.data.stock && r.data.stock.ask_item) askWhichItem(r.data.stock, preview);
@@ -1829,8 +2105,6 @@ async function viewMore(v) {
     ["invoices", "bill", plain("Bills & invoices", "বিল ও চালান"), plain("Track customer bills and what you owe suppliers.", "ক্রেতার বিল ও সরবরাহকারীর পাওনা দেখুন।")],
     ["stock", "book", plain("Stock", "পণ্যের হিসাব"), plain("Check products and what needs restocking.", "পণ্য ও নতুন করে কী কিনতে হবে দেখুন।")],
     ["reports", "book", plain("Reports", "প্রতিবেদন"), plain("See your business numbers in more detail.", "ব্যবসার হিসাব বিস্তারিত দেখুন।")],
-    ["actions", "check", plain("Prepared actions", "প্রস্তুত কাজ"), plain("Review pending actions, drafts, and the sandbox outbox.", "অপেক্ষায় থাকা কাজ, খসড়া ও স্যান্ডবক্স আউটবক্স দেখুন।")],
-    ["financing", "bill", plain("Borrowing options", "ঋণের বিকল্প"), plain("Explore costs and requirements before deciding.", "সিদ্ধান্তের আগে খরচ ও শর্ত জানুন।")],
     ["settings", "more", plain("Settings", "সেটিংস"), plain("Change language, appearance, and privacy preferences.", "ভাষা, রং ও গোপনীয়তার পছন্দ বদলান।")],
     ["chat?tab=documents", "book", plain("Documents", "কাগজপত্র"), plain("Find drafts, quotes and receipts.", "খসড়া, প্রস্তাব ও রসিদ খুঁজুন।")],
     ["chat?tab=offline", "book", plain("Saved on this device", "এই ডিভাইসে রাখা"), plain("Review and synchronise local record drafts.", "ডিভাইসের খসড়া দেখে সার্ভারে পাঠান।")],
@@ -1839,7 +2113,7 @@ async function viewMore(v) {
     h("p", { class: "muted" }, plain("Here when you need them. Your daily essentials stay on Home.", "দরকার হলে ব্যবহার করুন। দৈনন্দিন কাজ হোমেই পাবেন।")),
     h("div", { class: "more-grid" }, items.map(([routeName, symbol, title, copy]) => h("a", { class: "more-card", href: "#" + routeName },
       icon(symbol, 24), h("h2", {}, title), h("p", {}, copy), icon("arrow", 18)))),
-    S.user.max_tier >= 1 ? h("a", { class: "text-link", href: "#audit" }, plain("Activity history", "কাজের ইতিহাস"), icon("arrow", 16)) : null));
+    S.user.max_tier >= 1 ? h("a", { class: "text-link", href: "#settings?section=privacy" }, plain("Activity history", "কাজের ইতিহাস"), icon("arrow", 16)) : null));
 }
 
 // Shown after a record that could not be linked to an item (no match / no quantity). Never guesses.
@@ -1854,7 +2128,9 @@ function askWhichItem(st, host) {
     const name = prompt("New item name", st.suggested_name || ""); if (!name) { sel.value = ""; return; }
     try { const r = await api("/api/items", { body: { name } }); link(r.id); } catch (e) { toast(e.message, "bad"); sel.value = ""; }
   });
-  host.replaceChildren(h("span", { class: "small" }, "Stock: "), sel, qty, h("button", { class: "btn ghost sm", onclick: done }, "Skip"));
+  host.replaceChildren(h("span", { class: "small" }, st.suggested_name
+    ? `Nothing in stock matches “${st.suggested_name}”. Which item was it? `
+    : "Which item came out of stock? "), sel, qty, h("button", { class: "btn ghost sm", onclick: done }, "Skip"));
 }
 
 function quickEntryCard(onSaved) {
@@ -1865,18 +2141,22 @@ function quickEntryCard(onSaved) {
     if (!entry.value.trim()) { preview.textContent = ""; return; }
     try {
       const p = await api("/api/data/entry/preview", { body: { text: entry.value } });
-      preview.textContent = p.credit ? `→ ＋ ${p.preview}` : p.amount ? `→ ${p.direction === "in" ? "＋" : p.direction === "out" ? "−" : "?"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}` : "…";
+      preview.textContent = p.credit ? `→ ＋ ${p.preview}` : p.amount ? `→ ${p.direction === "in" ? "＋" : p.direction === "out" ? "−" : "?"} ${money(p.amount)} · ${p.category.replace(/_/g, " ")}${p.counterparty ? " · " + p.counterparty : ""}${partyHint(p.party)}` : "…";
     } catch { preview.textContent = ""; }
   }, 250); });
   const saveBtn = h("button", { class: "btn primary", disabled: !canWrite(), onclick: () => save(false) }, t("s_save"));
-  const save = async (confirmed = false) => {
+  const save = async (confirmed = false, extra = {}) => {
     if (!entry.value.trim() || saveBtn.disabled || !canWrite()) return;
     saveBtn.disabled = true;
     saveBtn.classList.add("loading"); preview.replaceChildren(h("span", { class: "skeleton-line" }));
     try {
-      const r = await api("/api/data/entry", { body: { text: entry.value, confirmed } });
+      const r = await api("/api/data/entry", { body: { text: entry.value, confirmed, ...extra } });
       preview.textContent = "";
       const d = r.data;
+      if (d.party && d.party.id && !d.recorded && d.needs_confirm) {  // a close name: ask before anything is stored
+        saveBtn.disabled = false; saveBtn.classList.remove("loading");
+        return save(confirmed, await askIsThisThem(d.party));
+      }
       if (d.needs_confirm) {  // uncertain reading: show the preview, do not save yet
         preview.replaceChildren(d.preview + (d.reason ? ` (${d.reason}) ` : " "),
           h("button", { class: "btn primary", onclick: () => save(true) }, t("s_save")),
@@ -1884,15 +2164,19 @@ function quickEntryCard(onSaved) {
         return;
       }
       if (d.manual_form) { toast(d.preview || "Could not read this, please use the form"); return; }
-      toast(d.recorded ? t("s_saved") : `Not saved: ${d.missing?.join(", ") || d.duplicate_warning}`, d.recorded ? "ok" : "warn");
+      toast(d.recorded ? t("s_saved") + filedUnder(d.party) : `Not saved: ${d.missing?.join(", ") || d.duplicate_warning}`, d.recorded ? "ok" : "warn");
       if (d.recorded) {
         const id = d.transaction_id;
         S.flashId = id;
         entry.value = "";
         const undo = h("button", { class: "btn", onclick: async () => { try { await api(`/api/data/transactions/${id}`, { method: "DELETE" }); preview.textContent = ""; if (onSaved) onSaved(); } catch (e) { toast(e.message, "bad"); } } }, "Undo");
         preview.replaceChildren(t("s_saved") + " ", undo);
-        if (d.stock && d.stock.ask_item) { const host = h("div", { class: "small", style: "margin-top:6px" }); preview.appendChild(host); askWhichItem(d.stock, host); }
-        setTimeout(() => { if (preview.contains(undo)) preview.textContent = ""; }, 6000);
+        const stockHost = d.stock && d.stock.ask_item ? h("div", { class: "small", style: "margin-top:6px" }) : null;
+        if (stockHost) { preview.appendChild(stockHost); askWhichItem(d.stock, stockHost); }
+        setTimeout(() => {
+          if (!preview.contains(undo)) return;
+          preview.replaceChildren(...(stockHost && stockHost.hasChildNodes() ? [stockHost] : []));
+        }, 6000);
         if (onSaved) onSaved();
       }
     } catch (e) { preview.textContent = ""; toast(e.message, "bad"); }

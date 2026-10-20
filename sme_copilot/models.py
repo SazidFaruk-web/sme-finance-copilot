@@ -422,3 +422,47 @@ class HomePrefs(Base):
     nav: Mapped[list[str]] = mapped_column(JSON, default=list)
     style: Mapped[str] = mapped_column(String(12), default="general")  # general | sky | classic (legacy green/blue migrate on read)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class Party(Base):
+    """A customer or supplier the owner has named, so they exist before any invoice mentions them.
+
+    Invoices still carry the name they were written with; ``PartyLink`` says which party that name turned out
+    to be. ``aliases`` collects the other spellings the owner has confirmed, so the next one matches outright.
+    """
+    __tablename__ = "parties"
+    __table_args__ = (Index("ix_party_business", "business_id", "kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(12))  # customer | supplier
+    name: Mapped[str] = mapped_column(String(200))
+    aliases: Mapped[list[str]] = mapped_column(JSON, default=list)
+    phone: Mapped[str | None] = mapped_column(EncryptedString(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(EncryptedString(255), nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class PartyLink(Base):
+    """Which party an invoice belongs to. ``locked`` means the owner chose it by hand, so matching leaves it alone."""
+    __tablename__ = "party_links"
+    __table_args__ = (UniqueConstraint("invoice_id", name="uq_party_link_invoice"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
+    party_id: Mapped[int] = mapped_column(ForeignKey("parties.id", ondelete="CASCADE"), index=True)
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ItemBarcode(Base):
+    """A barcode or QR code printed on a product, kept apart from ``items`` so one product can carry several.
+
+    Codes are unique per business, never globally: two shops may well label their own goods the same way.
+    """
+    __tablename__ = "item_barcodes"
+    __table_args__ = (UniqueConstraint("business_id", "code", name="uq_barcode_business_code"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_id: Mapped[int] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
