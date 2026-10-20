@@ -1,6 +1,6 @@
 // Strategy uses the existing scoped cases, reviewed actions and offline progress.
 import "./strategy-copy.js?v=3";
-import { goalPlannerSection, renderGoalIntake, renderGoalPlan } from "./goal-planner.js?v=2";
+import { goalPlannerSection, renderGoalIntake, renderGoalPlan } from "./goal-planner.js?v=3";
 export async function renderStrategy(host, ctx, renderPilot) {
   const { h, api, S } = ctx;
   const say = (en, bn, zh) => S.ui === "bn" ? bn : S.ui === "zh" ? zh : en;

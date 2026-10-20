@@ -379,6 +379,15 @@ const LAYOUTS = {
       h("div", { class: "rm-gap-labels" },
         h("span", {}, say("Saving would reach ", "সঞ্চয়ে পৌঁছাবে ", "储蓄可达 "), h("b", {}, money(reach))),
         h("span", {}, say("The price is ", "দাম ", "价格为 "), h("b", {}, money(plan.target)))));
+    const needed = plan.required_monthly ? h("div", { class: "rm-gap-needed" },
+      h("div", {}, h("dt", {}, say("To reach it in two years you would need", "দুই বছরে পৌঁছাতে দরকার", "两年内达成需要")),
+        h("dd", {}, money(plan.required_monthly) + " "
+          + say("a month", "প্রতি মাসে", "每月"))),
+      h("div", {}, h("dt", {}, say("Your records leave over", "আপনার হিসাবে বাঁচে", "您的记录结余")),
+        h("dd", {}, money(plan.monthly_amount))),
+      h("div", {}, h("dt", {}, say("The difference to close", "যে ফারাক মেটাতে হবে", "需要弥补的差额")),
+        h("dd", { class: "rm-gap-short" }, money(plan.monthly_gap) + " "
+          + say("a month", "প্রতি মাসে", "每月")))) : null;
     const options = h("div", { class: "rm-options" },
       h("article", {}, h("h3", {}, say("Aim at something smaller first", "আগে ছোট কিছু লক্ষ্য করুন", "先瞄准小一些的目标")),
         h("p", {}, say("A smaller version of the same thing, or a used one, may do the same job and is reachable.",
@@ -397,7 +406,7 @@ const LAYOUTS = {
             ? say("Look again in ", "আবার দেখুন ", "复查时间 ") + monthLabel(p.from_month, true)
             : monthLabel(p.from_month) + (p.to_month !== p.from_month ? " – " + monthLabel(p.to_month) : "")),
           h("h3", {}, p.title), amountLine(ctx, p), h("p", {}, p.summary)))));
-    return h("div", {}, bar, steps, options);
+    return h("div", {}, bar, needed, steps, options);
   },
 };
 

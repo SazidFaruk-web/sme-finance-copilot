@@ -84,6 +84,8 @@ class Plan:
     repay_capacity: float
     repay_months: int | None
     feasible: bool
+    required_monthly: float = 0.0   # what a two-year plan would ask for each month
+    monthly_gap: float = 0.0        # how far that is above what the records leave over
     reasons: list[str] = field(default_factory=list)   # reviewed ids, rendered by the UI
     month_plan: list[PlanMonth] = field(default_factory=list)
     phases: list[Phase] = field(default_factory=list)
@@ -210,7 +212,7 @@ def _phases(plan: Plan, facts: Facts) -> list[Phase]:
     if not plan.feasible:
         # Saving towards something unreachable is still worth doing, but one step and a date to
         # look again is an honest plan. Years of steps towards a goal that never arrives is not.
-        blocks = _group(plan.month_plan[:6], 1)
+        blocks = _group(plan.month_plan[:6], 2)
     for block in blocks:
         amount = round(sum(m.amount for m in block), 2)
         running = round(running + amount, 2)
@@ -322,6 +324,9 @@ def build(goal: Goal, price: PriceEstimate, facts: Facts, *, horizon_months: int
             plan.strategy, plan.feasible = "out_of_reach", False
             plan.reasons.append("repayment_too_large" if shortfall > 0 and plan.repay_capacity > 0 else "out_of_reach")
 
+    cap_months = min(horizon, SAVE_ONLY_LIMIT) if horizon else SAVE_ONLY_LIMIT
+    plan.required_monthly = money(max(0.0, (target - from_cash) / cap_months))
+    plan.monthly_gap = money(max(0.0, plan.required_monthly - base))
     plan.template = choose_template(plan, facts, horizon)
     plan.phases = _phases(plan, facts)
     plan.watchouts = _watchouts(plan, facts, price)

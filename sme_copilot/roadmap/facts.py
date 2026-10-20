@@ -37,6 +37,8 @@ class Facts:
     cash_now: float
     monthly_in: float | None = None
     monthly_out: float | None = None
+    days_recorded: int = 0
+    from_part_month: bool = False      # the averages come from a scaled partial month
     monthly_surplus: float | None = None       # average money left over in a month
     best_month_surplus: float | None = None
     worst_month_surplus: float | None = None
@@ -107,7 +109,20 @@ def gather(db, business, today: date, *, reserve: float | None = None, lookback_
         facts.bills_to_pay = money(max(0.0, float((payable["amount"] - payable["amount_paid"]).sum())))
     facts.committed_monthly = money(sum(float(o.amount) for o in obligations if o.frequency == "monthly"))
 
+    if not rows and txns is not None and not txns.empty:
+        # Fifteen days of records is still a usable picture: scale them to a month and say so.
+        first = txns["date"].min().date()
+        days = max(7, (today - first).days + 1)
+        facts.days_recorded = days
+        scale = 30.44 / days
+        facts.from_part_month = True
+        facts.monthly_in = money(float(txns[txns["direction"] == "in"]["amount"].sum()) * scale)
+        facts.monthly_out = money(float(txns[txns["direction"] == "out"]["amount"].sum()) * scale)
+        facts.monthly_surplus = money(facts.monthly_in - facts.monthly_out)
+        facts.best_month_surplus = facts.worst_month_surplus = facts.monthly_surplus
+
     if rows:
+        facts.days_recorded = (last_complete - date.fromisoformat(rows[0][0] + "-01")).days + 1
         average_in = sum(r[1] for r in rows) / len(rows)
         surpluses = []
         for key, money_in, money_out in rows:
@@ -127,7 +142,16 @@ def gather(db, business, today: date, *, reserve: float | None = None, lookback_
         facts.season_known = len(rows) >= 6 and any(m.label != "normal" for m in facts.months)
 
     # One quiet month of running costs stays untouched unless the owner sets their own reserve.
-    default_reserve = facts.monthly_out or 0.0
+    # Buying stock is left out: a quiet month buys less of it, so holding a full month of it back
+    # would lock up money the business is not actually at risk of needing.
+    running = facts.monthly_out or 0.0
+    if txns is not None and not txns.empty and running:
+        stock_share = float(txns[(txns["direction"] == "out")
+                                 & (txns["category"].isin(["stock_purchase", "inventory", "raw_material"]))]["amount"].sum())
+        total_out = float(txns[txns["direction"] == "out"]["amount"].sum())
+        if total_out > 0:
+            running = money(running * max(0.25, 1 - stock_share / total_out))
+    default_reserve = running
     facts.reserve = money(reserve if reserve is not None else default_reserve)
     facts.spare_cash = money(max(0.0, facts.cash_now - facts.reserve - facts.bills_to_pay))
 
@@ -135,6 +159,8 @@ def gather(db, business, today: date, *, reserve: float | None = None, lookback_
                         "medium" if facts.months_of_history >= 3 else "low")
     if facts.months_of_history < 3:
         facts.gaps.append("short_history")
+    if facts.from_part_month:
+        facts.gaps.append("part_month_only")
     if facts.monthly_surplus is not None and facts.monthly_surplus <= 0:
         facts.gaps.append("no_surplus")
     if not facts.season_known:

@@ -16,7 +16,7 @@ import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
 import { renderSettings } from "./settings.js?v=1";
-import { renderStrategy } from "./strategy.js?v=5";
+import { renderStrategy } from "./strategy.js?v=6";
 import { updateMarkdown } from "./markdown.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)

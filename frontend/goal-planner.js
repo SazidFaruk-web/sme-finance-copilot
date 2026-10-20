@@ -1,6 +1,6 @@
 // The goal planner: one open question, then a dated roadmap drawn by roadmap.js.
 // Every figure comes from the server. This file asks, shows and lets the owner adjust.
-import { drawRoadmap, roadmapHelpers, ring, WATCHOUTS, REASONS, EXAMPLES } from "./roadmap.js?v=2";
+import { drawRoadmap, roadmapHelpers, ring, WATCHOUTS, REASONS, EXAMPLES } from "./roadmap.js?v=3";
 
 const HORIZONS = [
   [6, "In 6 months", "৬ মাসে", "6 个月内"],
