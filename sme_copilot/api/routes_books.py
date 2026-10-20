@@ -27,6 +27,7 @@ from sme_copilot.models import (
     InvoicePayment,
     Item,
     Obligation,
+    Party,
     RecurringInvoice,
     StockMovement,
     Transaction,
@@ -34,6 +35,7 @@ from sme_copilot.models import (
 )
 from sme_copilot.security import audit
 from sme_copilot.security.pii import mask_account
+from sme_copilot.tools import parties as party_tools
 from sme_copilot.tools import repo, stock
 from sme_copilot.tools.analysis import add_months, aging, profitability, resolve_period
 from sme_copilot.tools.books_pdf import invoice_pdf, pdf_money, table_pdf
@@ -172,6 +174,7 @@ class InvoiceIn(BaseModel):
     lines: list[LineIn] = Field(..., min_length=1, max_length=50)
     notes: str = Field("", max_length=1000)
     send: bool = False  # False keeps it as a draft
+    party_id: int | None = None  # the owner answered "yes, this is him" to a close name; None lets matching decide
 
 
 class PaymentIn(BaseModel):
@@ -223,7 +226,27 @@ def add_invoice(db: Session, user: User, body: InvoiceIn, *, source: str = "manu
     db.add(inv)
     db.flush()
     db.add_all([InvoiceLine(invoice_id=inv.id, **ln.model_dump()) for ln in body.lines])
+    _attach_party(db, user, inv, body.party_id)
     return inv
+
+
+def _attach_party(db: Session, user: User, inv: Invoice, party_id: int | None) -> None:
+    """Put the invoice with the right customer or supplier.
+
+    A party the owner confirmed is locked, so later matching leaves it alone, and the spelling they confirmed is
+    remembered for next time. Otherwise only an exact name match links by itself: a close one is never assumed.
+    """
+    kind = "customer" if inv.kind == "receivable" else "supplier"
+    if party_id is not None:
+        p = db.get(Party, party_id)
+        if p is None or p.business_id != user.business_id or p.kind != kind:
+            raise HTTPException(404, "party not found")
+        party_tools.link(db, inv.id, p.id, locked=True)
+        party_tools.remember_alias(db, p, inv.counterparty)
+        return
+    hit = party_tools.match(db, user.business_id, kind, inv.counterparty)
+    if hit and hit["exact"]:
+        party_tools.link(db, inv.id, hit["party"].id, locked=False)
 
 
 @router.post("/invoices")

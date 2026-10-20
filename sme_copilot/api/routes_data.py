@@ -18,6 +18,7 @@ from sme_copilot.security.pii import mask_account
 from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.ingestion import DOC_TYPES, import_file, refresh_anomalies, text_to_bytes
 from sme_copilot.tools import credit_entry, khata_photo, stock
+from sme_copilot.tools import parties as party_tools
 from sme_copilot.tools.nl_entry import parse_entry
 from sme_copilot.tools.record_resolver import fast_path, resolve_record
 
@@ -119,12 +120,29 @@ def entry_preview(body: EntryIn, user: User = Depends(current_user), db: Session
         r = resolve_record(ex)
         out.update(amount=r["amount"], direction=r["direction"], category=r["category"], quantity=r["quantity"],
                    item=r["item"], needs_confirm=r["needs_confirm"], preview=r["preview"], missing=[])
+        out["counterparty"] = r["counterparty"] or out.get("counterparty", "")
+    out["party"] = _party_hint(db, user, out)
     return out
+
+
+def _party_hint(db: Session, user: User, out: dict[str, Any]) -> dict[str, Any] | None:
+    """Who this entry looks like it is for: an exact name, or a close one for the owner to confirm."""
+    name = (out.get("counterparty") or "").strip()
+    if not name or not out.get("direction"):
+        return None
+    kind = "customer" if out["direction"] == "in" else "supplier"
+    hit = party_tools.match(db, user.business_id, kind, name)
+    if hit is None:
+        return {"kind": kind, "written": name, "exact": False, "id": None, "name": None, "score": 0.0}
+    p = hit["party"]
+    return {"kind": kind, "written": name, "exact": hit["exact"], "id": p.id, "name": p.name, "score": hit["score"]}
 
 
 @router.post("/entry")
 def entry(body: EntryIn, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict[str, Any]:
-    out = execute(tool_context(db, user), "add_transaction", {"text": body.text, "confirmed": body.confirmed})
+    out = execute(tool_context(db, user), "add_transaction",
+                  {"text": body.text, "confirmed": body.confirmed, "party_id": body.party_id,
+                   "party_declined": body.party_declined})
     if out.status in ("denied", "blocked"):
         raise HTTPException(403, out.message)
     return out.as_dict()

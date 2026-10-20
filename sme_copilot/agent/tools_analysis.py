@@ -13,6 +13,7 @@ from sme_copilot.tools.categorize import all_category_names
 from sme_copilot.tools.finance_math import amortization, cost_of_credit
 from sme_copilot.tools.ingestion import store_parsed_entry
 from sme_copilot.tools.nl_entry import ParsedEntry, parse_entry
+from sme_copilot.tools.parties import file_under_party, resolve_entry_party
 from sme_copilot.tools.record_resolver import read_record, resolve_record
 from sme_copilot.tools.stock import link_transaction
 from sme_copilot.tools.stock import short_for_sale as stock_short
@@ -270,6 +271,8 @@ class AddTxnArgs(BaseModel):
     counterparty: str | None = Field(None, max_length=120)
     channel: Literal["cash", "bank", "bkash", "nagad", "rocket", "card"] | None = None
     confirmed: bool = Field(False, description="True once the user accepted the preview of an uncertain reading")
+    party_id: int | None = Field(None, description="The customer or supplier the user confirmed this entry is for")
+    party_declined: bool = Field(False, description="True when the user answered no to the suggested name")
 
     @field_validator("category")
     @classmethod
@@ -292,6 +295,7 @@ class AddTxnResult(BaseModel):
     manual_form: bool = False
     stock: dict | None = None
     credit: dict | None = None  # a credit sale (new customer bill) or a customer payment settling open bills
+    party: dict | None = None   # who this entry was filed under, or the close name waiting for a yes/no
 
 
 def _credit_entry(ctx: ToolContext, a: AddTxnArgs, e: ParsedEntry) -> AddTxnResult | None:
@@ -394,6 +398,13 @@ def add_transaction(ctx: ToolContext, a: AddTxnArgs):
         return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), missing=e.missing)
     if e.category == "uncategorized" and e.direction == "in":
         e.category = "sales"
+    kind = "customer" if e.direction == "in" else "supplier"
+    party, ask = resolve_entry_party(ctx.session, ctx.business.id, kind, e.counterparty, a.party_id, a.party_declined)
+    if ask is not None:
+        return AddTxnResult(recorded=False, transaction_id=None, entry=e.to_dict(), needs_confirm=True, party=ask,
+                            reason="name looks close to one on your list",
+                            preview=f"Is “{e.counterparty}” the same as {ask['name']} on your "
+                                    f"{kind} list? Answer yes and this entry is filed under them.")
     rep = store_parsed_entry(ctx.session, ctx.business.id, e, source="nl" if ctx.origin == "agent" else "manual")
     tid = None
     from sqlalchemy import select
@@ -403,6 +414,7 @@ def add_transaction(ctx: ToolContext, a: AddTxnArgs):
                               .order_by(Transaction.id.desc()).limit(1))
     tid = last.id if last else None
     stock = link_transaction(ctx.session, ctx.business.id, tid, *link) if link and rep.imported == 1 and tid else None
-    return AddTxnResult(recorded=rep.imported == 1, transaction_id=tid, entry=e.to_dict(), stock=stock,
+    filed = file_under_party(ctx.session, ctx.business.id, party, e) if party and rep.imported == 1 else None
+    return AddTxnResult(recorded=rep.imported == 1, transaction_id=tid, entry=e.to_dict(), stock=stock, party=filed,
                         duplicate_warning=rep.duplicates[0]["reason"] if rep.duplicates else "",
                         anomaly_warning=rep.anomalies[0]["reason"] if rep.anomalies else "")

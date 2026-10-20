@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from sme_copilot import home_layout as hl
 from sme_copilot.market import catalog, watch
 from sme_copilot.models import Business, HomePrefs, MarketWatch, Obligation, SandboxAccount, User
+from sme_copilot.demo import party_book
 from sme_copilot.security.auth import create_user
 from sme_copilot.tools.ingestion import import_file
 
@@ -204,6 +205,7 @@ def load_personas(session: Session, as_of: date, seed: int = 20261019) -> dict[s
             if catalog.goods_without_prices(p["business"], p["about"]):
                 rows["prices"] = "running costs (no public prices for these goods)"
         session.flush()
+        rows["parties"] = party_book.seed_all(session, b.id)  # names the side list starts with
         report[username] = {"business": p["business"], "district": p["district"], "imported": rows}
     session.commit()
     return report

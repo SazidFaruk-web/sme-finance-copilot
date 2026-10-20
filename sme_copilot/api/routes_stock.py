@@ -7,11 +7,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.orm import Session
 
 from sme_copilot.db import get_db
-from sme_copilot.models import Item, Transaction, User
+from sme_copilot.models import Item, StockMovement, Transaction, User
 from sme_copilot.security import audit
 from sme_copilot.tools import stock as S
 from sme_copilot.tools.textnorm import normalize
@@ -28,6 +28,7 @@ class ItemIn(BaseModel):
     opening_qty: float = Field(0, ge=0, le=1e9)
     reorder_level: float = Field(0, ge=0, le=1e9)
     cost_price: float = Field(0, ge=0, le=1e9)
+    sold_this_month: float = Field(0, ge=0, le=1e9)
 
 
 class AdjustIn(BaseModel):
@@ -59,13 +60,36 @@ def create_item(body: ItemIn, user: User = Depends(require_owner), db: Session =
     names = {normalize(i.name) for i in db.scalars(select(Item).where(Item.business_id == user.business_id))}
     if normalize(body.name) in names:
         raise HTTPException(409, "an item with this name already exists")
-    it = Item(business_id=user.business_id, **body.model_dump())
+    fields = body.model_dump()
+    sold = fields.pop("sold_this_month")
+    it = Item(business_id=user.business_id, **fields)
+    # ``opening_qty`` is the count on the shelf today, so a month already sold is added back before that sale
+    # is recorded: the shelf count stays the number the owner typed, and days-left gets a rate to work from.
+    it.opening_qty = float(it.opening_qty) + sold
     db.add(it)
     db.flush()
+    if sold > 0:
+        S.add_movement(db, it, -sold, "sale")
     audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
                  action="create_item", tier=1, inputs=body.model_dump(), result={"item_id": it.id}, commit=False)
     db.commit()
     return {"id": it.id, "name": it.name}
+
+
+@router.delete("/items/{item_id}")
+def delete_item(item_id: int, user: User = Depends(require_owner), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Remove an item the owner no longer stocks, with its movements. Money records are never touched."""
+    it = _item(db, user, item_id)
+    row = next((r for r in S.stock_rows(db, user.business_id, as_of_today()) if r["id"] == it.id), None)
+    name, qty = it.name, (row or {}).get("qty", it.opening_qty)
+    moves = db.execute(sa_delete(StockMovement).where(StockMovement.item_id == it.id)).rowcount
+    db.delete(it)
+    db.flush()
+    audit.record(db, actor=user.username, actor_role=user.role, business_id=user.business_id, event_type="operation",
+                 action="delete_item", tier=1, inputs={"item_id": item_id},
+                 result={"name": name, "qty": qty, "movements": moves}, commit=False)
+    db.commit()
+    return {"deleted": item_id, "name": name}
 
 
 @router.post("/stock/adjust")

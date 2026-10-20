@@ -845,3 +845,34 @@ button.avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .khata-notes { margin: 6px 0 0; color: var(--text-secondary); }
 .khata-day .scroll { max-height: none; }
 .khata-table td { padding-top: 4px; padding-bottom: 4px; }
+
+/* Customers & suppliers: the ledger on the left, the owner's own list of names on the right. */
+.party-split { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.party-side { position: sticky; top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.party-side-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.party-side-head h2 { margin: 0; font-size: 16px; }
+.party-search { width: 100%; margin-bottom: 8px; }
+.party-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 60vh; overflow: auto; }
+.party-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; padding: 8px 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font: inherit; color: inherit; }
+.party-row:hover:not(:disabled) { background: var(--accent-soft); }
+.party-row:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.party-row:disabled { cursor: default; opacity: .7; }
+.party-name { font-weight: 600; }
+.party-sub { grid-column: 1; }
+.party-bal { grid-row: 1 / span 2; align-self: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.party-bal.late { color: var(--critical); }
+.party-unnamed { margin-top: 10px; }
+.party-unnamed summary { cursor: pointer; font-size: 14px; }
+.party-detail h3 { margin: 10px 0 6px; }
+.party-facts { display: grid; gap: 6px; margin: 0 0 10px; }
+.party-fact { display: grid; grid-template-columns: 110px 1fr; gap: 8px; }
+.party-fact dt { font-size: 13px; color: var(--muted); }
+.party-fact dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.party-habit { display: grid; gap: 4px; background: var(--accent-soft); color: var(--accent-ink);
+  border-radius: 12px; padding: 10px; font-size: 14px; line-height: 1.5; margin: 0 0 10px; }
+@media (max-width: 900px) {
+  .party-split { grid-template-columns: minmax(0, 1fr); }
+  .party-side { position: static; }
+  .party-list { max-height: none; }
+}

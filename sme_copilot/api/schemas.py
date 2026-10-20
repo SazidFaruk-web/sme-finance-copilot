@@ -40,6 +40,8 @@ class PasteIn(BaseModel):
 class EntryIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=300)
     confirmed: bool = False
+    party_id: int | None = None      # the customer or supplier the owner confirmed this entry is for
+    party_declined: bool = False     # the owner answered no to the suggested name
 
 
 class TxnPatch(BaseModel):

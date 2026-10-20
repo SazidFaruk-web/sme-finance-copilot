@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from sme_copilot.agent.tools_analysis import AddTxnArgs, add_transaction
 from sme_copilot.api.main import create_app
@@ -167,3 +167,51 @@ def test_api_scoping_and_owner_only(seeded):
         t = db.scalar(select(Transaction).where(Transaction.business_id == seeded["business"].id).limit(1))
         assert c.post("/api/stock/link", json={"transaction_id": t.id, "item_id": foreign.id, "quantity": 1},
                       headers=owner).status_code == 404
+
+
+def test_create_item_keeps_the_quantity_typed_and_records_the_month_sold(seeded):
+    """The Add item form asks for what is on the shelf; a month already sold must not come off that count."""
+    db = seeded["db"]
+    db.commit()
+    from sme_copilot.security.http import limiter
+    limiter.reset()
+    with TestClient(create_app()) as c:
+        owner = login(c)
+        assert c.post("/api/items", json={"name": "gamcha", "opening_qty": 40, "cost_price": 120,
+                                          "sold_this_month": 15}, headers=owner).status_code == 200
+        row = next(r for r in c.get("/api/stock", headers=owner).json()["items"] if r["name"] == "gamcha")
+        assert row["qty"] == 40                      # the shelf count the owner typed, not 40 - 15
+        assert row["sold_30d"] == 15                 # the month's sales are a movement, so days-left works
+        assert row["days_left"] == 80.0              # 40 / (15 / 30)
+        assert row["cost_price"] == 120
+        # Nothing sold is just as valid: no movement, no sales rate.
+        assert c.post("/api/items", json={"name": "lungi", "opening_qty": 5}, headers=owner).status_code == 200
+        lungi = next(r for r in c.get("/api/stock", headers=owner).json()["items"] if r["name"] == "lungi")
+        assert (lungi["qty"], lungi["sold_30d"], lungi["days_left"]) == (5, 0, None)
+
+
+def test_delete_item_removes_its_stock_history_but_no_money_records(seeded):
+    """Removing an item is owner-only, scoped to the business, and never touches the ledger."""
+    db, b = seeded["db"], seeded["business"]
+    it = new_item(db, b, "gamcha")
+    S.add_movement(db, it, -6, "sale")
+    item_id = it.id  # kept as a plain value: the row is gone before the final checks
+    other = Business(name="Other Co", sector="x", established_on=date(2020, 1, 1))
+    db.add(other)
+    db.flush()
+    create_user(db, other.id, "otherowner", "other-pass-1234", "owner", "O")
+    foreign_id = new_item(db, other, "foreign").id
+    db.commit()
+    txns_before = db.scalar(select(func.count()).select_from(Transaction).where(Transaction.business_id == b.id))
+    from sme_copilot.security.http import limiter
+    limiter.reset()
+    with TestClient(create_app()) as c:
+        owner, acct = login(c), login(c, "accountant", "acct-pass-123")
+        assert c.delete(f"/api/items/{item_id}", headers=acct).status_code == 403       # owner-only
+        assert c.delete(f"/api/items/{foreign_id}", headers=owner).status_code == 404   # another business
+        assert c.delete(f"/api/items/{item_id}", headers=owner).json() == {"deleted": item_id, "name": "gamcha"}
+        assert c.delete(f"/api/items/{item_id}", headers=owner).status_code == 404      # already gone
+        assert [r["name"] for r in c.get("/api/stock", headers=owner).json()["items"]] == []
+    db.expire_all()
+    assert db.scalar(select(func.count()).select_from(StockMovement).where(StockMovement.item_id == item_id)) == 0
+    assert db.scalar(select(func.count()).select_from(Transaction).where(Transaction.business_id == b.id)) == txns_before
