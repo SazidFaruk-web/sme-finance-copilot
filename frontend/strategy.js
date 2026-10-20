@@ -1,11 +1,16 @@
 // Strategy uses the existing scoped cases, reviewed actions and offline progress.
 import "./strategy-copy.js?v=3";
+import { goalPlannerSection, renderGoalIntake, renderGoalPlan } from "./goal-planner.js?v=2";
 export async function renderStrategy(host, ctx, renderPilot) {
   const { h, api, S } = ctx;
   const say = (en, bn, zh) => S.ui === "bn" ? bn : S.ui === "zh" ? zh : en;
   const translated = value => value?.[S.ui] || value?.en || "";
   const number = value => new Intl.NumberFormat(S.ui === "bn" ? "bn-BD" : "en-BD", { maximumFractionDigits: 3 }).format(value);
   const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  // The goal planner owns its own screens: one open question, then the roadmap.
+  const goal = params.get("goal");
+  if (goal === "new") return renderGoalIntake(host, ctx);
+  if (goal) return renderGoalPlan(host, ctx, goal);
   if (params.has("case") || params.has("start") || params.has("tab")) return renderPilot(host, ctx, "strategy");
   const copy = {
     seasonal: [
@@ -25,10 +30,12 @@ export async function renderStrategy(host, ctx, renderPilot) {
   const title = h("h1", { tabindex: "-1" }, say("Strategy", "ভবিষ্যৎ পরিকল্পনা", "经营规划"));
   const status = h("p", { role: "status", "aria-live": "polite" });
   page.append(h("span", { class: "eyebrow" }, say("A little further ahead", "একটু দূরের কথা ভাবুন", "为未来做好准备")), title,
-    h("p", { class: "strategy-intro" }, say("A few next steps, based on what you sell and your records.", "আপনার ব্যবসা ও হিসাব থেকে পরের কয়েকটি পদক্ষেপ।", "根据您的业务和记录，提供几个下一步建议。")));
+    h("p", { class: "strategy-intro" }, say("Save towards something big, or weigh up one decision — both from your own records.", "বড় কিছুর জন্য জমান, বা একটি সিদ্ধান্ত যাচাই করুন — দুটোই আপনার হিসাব থেকে।", "为大目标存钱，或权衡单个决策——都基于您自己的记录。")));
   status.textContent = say("Loading your planning options…", "পরিকল্পনার বিকল্প আনা হচ্ছে…", "正在加载规划选项…");
   page.append(status);
   host.replaceChildren(page);
+  // A long-term goal is the first thing Strategy offers; single decisions follow it.
+  try { page.insertBefore(await goalPlannerSection(ctx), status); } catch { /* the rest of Strategy still works */ }
   let context, cases;
   try { [context, cases] = await Promise.all([api("/api/pilot/strategy"), api("/api/pilot/cases")]); }
   catch (e) {
@@ -41,6 +48,8 @@ export async function renderStrategy(host, ctx, renderPilot) {
     copy.bulk[1] = say("If sugar is a regular input, compare a larger order with smaller deliveries.", "নিয়মিত চিনি লাগলে বড় অর্ডারের সঙ্গে ছোট সরবরাহ তুলনা করুন।", "如果经常使用糖，可比较大批采购与分批配送。");
     copy.equipment[1] = say("Would extra freezer space meet real demand and pay for itself?", "বাড়তি ফ্রিজার কি আসল চাহিদা মেটাবে ও খরচ তুলবে?", "增加冰柜容量能满足实际需求并收回成本吗？");
   }
+  page.append(h("h2", { class: "strategy-section-title" },
+    say("One decision at a time", "একটি করে সিদ্ধান্ত", "逐个决策")));
   const suggestions = h("section", { class: "strategy-opportunities", "aria-label": say("Suggested decisions", "প্রস্তাবিত সিদ্ধান্ত", "决策建议") });
   for (const idea of context.suggestions || []) {
     const basis = idea.basis === "records" ? say("From your records", "আপনার হিসাব থেকে", "来自您的记录") : idea.basis === "business_type"

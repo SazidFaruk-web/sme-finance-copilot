@@ -164,6 +164,39 @@ The app is one stateless container plus a data volume (SQLite by default; set `D
 
 ---
 
+## Plan a big purchase (Strategy roadmaps)
+
+Strategy starts with one question: *what are you planning for?* The owner answers in their own words —
+"a commercial oven, about 2.5 lakh", "a place of my own", "a delivery van within 2 years" — and the app
+lays out the months.
+
+* **The price.** Taken from the owner's own words when they give one. Otherwise an offline catalog of
+  typical Bangladesh ranges (`config/goal_prices.yaml`) supplies a figure to confirm or replace. An online
+  lookup is offered only when an operator sets `GOAL_PRICE_LOOKUP=true` and the app is not in local-only
+  mode; the owner presses the button, only the item wording is sent, and the result is a rough average of
+  public listings — never a quote.
+* **The figures.** Months to the goal, the amount for each month and what comes from money already held
+  are computed from recorded money in and out. The owner's recorded busy and quiet months weight the
+  schedule, so a strong month is asked for more. A plan uses at most three quarters of a usual month's
+  surplus and half of today's spare cash, and never the quiet-month reserve.
+* **When saving is not enough.** The plan states the shortfall and the monthly repayment the records could
+  carry, and sends the owner to a lender for a written quote. Nothing is borrowed, and a repayment the
+  records could not finish is refused rather than stretched. A goal out of reach says so and offers a
+  review date.
+* **The drawing.** Twelve reviewed layouts, chosen by the shape of the plan. The local model writes only
+  the headings and sentences; it is shown no amount, month or date, and prose containing a numeral is
+  discarded in favour of the app's reviewed wording.
+
+A test owner with eight months of seasonal records is available for trying it end to end:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/seed_roadmap_persona.py
+$env:DATA_DIR='data/roadmap-test'; $env:AS_OF_DATE='2026-10-20'
+.\.venv\Scripts\python.exe -m sme_copilot.cli serve --port 8011
+```
+
+Log in as `rokeya-plan` / `rokeya-demo-2026` and open **Strategy**.
+
 ## Market prices near you (Home price drawer)
 
 Home has a minimised **Prices** tab on its right edge. It opens a half-width drawer with public prices of items
