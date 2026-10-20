@@ -19,6 +19,7 @@ const waitSaved = async action => {
 const clickAnswer = async name => waitSaved(() => page.getByRole('button', { name, exact: true }).click());
 const start = async plan => {
   await page.goto('/#strategy'); await page.locator('.strategy-page').waitFor();
+  await page.locator('.strategy-manual > summary').click();
   await page.locator(`.strategy-idea[href*=${plan}]`).click();
   await page.locator('#pilot-question').waitFor(); return caseId();
 };

@@ -29,7 +29,7 @@ def parse_choice(content, allowed):
 
 def select_id(payload, allowed):
     settings = get_settings()
-    enabled = settings.strategy_question_model if payload.get("purpose") == "strategy_followup" else settings.pilot_question_model
+    enabled = settings.strategy_question_model if payload.get("purpose") in ("strategy_followup", "strategy_suggestions") else settings.pilot_question_model
     if not enabled:
         return None
     try:

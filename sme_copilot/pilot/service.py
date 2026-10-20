@@ -25,7 +25,7 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
 
 
-def snapshot(db, bid, today):
+def snapshot(db, bid, today, strategy=False):
     b = db.get(Business, bid)
     tx = list(db.scalars(select(Transaction).where(Transaction.business_id == bid,
                     Transaction.txn_date <= today, Transaction.is_duplicate.is_(False)).order_by(Transaction.id)))
@@ -43,6 +43,9 @@ def snapshot(db, bid, today):
             "receivables": [inv(i) for i in invoices if i.kind == "receivable" and i.status not in ("draft", "paid", "written_off") and i.amount > i.amount_paid],
             "payables": [inv(i) for i in invoices if i.kind == "payable" and i.status not in ("draft", "paid", "written_off") and i.amount > i.amount_paid],
             "obligations": [{"id": o.id, "name": o.name, "amount": o.amount, "date": o.next_due.isoformat()} for o in obligations]}
+    if strategy:
+        from .strategy_recommendations import load_history
+        data["strategy_history"] = load_history(db, b, today)["stamp"]
     data["fingerprint"] = digest([data, [(t.id, t.txn_date, t.amount, t.direction, t.category) for t in tx],
                                  sources(db, today), b.sector, b.district, (b.prefs or {}).get("about")])
     return data
@@ -170,13 +173,14 @@ def options(case, result):
 
 
 def view(db, case, today):
-    snap = snapshot(db, case.business_id, today)
+    snap = snapshot(db, case.business_id, today, strategy=case.kind == "strategy")
     qs = questions(case.kind, case.answers, snap)
     pending = [q for q in qs if q["id"] not in case.answers]
     result = case.result if case.status == "completed" else calculate(case, snap) if not pending else None
     docs = list(db.scalars(select(CaseDocument).where(CaseDocument.case_id == case.id)))
     return {"id": case.id, "kind": case.kind, "title": KINDS[case.kind], "status": case.status,
             "version": case.version, "answers": case.answers, "questions": qs,
+            "suggestion_stale": bool(case.answers.get("_strategy_suggestion")) and case.answers["_strategy_suggestion"]["stamp"] != snap.get("strategy_history"),
             "next_question": next_question(case.kind, case.answers, pending), "remaining": len(pending),
             "can_deepen": case.kind == "strategy" and case.status == "active" and bool(case.answers.get("plan_type")) and bool(case.answers.get("item")) and not pending and bool((result or {}).get("preliminary")),
             "checkpoint_due": len([k for k in case.answers if not k.startswith('_')]) - case.checkpoint >= 6 and bool(pending),
@@ -191,7 +195,10 @@ def view(db, case, today):
 
 
 def build_preview(db, case, today, action, text=None):
-    snap = snapshot(db, case.business_id, today)
+    snap = snapshot(db, case.business_id, today, strategy=case.kind == "strategy")
+    suggestion = case.answers.get("_strategy_suggestion")
+    if suggestion and suggestion["stamp"] != snap.get("strategy_history"):
+        fail("suggestion_changed", 409)
     qs = questions(case.kind, case.answers, snap)
     if any(q["id"] not in case.answers for q in qs):
         fail("finish_questions")

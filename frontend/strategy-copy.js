@@ -2,6 +2,12 @@ import { ZH } from "./i18n-zh.js?v=11";
 
 // Shared by the dedicated page and strategy cases opened in the assistant.
 Object.assign(ZH, {
+  "Check existing stock before ordering more.": "追加订单前先检查现有库存。",
+  "Check expiry and unsold quantities, then compare a smaller order with waiting.": "检查保质期和未售数量，再比较小订单与暂缓采购。",
+  "Review a restock quote against your remaining stock.": "结合剩余库存核对补货报价。",
+  "Confirm the shelf count, then ask for price, delivery time and a smaller-order option.": "先确认货架数量，再询问价格、交货时间和小订单选项。",
+  "Preparing your plan": "正在准备您的计划",
+  "Your records changed. Open Strategy to review the latest suggestions.": "您的记录已更改。请打开经营规划查看最新建议。",
   "Here’s a starting point": "从这里开始",
   "What are you thinking of buying?": "您打算买什么？",
   "Mango pulp": "芒果果浆",

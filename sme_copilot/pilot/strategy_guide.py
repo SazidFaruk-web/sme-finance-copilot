@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from .definitions import q, opts, tr
 
-META = {"_strategy_flow", "_strategy_depth", "_strategy_followup", "_strategy_question_source"}
+META = {"_strategy_flow", "_strategy_depth", "_strategy_followup", "_strategy_question_source", "_strategy_suggestion"}
 FOLLOWUPS = {"storage_setup", "demand_signal", "priority"}
 
 
@@ -26,17 +26,19 @@ def prepare(a, changed):
     from .question_model import select_id
     a = dict(a)
     if changed in ("plan_type", "item"):
+        a.pop("_strategy_suggestion", None)
         # Quotes and quantities for a different purchase must be entered afresh.
         keep = META | FOLLOWUPS | {"plan_type", "item", "drivers", "stage", "review_date"}
         a = {k: v for k, v in a.items() if k in keep}
     if changed in ("plan_type", "item", "drivers", "stage"):
-        for key in META - {"_strategy_flow"} | FOLLOWUPS:
+        for key in META - {"_strategy_flow", "_strategy_suggestion"} | FOLLOWUPS:
             a.pop(key, None)
     if all(k in a for k in ("plan_type", "item", "drivers", "stage")) and not a.get("_strategy_followup"):
         allowed = followups(a)
         # Only reviewed choice IDs go to the shared local model. No item/name/free text.
         selected = select_id({"purpose": "strategy_followup", "goal": a.get("plan_type"), "answers": {
             "drivers": a.get("drivers"), "stage": a.get("stage")},
+            "recorded_signal": (a.get("_strategy_suggestion") or {}).get("signal"),
             "question_intent": {"storage_setup": "Check whether there is safe storage before buying more",
                                 "demand_signal": "Find evidence that customer demand is growing",
                                 "priority": "Ask about the main worry: bills, waste or supplier terms"},
@@ -108,7 +110,14 @@ def guide_questions(a, snap):
 
 
 def starter_result(a):
-    if a.get("storage_setup") in ("no", "unsure"):
+    source = a.get("_strategy_suggestion") or {}
+    if source.get("signal") == "overstock":
+        reason = tr("Check existing stock before ordering more.", "আরও অর্ডারের আগে থাকা পণ্য দেখুন।")
+        action = tr("Check expiry and unsold quantities, then compare a smaller order with waiting.", "মেয়াদ ও অবিক্রীত পরিমাণ দেখে ছোট অর্ডারের সঙ্গে অপেক্ষা তুলনা করুন।")
+    elif source.get("signal") == "restock":
+        reason = tr("Review a restock quote against your remaining stock.", "থাকা পণ্যের সঙ্গে নতুন কেনার দাম মিলিয়ে দেখুন।")
+        action = tr("Confirm the shelf count, then ask for price, delivery time and a smaller-order option.", "তাকে থাকা পণ্য গুনে দাম, সরবরাহের সময় ও ছোট অর্ডারের বিকল্প জিজ্ঞাসা করুন।")
+    elif a.get("storage_setup") in ("no", "unsure"):
         reason = tr("Check storage before buying a larger batch.", "বেশি কেনার আগে রাখার ব্যবস্থা যাচাই করুন।")
         action = tr("Ask about usable space, power backup and product-specific storage life.", "ব্যবহারযোগ্য জায়গা, বিকল্প বিদ্যুৎ ও পণ্যের সংরক্ষণকাল জিজ্ঞাসা করুন।")
     elif a.get("priority") == "money":

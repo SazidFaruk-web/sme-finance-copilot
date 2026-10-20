@@ -8,7 +8,7 @@ import { icon } from "./icons.js?v=13";
 import { renderGuidedHome, renderGuidedTasks, renderGuidedMoney } from "./guided-pages.js?v=21";
 import { greetingName } from "./guidance.js?v=20";
 import { renderAuth, moreLanguages, setMoreLanguages } from "./auth.js?v=22";
-import { renderPilot } from "./pilot.js?v=26";
+import { renderPilot } from "./pilot.js?v=27";
 import { setDraftOwner, clearLocalOwner, registerOffline } from "./pilot-store.js?v=14";
 import { zh, zhCopy, setChineseFallback } from "./i18n-zh.js?v=11";
 import { createMarketDrawer } from "./market.js?v=6";
@@ -16,7 +16,7 @@ import { startTour, tourDone } from "./tour.js?v=2";
 import { maybeShowHomeNote } from "./home-note.js?v=2";
 import { createVoiceButton } from "./voice.js?v=1";
 import { renderSettings } from "./settings.js?v=1";
-import { renderStrategy } from "./strategy.js?v=2";
+import { renderStrategy } from "./strategy.js?v=3";
 import { updateMarkdown } from "./markdown.js?v=1";
 
 // ------------------------------------------------------------------ i18n (UI chrome)

@@ -74,12 +74,23 @@ class CreateCase(BaseModel):
     request_key: str = Field(min_length=8, max_length=80)
     plan_type: Literal["seasonal", "bulk", "equipment"] | None = None
     strategy_mode: Literal["guided", "detailed"] = "guided"
+    suggestion_id: str | None = Field(None, min_length=1, max_length=80)
 
 
 @router.get("/strategy")
 def strategy_ideas(user: User = Depends(current_user), db: Session = Depends(get_db)):
     from sme_copilot.pilot.strategy import ideas
-    return ideas(db.get(Business, user.business_id))
+    from sme_copilot.pilot.strategy_recommendations import recommendations
+    business = db.get(Business, user.business_id)
+    result = {**ideas(business), **recommendations(db, business, as_of_today())}
+    saved = list(db.scalars(select(GuidedCase).where(GuidedCase.business_id == user.business_id,
+                       GuidedCase.kind == "strategy").order_by(GuidedCase.updated_at.desc()).limit(100)))
+    for suggestion in result["suggestions"]:
+        match = next((c for c in saved if (c.answers.get("_strategy_suggestion") or {}).get("id") == suggestion["id"]
+                      and c.answers["_strategy_suggestion"]["stamp"] == suggestion["stamp"]), None)
+        if match:
+            suggestion["case_id"] = match.id
+    return result
 
 
 @router.post("/cases")
@@ -94,7 +105,17 @@ def create(body: CreateCase, user: User = Depends(require_tier(1)), db: Session 
     answers = {"plan_type": body.plan_type} if body.plan_type else {}
     if body.kind == "strategy" and body.strategy_mode == "guided":
         answers["_strategy_flow"] = "guided"
-    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump(exclude={"plan_type", "strategy_mode"}), answers=answers)
+    if body.suggestion_id:
+        if body.kind != "strategy" or body.strategy_mode != "guided":
+            fail("invalid_action")
+        from sme_copilot.pilot.strategy_recommendations import find_suggestion
+        suggestion = find_suggestion(db, db.get(Business, user.business_id), as_of_today(), body.suggestion_id)
+        if not suggestion:
+            fail("suggestion_changed", 409)
+        answers.update(plan_type=suggestion["kind"], _strategy_suggestion=suggestion)
+        if suggestion["item"] and suggestion["kind"] != "equipment":
+            answers["item"] = suggestion["item"]
+    case = GuidedCase(business_id=user.business_id, user_id=user.id, **body.model_dump(exclude={"plan_type", "strategy_mode", "suggestion_id"}), answers=answers)
     db.add(case)
     try:
         db.flush()
@@ -131,7 +152,7 @@ class Answer(BaseModel):
 def answer(case_id: int, body: Answer, user: User = Depends(require_tier(1)), db: Session = Depends(get_db)):
     case = own(db, user, case_id)
     today = as_of_today()
-    snap = snapshot(db, user.business_id, today)
+    snap = snapshot(db, user.business_id, today, strategy=case.kind == "strategy")
     qs = questions(case.kind, case.answers, snap)
     question = next((q for q in qs if q["id"] == body.question_id), None)
     if not question:
@@ -175,7 +196,7 @@ def control(case_id: int, body: Control, user: User = Depends(require_tier(1)), 
     if body.action == "deepen":
         if case.kind != "strategy" or case.answers.get("_strategy_flow") != "guided" or case.answers.get("_strategy_depth") == "costs" or not case.answers.get("plan_type") or not case.answers.get("item"):
             fail("invalid_action")
-        qs = questions(case.kind, case.answers, snapshot(db, user.business_id, as_of_today()))
+        qs = questions(case.kind, case.answers, snapshot(db, user.business_id, as_of_today(), strategy=True))
         if any(q["id"] not in case.answers for q in qs):
             fail("finish_questions")
         changes = {"answers": {**case.answers, "_strategy_depth": "costs"}, "result": {}}
@@ -232,7 +253,7 @@ def confirm(case_id: int, body: Confirm, user: User = Depends(require_owner), db
         fail("review_first", 409)
     if case.status == "completed":
         return view(db, case, as_of_today())  # idempotent retry of this exact confirmed preview
-    if payload["fingerprint"] != snapshot(db, user.business_id, as_of_today())["fingerprint"]:
+    if payload["fingerprint"] != snapshot(db, user.business_id, as_of_today(), strategy=case.kind == "strategy")["fingerprint"]:
         fail("records_changed", 409)
     changed = db.execute(update(GuidedCase).where(GuidedCase.id == case.id, GuidedCase.version == body.version,
                           GuidedCase.status == "active").values(status="confirming", version=GuidedCase.version + 1))

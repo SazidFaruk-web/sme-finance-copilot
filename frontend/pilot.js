@@ -45,7 +45,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   // The server keeps task text in English and Bangla (customer drafts stay in those languages); Chinese is
   // shown from the shared dictionary, so requests send "en" while Chinese is selected.
   const apiLang = bn ? "bn" : "en";
-  const txt = x => typeof x === "object" && x ? (cn ? zh(x.en || "") : x[S.ui] || x.en || "") : String(x ?? "");
+  const txt = x => typeof x === "object" && x ? (cn ? x.zh || zh(x.en || "") : x[S.ui] || x.en || "") : String(x ?? "");
   const word = code => WORDS[code] ? say(...WORDS[code]) : say("Saved", "সেভ হয়েছে");
   const number = n => new Intl.NumberFormat(bn ? "bn-BD" : "en-BD", { maximumFractionDigits: 2 }).format(n);
   const taka = n => n == null ? say("Not known", "জানা নেই") : "৳" + number(n);
@@ -65,6 +65,7 @@ export async function renderPilot(host, ctx, initialKind = "") {
   const errorText = e => {
     const errors = {
       invalid_choice: ["Choose from the options shown.", "দেখানো বিকল্প থেকে বাছুন।"],
+      suggestion_changed: ["Your records changed. Open Strategy to review the latest suggestions.", "হিসাব বদলেছে। নতুন পরামর্শ দেখতে পরিকল্পনা খুলুন।"],
       conflict: ["This task changed. Reload it before continuing.", "কাজটি বদলেছে। আবার খুলে এগিয়ে যান।"], records_changed: ["Your records changed. Review the updated comparison first.", "হিসাব বদলেছে। নতুন তুলনা আগে দেখুন।"],
       need_information: ["Fill in the missing information before saving this action.", "কাজ সেভ করার আগে বাকি তথ্য দিন।"], invalid_number: ["Enter a valid amount or whole quantity.", "সঠিক পরিমাণ বা পূর্ণ সংখ্যা দিন।"], invalid_date: ["Check the date and try again.", "তারিখ যাচাই করে আবার চেষ্টা করুন।"], invalid_phone: ["Enter your Bangladesh mobile number.", "আপনার বাংলাদেশের মোবাইল নম্বর দিন।"],
       purchase_too_tight: ["Even this batch leaves too little for essentials. Try supplier terms or wait.", "এই ছোট চালানেও জরুরি টাকা কম পড়বে। সরবরাহকারীর শর্ত নিয়ে কথা বলুন বা অপেক্ষা করুন।"],
@@ -94,7 +95,9 @@ export async function renderPilot(host, ctx, initialKind = "") {
     drawCase();
   }
   async function start(kind) {
+    if (kind === "strategy") { heading(say("Preparing your plan", "আপনার পরিকল্পনা প্রস্তুত হচ্ছে")); body.append(link(say("All plans", "সব পরিকল্পনা"), "#strategy")); }
     const c = await api("/api/pilot/cases", { body: { kind, language: apiLang, request_key: crypto.randomUUID(),
+      ...(kind === "strategy" && params.get("suggestion") ? { suggestion_id: params.get("suggestion") } : {}),
       ...(kind === "strategy" && ["seasonal", "bulk", "equipment"].includes(params.get("plan")) ? { plan_type: params.get("plan") } : {}) } });
     location.hash = `#${here}?case=${c.id}`;
   }
@@ -302,8 +305,13 @@ export async function renderPilot(host, ctx, initialKind = "") {
     return panel;
   }
   function drawCase() {
-    heading(txt(current.title), current.status === "completed" ? say("Saved. You remain in control of the next step.", "সেভ হয়েছে। পরের পদক্ষেপ আপনার সিদ্ধান্ত।") : say("Your progress is saved as you go.", "এগোনোর সঙ্গে সঙ্গে উত্তর সেভ হয়।"));
+    const suggestion = current.answers._strategy_suggestion;
+    heading(txt(suggestion?.title || current.title), current.status === "completed" ? say("Saved. You remain in control of the next step.", "সেভ হয়েছে। পরের পদক্ষেপ আপনার সিদ্ধান্ত।") : say("Your progress is saved as you go.", "এগোনোর সঙ্গে সঙ্গে উত্তর সেভ হয়।"));
     body.append(h("div", { class: "pilot-inline" }, h("span", { class: "chip" }, word(current.status)), link(current.kind === "strategy" ? say("All plans", "সব পরিকল্পনা") : say("All saved tasks", "সব সেভ করা কাজ"), current.kind === "strategy" ? "#strategy" : "#chat")));
+    if (current.suggestion_stale) {
+      body.append(h("p", { class: "notice" }, say("Your records changed. Open Strategy to review the latest suggestions.", "হিসাব বদলেছে। নতুন পরামর্শ দেখতে পরিকল্পনা খুলুন।")), link(say("All plans", "সব পরিকল্পনা"), "#strategy"), answersPanel()); return;
+    }
+    if (suggestion) body.append(h("p", { class: "pilot-note" }, txt(suggestion.reason)));
     if (current.status === "completed") {
       if (current.stale) body.append(h("p", { class: "notice" }, say("Records or sources have changed since this action was saved. Start a fresh check before relying on the comparison.", "কাজ সেভ হওয়ার পর হিসাব বা উৎস বদলেছে। তুলনার উপর নির্ভর করার আগে নতুন করে যাচাই করুন।")), button(say("Start a fresh check", "নতুন করে যাচাই"), () => start(current.kind)));
       body.append(results(current.result), answersPanel(), documents(current.documents));
