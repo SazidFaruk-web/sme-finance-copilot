@@ -4,7 +4,7 @@ Reviewed on 17 October 2026. This is an assessment of the working tree, includin
 
 ## Overall assessment
 
-SME Finance Copilot is a substantial functional prototype for Bangladesh SMEs. Its strongest design choice is the separation between language generation and deterministic financial tools. It already supports a broader bookkeeping workflow than the README's primary feature list suggests: customer and supplier ledgers, invoices, partial payments, recurring records, inventory, handwritten ledger transcription, signup, onboarding, and configurable home layouts.
+Ascent Copilot is a substantial functional prototype for Bangladesh SMEs. Its strongest design choice is the separation between language generation and deterministic financial tools. It already supports a broader bookkeeping workflow than the README's primary feature list suggests: customer and supplier ledgers, invoices, partial payments, recurring records, inventory, handwritten ledger transcription, signup, onboarding, and configurable home layouts.
 
 The existing automated suite passes, but several important controls are inconsistent across entry points. In particular, confirmation is not atomic, an older transaction endpoint bypasses newer safeguards, and auxiliary LLM calls do not inherit the main agent's privacy handling. These issues should be fixed before treating the application as ready for production business records. Payment execution remains a sandbox feature.
 

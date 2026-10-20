@@ -1,4 +1,4 @@
-# SME Finance Copilot
+# Ascent Copilot
 
 **An AI finance assistant for Bangladesh small and medium businesses.** Built for the 2026 Shenzhen International
 FinTech Competition (FinTechathon), International Track, **Topic E: SME Finance Copilot**.

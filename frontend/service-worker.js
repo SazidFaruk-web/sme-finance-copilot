@@ -1,5 +1,5 @@
 // Cache the public application shell only. Business API requests always go to the server.
-const CACHE = "sme-shell-54";
+const CACHE = "sme-shell-55";
 const FILES = ["/static/markdown.js?v=1", "/static/markdown.css?v=1", "/static/strategy.js?v=3", "/static/strategy-copy.js?v=3", "/static/strategy.css?v=2", "/", "/static/app.js?v=55", "/static/settings.js?v=1", "/static/settings.css?v=1", "/static/pilot.js?v=27", "/static/pilot-store.js?v=14", "/static/voice.js?v=1",
   "/static/pilot.css?v=16", "/static/styles.css?v=22", "/static/guided.css?v=17", "/static/auth.css?v=15",
   "/static/auth.js?v=22", "/static/auth-copy.js?v=19", "/static/icons.js?v=13", "/static/charts.js?v=9", "/static/guided-pages.js?v=21",

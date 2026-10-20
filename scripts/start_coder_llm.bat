@@ -1,6 +1,6 @@
 @echo off
 rem Starts the local CODING model (Gemma 4 26B-A4B, llama.cpp Vulkan) for VS Code's Continue extension.
-rem It edits this project's files; it is not the model the SME Copilot app itself uses (that is start_local_llm.bat).
+rem It edits this project's files; it is not the model the Ascent Copilot app itself uses (that is start_local_llm.bat).
 rem Only one model fits on the 16 GB GPU at a time, so this stops any running llama-server first.
 setlocal
 if not defined LLAMA_DIR set "LLAMA_DIR=D:\llama-vulkan"

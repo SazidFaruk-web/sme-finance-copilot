@@ -1,6 +1,6 @@
 # Third-party notices
 
-SME Finance Copilot's own code, documentation and seeded demo data were written by the team. The third-party
+Ascent Copilot's own code, documentation and seeded demo data were written by the team. The third-party
 data, libraries and models below are used under their licences. Versions are those tested on 2026-10-19.
 
 ## Data included in this repository

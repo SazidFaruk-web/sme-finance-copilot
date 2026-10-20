@@ -122,7 +122,7 @@ def tick(db, now=None, provider=None):
         db.refresh(pref)  # honour opt-out or number changes immediately before delivery
         if not pref.consent or not pref.verified:
             delivery.status = "cancelled"; db.commit(); continue
-        text = ("SME Copilot: You have an important reminder. Open Tasks in the app. Turn off SMS in Reminder settings."
+        text = ("Ascent Copilot: You have an important reminder. Open Tasks in the app. Turn off SMS in Reminder settings."
                 if pref.language == "en" else "এসএমই কোপাইলট: জরুরি কাজ মনে করিয়ে দিচ্ছি। অ্যাপে কাজ দেখুন। রিমাইন্ডার সেটিংসে এসএমএস বন্ধ করতে পারেন।")
         status, ref, error = (provider or SSLWireless()).send(pref.phone, text, f"SME{delivery.id:017d}")
         delivery.status = "failed" if status == "retry" and delivery.attempts >= 3 else status

@@ -1,4 +1,4 @@
-# Bangladesh SME Finance Copilot
+# Ascent Copilot - Bangladesh product plan
 
 Agreed product specification and pilot operating plan. Research recorded **17 October 2026**; implementation notes updated **20 October 2026**. Read together with [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). This plan applies to every contributor and agent.
 

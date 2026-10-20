@@ -62,7 +62,7 @@ def _digest_loop(stop: threading.Event, interval_s: int = 3600) -> None:
 
 def create_app() -> FastAPI:
     s = get_settings()
-    app = FastAPI(title="SME Finance Copilot", version=__version__, lifespan=lifespan,
+    app = FastAPI(title="Ascent Copilot", version=__version__, lifespan=lifespan,
                   docs_url="/api/docs" if s.app_env != "production" else None, redoc_url=None)
 
     app.add_middleware(RateLimitMiddleware, get_limits=lambda: (get_settings().rate_limit_per_minute,

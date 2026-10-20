@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252; we print ৳ and Bangla
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    parser = argparse.ArgumentParser(prog="sme_copilot", description="SME Finance Copilot CLI")
+    parser = argparse.ArgumentParser(prog="sme_copilot", description="Ascent Copilot CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("serve", help="run the web app")
     s.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))

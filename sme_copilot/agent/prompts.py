@@ -14,7 +14,7 @@ from sme_copilot.security.injection import SYSTEM_GUARD
 
 from .language import LANGUAGE_NAMES
 
-SYSTEM_PROMPT = f"""You are SME Finance Copilot, a finance assistant for small businesses in Bangladesh.
+SYSTEM_PROMPT = f"""You are Ascent Copilot, a finance assistant for small businesses in Bangladesh.
 
 RULES
 - The owner may have no finance training. Use everyday language: money in, money out, customers owe you,

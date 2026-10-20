@@ -1,4 +1,4 @@
-// SME Finance Copilot - single-page UI. Plain ES modules, no build step, works offline.
+// Ascent Copilot - single-page UI. Plain ES modules, no build step, works offline.
 // Security: every piece of data is inserted with textContent (never innerHTML), so text from
 // uploaded files or model output cannot inject markup. The session token is an HttpOnly cookie the page
 // cannot read; writes carry the X-CSRF-Token header (double-submit), which other sites cannot forge.
@@ -552,7 +552,7 @@ function startGreeting() {
 let pendingCount = 0;
 function renderShell() {
   document.body.classList.remove("auth-open");
-  document.title = plain("SME Copilot", "এসএমই কোপাইলট");
+  document.title = plain("Ascent Copilot", "অ্যাসেন্ট কোপাইলট");
   const simple = S.mode === "simple";
   const nav = h("nav", { class: "nav", "aria-label": plain("Main navigation", "প্রধান মেনু") }, routes().filter(r => r !== "audit" || S.user.max_tier >= 1)
     .map(r => h("a", { href: "#" + r, id: "nav-" + r }, simple ? icon({ dashboard: "home", chat: "chat", tasks: "check", money: "bill", data: "book", strategy: "arrow", more: "more" }[r]) : h("span", { "aria-hidden": "true" }, ICONS[r]), h("span", {}, simple || r === "strategy" ? simpleLabel(r) : t(r)),
@@ -568,7 +568,7 @@ function renderShell() {
   const privacy = h("span", { class: "chip", title: "PII (phones, account numbers, NID/TIN) is masked before any external model call" },
     S.models.local_only_mode ? "⌂ Local-only mode" : (S.models.mask_pii ? "🔒 PII masked for cloud models" : "PII masking OFF"));
   $("#root").replaceChildren(h("div", { class: "app" },
-    h("aside", { class: "sidebar" }, h("a", { class: "brand", href: "#dashboard" }, h("img", { class: "brand-logo", src: "/static/app-icon.svg?v=2", alt: "" }), simple ? "SME Copilot" : "SME Finance Copilot", h("span", {}, plain("A little help for your business", "আপনার ব্যবসার সহজ সঙ্গী"))), nav,
+    h("aside", { class: "sidebar" }, h("a", { class: "brand", href: "#dashboard" }, h("img", { class: "brand-logo", src: "/static/app-icon.svg?v=2", alt: "" }), "Ascent Copilot", h("span", {}, plain("A little help for your business", "আপনার ব্যবসার সহজ সঙ্গী"))), nav,
       h("div", { class: "foot" }, plain("Your business. One step at a time.", "আপনার ব্যবসা। একবারে একটি কাজ।"))),
     h("div", { class: "main" },
       h("header", { class: "topbar" }, h("span", { class: "biz", id: "biz-name" }, S.user.business_name || "…"),

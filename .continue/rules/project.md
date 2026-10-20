@@ -1,9 +1,9 @@
 ---
-name: SME Finance Copilot project rules
+name: Ascent Copilot project rules
 alwaysApply: true
 ---
 
-You are editing SME Finance Copilot: a FastAPI + no-build JS app that helps Bangladesh small businesses with their books, cash flow and loans. Windows 10, PowerShell.
+You are editing Ascent Copilot: a FastAPI + no-build JS app that helps Bangladesh small businesses with their books, cash flow and loans. Windows 10, PowerShell.
 
 Layout
 - sme_copilot/agent: LLM orchestrator loop, prompts.py, tools_*.py (tools the app's AI calls)

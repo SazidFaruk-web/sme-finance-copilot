@@ -1,4 +1,4 @@
-# SME Finance Copilot: Technical Documentation
+# Ascent Copilot: Technical Documentation
 
 FinTechathon 2026, International Track, Topic E (SME Finance Copilot). Target market: Bangladesh SMEs.
 

@@ -100,7 +100,7 @@ def build_content(ev: dict, junit: Path, shots: Path) -> Doc:
     # 1 -------------------------------------------------------------------------------------------------
     d.h1("1. Overview")
     d.table(["Item", "Value"], [
-        ["Project", "SME Finance Copilot (sme-finance-copilot)"],
+        ["Project", "Ascent Copilot (sme-finance-copilot)"],
         ["Competition", "2026 Shenzhen International FinTech Competition (FinTechathon), International Track, "
                         "Topic E: SME Finance Copilot"],
         ["Evidence generated", ev["generated"]],
@@ -595,7 +595,7 @@ def render_pdf(d: Doc, path: Path, title: str) -> int:
         canv.restoreState()
 
     doc = Tpl(str(path), pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=1.6 * cm, bottomMargin=1.8 * cm,
-              title=title, author="SME Finance Copilot team", subject="FinTechathon 2026 Topic E evidence pack")
+              title=title, author="Ascent Copilot team", subject="FinTechathon 2026 Topic E evidence pack")
     frame = Frame(margin, 1.8 * cm, W - 2 * margin, H - 3.4 * cm, id="f")
     doc.addPageTemplates([PageTemplate(id="cover", frames=[frame]), PageTemplate(id="body", frames=[frame], onPage=deco)])
     usable = W - 2 * margin
@@ -625,7 +625,7 @@ def render_pdf(d: Doc, path: Path, title: str) -> int:
             out.append(tbl)
         return out + [Spacer(1, 6)]
 
-    story = [Spacer(1, 5 * cm), Paragraph("SME Finance Copilot", S["title"]), Spacer(1, 6),
+    story = [Spacer(1, 5 * cm), Paragraph("Ascent Copilot", S["title"]), Spacer(1, 6),
              Paragraph("Evidence Pack", S["title"]), Spacer(1, 18),
              Paragraph("FinTechathon 2026 · International Track · Topic E: SME Finance Copilot", S["sub"]),
              Spacer(1, 30)]
@@ -719,7 +719,7 @@ def render_docx(d: Doc, path: Path, title: str) -> None:
     t = doc.add_paragraph()
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     t.paragraph_format.space_before = Pt(160)
-    r = t.add_run("SME Finance Copilot\nEvidence Pack")
+    r = t.add_run("Ascent Copilot\nEvidence Pack")
     r.bold, r.font.size = True, Pt(28)
     s = doc.add_paragraph("FinTechathon 2026 · International Track · Topic E: SME Finance Copilot")
     s.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -788,7 +788,7 @@ def main() -> None:
     evid, out = Path(sys.argv[1]), Path(sys.argv[2])
     ev = json.loads((evid / "evidence.json").read_text(encoding="utf-8"))
     d = build_content(ev, evid / "junit.xml", evid / "shots")
-    title = "SME Finance Copilot - Evidence Pack"
+    title = "Ascent Copilot - Evidence Pack"
     pdf = out / "SME_Finance_Copilot_Evidence_Pack.pdf"
     pages = render_pdf(d, pdf, title)
     print(f"PDF: {pdf} ({pages} pages)")

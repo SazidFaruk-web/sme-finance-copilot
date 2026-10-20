@@ -22,7 +22,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 from sme_copilot.tools.money import format_bdt  # noqa: E402
 
-DISCLAIMER = ("Prepared by SME Finance Copilot from the business's own records. Decision support only - not licensed "
+DISCLAIMER = ("Prepared by Ascent Copilot from the business's own records. Decision support only - not licensed "
               "financial advice, not a credit score, and not a lending decision. Financing terms are illustrative "
               "and must be verified with the lender. Forecasts are estimates.")
 
@@ -141,6 +141,6 @@ def build_pdf(path: Path, *, business: Any, as_of: date, amount: float | None, p
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(str(path), pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm, topMargin=1.5 * cm,
                             bottomMargin=1.5 * cm, title=f"Loan-readiness report - {business.name}",
-                            author="SME Finance Copilot")
+                            author="Ascent Copilot")
     doc.build(story)
     return hashlib.sha256(path.read_bytes()).hexdigest()
