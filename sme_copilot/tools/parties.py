@@ -18,7 +18,8 @@ from sme_copilot.models import Invoice, Party, PartyLink
 
 from .textnorm import normalize
 
-FUZZY_CUTOFF = 85       # same bar as item matching: close spellings, never a guess between two equals
+FUZZY_CUTOFF = 85       # close spellings only, and never a guess between two equally close names
+MIN_QUERY = 3           # below this a fragment would be close to half the names on the list
 KIND_OF = {"customer": "receivable", "supplier": "payable"}
 REGULAR_DAYS = 45       # a longer gap than this is not a habit worth calling regular
 
@@ -30,6 +31,19 @@ def outstanding(i: Invoice) -> float:
 def counted(i: Invoice) -> bool:
     """Drafts and written-off invoices do not create a balance owed."""
     return i.status not in ("draft", "written_off")
+
+
+def score(written: str, known: str) -> float:
+    """How alike two names are, written the way an owner writes them.
+
+    People shorten names in a hurry: "shanto" for Shanto Chicken, "kazir" for Kazir Bazar Fish & Meat. Plain
+    character similarity punishes that badly (shanto vs shanto chicken scores 60), so a whole-word subset
+    counts for as much as a close spelling. Short fragments match nothing, and two names that come out equally
+    close are still treated as ambiguous by the caller rather than guessed between.
+    """
+    if len(written) < MIN_QUERY or len(known) < MIN_QUERY:
+        return 0.0
+    return max(fuzz.ratio(written, known), fuzz.token_set_ratio(written, known))
 
 
 def keys(p: Party) -> list[str]:
@@ -53,7 +67,7 @@ def match(db: Session, business_id: int, kind: str, name: str | None) -> dict[st
     best: dict[int, tuple[float, Party]] = {}
     for p in people:
         for k in keys(p):
-            s = fuzz.ratio(q, k)
+            s = score(q, k)
             if s >= FUZZY_CUTOFF and s > best.get(p.id, (0.0, p))[0]:
                 best[p.id] = (s, p)
     ranked = sorted(best.values(), key=lambda x: -x[0])

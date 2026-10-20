@@ -143,3 +143,40 @@ def test_quick_entry_left_as_written_when_the_owner_says_no(seeded):
         assert out["recorded"] is True and out["party"] is None
         rows = c.get("/api/parties", params={"kind": "customer"}, headers=owner).json()["rows"]
         assert next(r for r in rows if r["name"] == "Saif Telecom (PK)")["invoices"] == 0
+
+
+def test_a_shortened_name_is_offered_not_missed(seeded):
+    """Owners write "shanto" for Shanto Chicken; character similarity alone scores that 60 and misses it."""
+    db, b = seeded["db"], seeded["business"]
+    shanto = new_party(db, b, "Shanto Chicken", kind="supplier")
+    new_party(db, b, "Bondor Bazar Chicken House", kind="supplier")
+
+    hit = P.match(db, b.id, "supplier", "shanto")
+    assert hit is not None and hit["party"].id == shanto.id and hit["exact"] is False
+    assert P.match(db, b.id, "supplier", "chicken") is None      # fits both names, so it stays a question
+    assert P.match(db, b.id, "supplier", "sh") is None           # too short to mean anything
+
+
+def test_buying_from_a_supplier_asks_then_files_the_bill(seeded):
+    """A purchase names a supplier, so the question and the bill belong on the supplier side of the book."""
+    db, b = seeded["db"], seeded["business"]
+    new_party(db, b, "Shanto Chicken", kind="supplier")
+    db.commit()
+    from sme_copilot.security.http import limiter
+    limiter.reset()
+    with TestClient(create_app()) as c:
+        owner = login(c)
+        text = "bought chicken from shanto 5000 taka"   # the rules parser reads this with no model installed
+
+        asked = c.post("/api/data/entry", json={"text": text, "confirmed": True}, headers=owner).json()["data"]
+        assert asked["recorded"] is False and asked["needs_confirm"] is True
+        assert asked["party"]["name"] == "Shanto Chicken" and asked["party"]["kind"] == "supplier"
+
+        pid = asked["party"]["id"]
+        done = c.post("/api/data/entry", json={"text": text, "confirmed": True, "party_id": pid},
+                      headers=owner).json()["data"]
+        assert done["recorded"] is True and done["party"]["invoice_no"].startswith("BILL")
+
+        d = c.get(f"/api/parties/{pid}", headers=owner).json()
+        assert d["invoices"] == 1 and d["invoiced"] == 5000.0
+        assert "shanto" in [a.lower() for a in d["aliases"]]      # the short name is learned
